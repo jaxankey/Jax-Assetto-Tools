@@ -1,4 +1,4 @@
-# Jack's Assetto Tools (UNDER CONSTRUCTION)
+# Jack's Assetto Server Tools & Tutorials (UNDER CONSTRUCTION)
 This repository is for me to remember how I configured my AWS Assetto Corsa (AC) Ubuntu server, and to not lose the precious, precious scripts I wrote to automate it. Most of these instructions will work for any Assetto Server, though. 
 
 **Targeted Workflow:** I host weekly races with the [League of Perpetual Novices](https://discord.me/LoPeN) with a 24/7 practice server, and car reservation via a simple [Google Sheet](https://www.google.ca/sheets/about/). The server is run in "pickup" mode, meaning people who don't sign up can still hop in at any time. Unfortunately, due to limitations in AC's server code, pickup mode precludes people choosing specific skins. I am also incredibly busy. As such, I need:
