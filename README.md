@@ -26,7 +26,7 @@ In principle, the rest of this document will work with any Ubuntu- or Debian-bas
 
 ## Installing Assetto Server On Ubuntu
 
-Once you have an Ubuntu server with `ssh` access installed via an identity file (something.pem), you can login with a command like `ssh -i "/path/to/identity/file.pem" username@blah-blah`.
+Once you have an Ubuntu server with `ssh` access installed via an identity file (something.pem), you can login with a command like `ssh -i "/path/to/identity/file.pem" username@blah-blah`, and similarly use `scp` to transfer files. To get `ssh` and `scp` on your Windows machine, I recommend [Cygwin](https://cygwin.com/): run the installer, and make sure to choose the latest `OpenSSH` package. Then the Windows console will have these commands. 
 
 At this point, we can do the following to install the AC server:
 
@@ -92,6 +92,9 @@ I've used several server managers, and they're all clunky. All my server setting
 ![alt text](https://raw.githubusercontent.com/jaxankey/Jax-Assetto-Tools/main/screenshots/uploader.png)
 
 ### Installing & Running
+* Python installation & libraries
+* Relies on 7-zip: Windows needs a path
+
 ### Configuring
 
 ## Automatically Starting the Race
