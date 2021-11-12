@@ -80,3 +80,17 @@ If you want to stop the server,
 ```console
 pkill acServer
 ```
+
+## Configuring a Reservations Google Sheet
+
+More to come...
+
+## server-uploader.py
+
+I've used several server managers, and they're all clunky. As such, I wrote one that let's me do everything I need in one click. More to come...
+
+![alt text](https://raw.githubusercontent.com/jaxankey/Jax-Assetto-Tools/main/screenshots/uploader.png)
+
+## Automatically Starting the Race
+
+More to come...
