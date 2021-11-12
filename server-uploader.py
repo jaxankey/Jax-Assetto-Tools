@@ -448,6 +448,13 @@ class server():
         self.update_tracks()
         self.update_cars()
 
+    def get_server_cfg_source(self):
+        """
+        Returns 'server_cfg.ini.private' if it exists, or 'server_cfg.ini'.
+        """
+        if os.path.exists('server_cfg.ini.private'): return 'server_cfg.ini.private'
+        else: return 'server_cfg.ini'
+
     def get_entry_string(self, slot, model='', skin=''):
         """
         Assembles an entry string for entry_list.ini.
@@ -519,7 +526,7 @@ class server():
         # server_cfg.ini
 
         # We have to add the selected cars and track to server_cfg.ini before uploading
-        f = open('server_cfg.ini', 'r'); ls = f.readlines(); f.close()
+        f = open(self.get_server_cfg_source(), 'r'); ls = f.readlines(); f.close()
         for n in range(len(ls)):
 
             # Get the key for this line
