@@ -87,9 +87,12 @@ More to come...
 
 ## server-uploader.py
 
-I've used several server managers, and they're all clunky. As such, I wrote one that let's me do everything I need in one click. More to come...
+I've used several server managers, and they're all clunky. All my server settings are the same every week except for the tracks and cars. Also, for pickup races, skins cannot be assigned to drivers, so they may as well just be random. As such, I wrote one that let's me do everything I need in one click. More to come...
 
 ![alt text](https://raw.githubusercontent.com/jaxankey/Jax-Assetto-Tools/main/screenshots/uploader.png)
+
+### Installing & Running
+### Configuring
 
 ## Automatically Starting the Race
 
