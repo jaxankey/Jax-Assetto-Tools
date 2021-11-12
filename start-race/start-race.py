@@ -1,15 +1,27 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-import os, codecs, urllib.request, json, random
 
-# URL of reservations sheet csv and assetto path
-csv_url = 'https://docs.google.com/spreadsheets/d/e/AlLkInDsOfGaRbAgE/pub?gid=0&single=true&output=csv'
-path_ac = '/home/ubuntu/steam/assetto'
-race_password = 'sloppy'
+################################################
+# THIS SCRIPT IS MEANT TO BE RUN ON THE SERVER #
+# Its job is to grab the reservation data,     #
+# configure the server, and restart.           #
+# See start-race.ini for configuration         #
+################################################
 
-###########################################
-# Should not need to edit below this line #
-###########################################
+
+import os, urllib.request, json, random
+
+# Change to the directory of this script
+os.chdir(os.path.dirname(os.path.abspath(__file__)))
+
+# Run the config
+csv_url = None
+path_ac = None
+race_password = None
+qual_time = None
+if os.path.exists('start-race.ini.private'): p = 'start-race.ini.private'
+else                                       : p = 'start-race.ini'
+exec(open(p).read())
 
 # Change to assetto's path
 os.chdir(path_ac)
@@ -88,7 +100,7 @@ for n in range(len(ls)):
     s = ls[n].split('='); key = s[0].strip()
 
     # Get the section
-    if len(key) and key[0] == '[': 
+    if len(key) and key[0] == '[':
         section = key
         print('  '+section)
 
