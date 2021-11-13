@@ -99,4 +99,10 @@ I've used several server managers, and they're all clunky. All my server setting
 
 ## Automatically Starting the Race
 
+Set the server's local timezone, restart crontab, verify local timezone settings:
+```
+sudo dpkg-reconfigure tzdata
+sudo service cron restart
+timedatectl
+```
 More to come...
