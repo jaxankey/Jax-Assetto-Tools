@@ -1,0 +1,5 @@
+#!/bin/bash
+
+pkill acServer
+cd /home/ubuntu/steam/assetto
+./acServer &> /home/ubuntu/log-acServer.txt &
