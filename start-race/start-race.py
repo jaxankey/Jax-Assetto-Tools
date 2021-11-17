@@ -47,8 +47,9 @@ def get_entry_string(slot, name='', guid='', car='', skin=''):
     return s
 
 # Get the master cars and skins dictionaries sent by the uploader
-cars  = json.load(open('cars.txt'))
-skins = json.load(open('skins.txt'))
+race = json.load(open('race.json'))
+print('Opening race.json:')
+print(race)
 
 # Open the CSV and go to town on it
 print('\nPARSING CSV FILE:')
@@ -70,9 +71,9 @@ with urllib.request.urlopen(csv_url) as f:
         try:
 
             # Only do something on the entries with numbers in the first column
-            slot = int(row[0])  # Poops to except if not a number.
-            name = row[1]       # Person's name just for bookkeeping
-            car  = cars[row[2]] # Turn the car's "nice name" (row 2) into a directory
+            slot = int(row[0].strip())  # Poops to except if not a number.
+            name = row[1].strip()       # Person's name just for bookkeeping
+            car  = race['cars'][row[2].strip()] # Turn the car's "nice name" (row 2) into a directory
 
             print(slot, name, car)
 
@@ -80,7 +81,7 @@ with urllib.request.urlopen(csv_url) as f:
             if not car in seen_cars: seen_cars.append(car)
 
             # Get a random skin for this car
-            skin = skins[car][random.randrange(len(skins[car]))]
+            skin = race['skins'][car][random.randrange(len(race['skins'][car]))]
 
             # Append the entry
             entries.append(get_entry_string(n, name, '', car, skin))
@@ -118,6 +119,7 @@ print('wrote server_cfg.ini')
 if len(entries) > N: entries = entries[0:N]
 
 # now fill the remaining slots in the entries list
+print('filling remaining entries...')
 m = 0 # seen_cars index to be cyclically incremented
 for n in range(len(entries), N):
 
@@ -127,7 +129,7 @@ for n in range(len(entries), N):
     if m >= len(seen_cars): m = 0
 
     # Get a random skin for this car
-    skin = skins[car][random.randrange(len(skins[car]))]
+    skin = race['skins'][car][random.randrange(len(race['skins'][car]))]
 
     # Append the entry
     entries.append(get_entry_string(n, '', '', car, skin))
@@ -142,6 +144,4 @@ print('Written to entry_list.ini')
 
 # Change to root and restart
 print('Retarting server...')
-os.system('pkill acServer')
-os.chdir(path_ac)
-os.system('./acServer &> log.txt &')
+os.system(path_restart)
