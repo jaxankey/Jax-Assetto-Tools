@@ -225,13 +225,13 @@ class server():
         # Info json file
         self.log('\nPrepping race data:')
         self.race_json = dict()
-        
+
         # CARS DICTIONARY (Lookup by nice name)
         self.log('  cars')
         self.race_json['cars'] = dict()
         for c in cars: self.race_json['cars'][self.cars[c]] = c
         #json.dump(cars_dictionary, open(os.path.join('uploads', 'cars.txt'), 'w'))
-        
+
         # SKINS
         self.log('  skins')
         self.race_json['skins'] = dict()
@@ -241,7 +241,7 @@ class server():
         # TRACK
         self.log('  track')
         self.race_json['track'] = self.track
-        
+
         # Dump
         self.log('Dumping to race.json...')
         json.dump(self.race_json, open(os.path.join('uploads', 'race.json'), 'w'), indent=2, sort_keys=True)
@@ -315,7 +315,7 @@ class server():
 
     def get_nice_selected_cars_string(self):
         """
-        Returns and copies a string to the clipboard a list 
+        Returns and copies a string to the clipboard a list
         for pasting into the google sheet data validation column.
         """
 
@@ -638,6 +638,7 @@ class server():
         # Get all the paths
         self.log('Updating tracks...')
         paths = glob.glob(os.path.join(self.text_local(), 'content', 'tracks', '*'))
+        paths.sort()
         for path in paths:
             self.combo_tracks.add_item(os.path.split(path)[-1])
 
