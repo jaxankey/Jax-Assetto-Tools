@@ -38,17 +38,20 @@ def driver_connects(name):
     Sends a message about the player joining and removes the 
     last requested car if any.
     """
-    
+
     # Ack. I should class this thing. So lazy.
     global last_requested_car
-    
+
+    # Assemble the message
+    message = name + ' joined ' + server_name + '!'
+
     # If we have a last requested car, use that and kill it.
     if last_requested_car:
-        webhook_log.send(name+' joined '+server_name+' in a '+last_requested_car+'!')
+        message = message + '\nCar: ' + last_requested_car
         last_requested_car = None
-        
-    else: 
-        webhook_log.send(name+' joined '+server_name+'!')
+
+    # Send the joined message.
+    webhook_log.send(message)
 
 def driver_disconnects(name): 
     """
