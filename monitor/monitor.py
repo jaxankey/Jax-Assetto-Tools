@@ -8,47 +8,90 @@
 # See monitor.ini for configuration!                             #
 ##################################################################
 
-import os, sh, discord
+import os, sh, json, discord
 
 # Change to the directory of this script
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
 # Default values
-server_name = ''
-path_log    = ''
-url_webhook = ''
+server_name           = ''
+path_log              = ''
+path_race_json        = ''
+url_webhook_log       = ''
+url_webhook_standings = ''
 
 # Get the user values from the ini file 
 if os.path.exists('monitor.ini.private'): p = 'monitor.ini.private'
 else                                    : p = 'monitor.ini'
 exec(open(p).read())
 
-# Create the webhook object and send the messages
-webhook = discord.Webhook.from_url(url_webhook, adapter=discord.RequestsWebhookAdapter())
+# Load the race.json
+race = json.load(open(path_race_json))
+
+# Create the webhooks
+webhook_log       = discord.Webhook.from_url(url_webhook_log, adapter=discord.RequestsWebhookAdapter())
+webhook_standings = discord.Webhook.from_url(url_webhook_log, adapter=discord.RequestsWebhookAdapter())
 
 # Functions for handling different events
-def driver_connects(line):    webhook.send(line.strip()+' has joined '+server_name+'!')
-def driver_car(line):         webhook.send(line.strip())
-def driver_disco_clean(line): webhook.send(line[33:].split('[')[0].strip()+' left '+server_name+'.')
-def driver_disco_dirty(line): webhook.send(line[28:].split('[')[0].strip()+' left '+server_name+'.')
+def driver_connects(name): 
+    """
+    Sends a message about the player joining and removes the 
+    last requested car if any.
+    """
+    
+    # Ack. I should class this thing. So lazy.
+    global last_requested_car
+    
+    # If we have a last requested car, use that and kill it.
+    if last_requested_car:
+        webhook_log.send(name+' joined '+server_name+' in a '+last_requested_car+'!')
+        last_requested_car = None
+        
+    else: 
+        webhook_log.send(name+' joined '+server_name+'!')
+
+def driver_disconnects(name): 
+    """
+    Sends a message about the player leaving.
+    """
+    webhook_log.send(name+' left '+server_name+'.')
 
 # Listen for file changes
-get_name_in = -1
+last_requested_car = None
 for line in sh.tail("-f", path_log, _iter=True):
 
-    # Decrement get_name_in for each line. When it hits zero
-    # That should be the line with the driver name on it.
-    get_name_in -= 1
-    if get_name_in == 0: driver_connects(line)
+    # Requested car comes first when someone connects.
+    # REQUESTED CAR: ac_legends_gtc_shelby_cobra_comp*
+    if line.find('REQUESTED CAR:') == 0:
+        
+        # Get the car directory
+        car = line[14:].replace('*','').strip()
+        print('REQUESTED CARS:', repr(car))
+        
+        # Reverse look-up the nice car name
+        if car in race['cars'].values():
+            last_requested_car = list(race['cars'].keys())[list(race['cars'].values()).index(car)]
+            print('  ->', repr(last_requested_car))
+        
+    # Driver name comes toward the end of someone connecting
+    # DRIVER: Jack []
+    elif line.find('DRIVER:') == 0:
+        
+        # Extract the name and send the message
+        name = line[7:].split('[')[0].strip()
+        print('DRIVER:',repr(name))
+        driver_connects(name, last_requested_car)
 
-    # Driver has disconnected
-    # Connection is now closed for Jack []
     # Clean exit, driver disconnected:  Jack []
-    if   line.find('Clean exit, driver disconnected') == 0: driver_disco_clean(line)
-    elif line.find('Connection is now closed')        == 0: driver_disco_dirty(line)
-
-    # New pickup connection: Name is two lines after the connection line
-    elif line.find('NEW PICKUP CONNECTION') >= 0: get_name_in = 2
-
-    # Driver requested car
-    #elif line.find('REQUESTED CAR') >= 0: driver_car(line)
+    elif line.find('Clean exit, driver disconnected') == 0: 
+        name = line[33:].split('[')[0].strip()
+        print('Clean exit:', repr(name))
+        driver_disconnects(name)
+        
+    # Connection is now closed for Jack []
+    elif line.find('Connection is now closed') == 0: 
+        name = line[28:].split('[')[0].strip()
+        print('Dirty exit:', repr(name))
+        driver_disconnects(name)
+        
+    
