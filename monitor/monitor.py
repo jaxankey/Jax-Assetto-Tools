@@ -1,22 +1,28 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-# Casual server name for sending messages
-server_name = 'the weekly race server'
+##################################################################
+# This script monitors the acServer log file for key events,     #
+# sending messages for people joining / leaving and lap times.   #
+#                                                                #
+# See monitor.ini for configuration!                             #
+##################################################################
 
-# Path to acServer log file
-path_log = "/home/ubuntu/logs/acServer.log"
+import os, sh, discord
 
-# URL to webhook for posting messages
-url_webhook = "https://discord.com/api/webhooks/910156122160250940/keY1NN-_CwxAmWtqd_HeL_B4IHRNGMD_SKX3kIMLG9wq7157LnLeXj4LalpJdNsvHLUK"
 
-# Libraries
-import sys
-import sh
-from discord import Webhook, RequestsWebhookAdapter
+# Default values
+server_name = ''
+path_log    = ''
+url_webhook = ''
+
+# Get the user values from the ini file 
+if os.path.exists('monitor.ini.private'): p = 'monitor.ini.private'
+else                                    : p = 'monitor.ini'
+exec(open(p).read())
 
 # Create the webhook object and send the messages
-webhook = Webhook.from_url(url_webhook, adapter=RequestsWebhookAdapter())
+webhook = discord.Webhook.from_url(url_webhook, adapter=discord.RequestsWebhookAdapter())
 
 # Functions for handling different events
 def driver_connects(line):    webhook.send(line.strip()+' has joined '+server_name+'!')

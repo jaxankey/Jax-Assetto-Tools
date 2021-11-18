@@ -9,16 +9,21 @@
 # You should not need to edit this file.       #
 ################################################
 
-import os, urllib.request, json, random, discord
+import os, urllib.request, json, random
 
 # Change to the directory of this script
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
-# Run the config
-csv_url = None
-path_ac = None
+# Default values
+csv_url       = None
+path_ac       = None
 race_password = None
-qual_time = None
+qual_time     = None
+path_restart  = None
+discord_webhook = ''
+discord_message = 'Main event server is up!'
+
+# Get the user values 
 if os.path.exists('start-race.ini.private'): p = 'start-race.ini.private'
 else                                       : p = 'start-race.ini'
 exec(open(p).read())
@@ -90,7 +95,7 @@ with urllib.request.urlopen(csv_url) as f:
             n += 1
 
         # Not an entry.
-        except Exception as e: pass
+        except: pass
 
 # Doctor the config file and find out the number of slots
 f = open(path_server_cfg, 'r'); ls = f.readlines(); f.close()
@@ -148,7 +153,8 @@ os.system(path_restart)
 
 # If we got this far without an error, send a message to the discord
 if discord_webhook != '':
-
+    import discord
+    
     # Open the webhook and send the message
     webhook = discord.Webhook.from_url(discord_webhook, adapter=discord.RequestsWebhookAdapter())
     webhook.send(discord_message)
