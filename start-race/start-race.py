@@ -5,11 +5,11 @@
 # THIS SCRIPT IS MEANT TO BE RUN ON THE SERVER #
 # Its job is to grab the reservation data,     #
 # configure the server, and restart.           #
-# See start-race.ini for configuration         #
+# See start-race.ini for configuration.        #
+# You should not need to edit this file.       #
 ################################################
 
-
-import os, urllib.request, json, random
+import os, urllib.request, json, random, discord
 
 # Change to the directory of this script
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
@@ -145,3 +145,10 @@ print('Written to entry_list.ini')
 # Change to root and restart
 print('Retarting server...')
 os.system(path_restart)
+
+# If we got this far without an error, send a message to the discord
+if discord_webhook != '':
+
+    # Open the webhook and send the message
+    webhook = discord.Webhook.from_url(discord_webhook, adapter=discord.RequestsWebhookAdapter())
+    webhook.send(discord_message)
