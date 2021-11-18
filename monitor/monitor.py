@@ -10,6 +10,8 @@
 
 import os, sh, discord
 
+# Change to the directory of this script
+os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
 # Default values
 server_name = ''
