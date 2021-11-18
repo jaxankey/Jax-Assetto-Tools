@@ -80,7 +80,7 @@ for line in sh.tail("-f", path_log, _iter=True):
         # Extract the name and send the message
         name = line[7:].split('[')[0].strip()
         print('DRIVER:',repr(name))
-        driver_connects(name, last_requested_car)
+        driver_connects(name)
 
     # Clean exit, driver disconnected:  Jack []
     elif line.find('Clean exit, driver disconnected') == 0: 
