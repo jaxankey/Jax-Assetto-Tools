@@ -1,3 +1,4 @@
 carsets
 *.private
 git-push
+state.json

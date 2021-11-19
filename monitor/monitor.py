@@ -20,7 +20,7 @@ path_race_json        = ''
 url_webhook_log       = ''
 url_webhook_standings = ''
 
-# Get the user values from the ini file 
+# Get the user values from the ini file
 if os.path.exists('monitor.ini.private'): p = 'monitor.ini.private'
 else                                    : p = 'monitor.ini'
 exec(open(p).read())
@@ -32,6 +32,19 @@ race = json.load(open(path_race_json))
 webhook_log       = discord.Webhook.from_url(url_webhook_log, adapter=discord.RequestsWebhookAdapter())
 webhook_standings = discord.Webhook.from_url(url_webhook_log, adapter=discord.RequestsWebhookAdapter())
 
+# Dictionary of the server state
+if os.path.exists('state.json'): state = json.load(open('state.json'))
+else:
+    state = dict(
+        online=dict()   # Dictionary by name of message ids to modify / delete.
+    )
+
+def save_state():
+    """
+    Writes the state to state.json.
+    """
+    json.dump(state, open('state.json','w'), indent=2)
+
 # Functions for handling different events
 def driver_connects(name): 
     """
@@ -40,24 +53,32 @@ def driver_connects(name):
     """
 
     # Ack. I should class this thing. So lazy.
-    global last_requested_car
+    global last_requested_car, state
 
     # Assemble the message
-    message = name + ' joined ' + server_name + '!'
+    message = name + ' is on ' + server_name + '!'
 
     # If we have a last requested car, use that and kill it.
     if last_requested_car:
-        message = message + '\nCar: ' + last_requested_car
+        message = message + '\nCAR: ' + last_requested_car
         last_requested_car = None
 
     # Send the joined message.
-    webhook_log.send(message)
+    state['online'][name] = webhook_log.send(message, wait=True).id
+    save_state()
 
 def driver_disconnects(name): 
     """
     Sends a message about the player leaving.
     """
-    webhook_log.send(name+' left '+server_name+'.')
+    if name in state['online']: 
+
+	# Delete the message by name
+        webhook_log.delete_message(state['online'][name])
+
+        # Remove it from the state
+        state['online'].pop(name)
+        save_state()
 
 # Listen for file changes
 last_requested_car = None
@@ -66,20 +87,20 @@ for line in sh.tail("-f", path_log, _iter=True):
     # Requested car comes first when someone connects.
     # REQUESTED CAR: ac_legends_gtc_shelby_cobra_comp*
     if line.find('REQUESTED CAR:') == 0:
-        
+
         # Get the car directory
         car = line[14:].replace('*','').strip()
         print('REQUESTED CARS:', repr(car))
-        
+
         # Reverse look-up the nice car name
         if car in race['cars'].values():
             last_requested_car = list(race['cars'].keys())[list(race['cars'].values()).index(car)]
             print('  ->', repr(last_requested_car))
-        
+
     # Driver name comes toward the end of someone connecting
     # DRIVER: Jack []
     elif line.find('DRIVER:') == 0:
-        
+
         # Extract the name and send the message
         name = line[7:].split('[')[0].strip()
         print('DRIVER:',repr(name))
