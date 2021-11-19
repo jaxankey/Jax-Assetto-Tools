@@ -241,6 +241,7 @@ class server():
         # TRACK
         self.log('  track')
         self.race_json['track'] = self.track
+        self.race_json['track']['directory'] = track.strip()
 
         # Dump
         self.log('Dumping to race.json...')
