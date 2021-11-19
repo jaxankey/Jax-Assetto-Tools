@@ -143,9 +143,9 @@ def update_state():
 
             # If we have an old message id, clear it
             if state['track_message_id']:
-                if webhook_standings: 
-                    try: webhook_standings.delete_message(state['track_message_id'])
-                    except: print('Could not delete track message id', state['track_message_id'])
+                #if webhook_standings: 
+                #    try: webhook_standings.delete_message(state['track_message_id'])
+                #    except: print('Could not delete track message id', state['track_message_id'])
                 state['track_message_id'] = None
 
             # Reset the laps dictionary
