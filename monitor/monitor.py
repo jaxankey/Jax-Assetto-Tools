@@ -32,7 +32,9 @@ def driver_connects(name):
     if last_requested_car: message = message + '\nCAR: ' + last_requested_car
 
     # Send the joined message.
-    state['online'][name] = dict(id=webhook_log.send(message, wait=True).id, car=last_requested_car)
+    if webhook_log: id = webhook_log.send(message, wait=True).id
+    else:           id = None
+    state['online'][name] = dict(id=id, car=last_requested_car)
     save_state()
 
     # Kill the last requested car
@@ -45,10 +47,10 @@ def driver_disconnects(name):
     if name in state['online']:
 
 	# Delete the message by name
-        webhook_log.delete_message(state['online'][name]['id'])
+        if webhook_log and state['online'][name]['id']: webhook_log.delete_message(state['online'][name]['id'])
 
         # Remove it from the state
-        state['online'].pop(name)
+        if name in state['online']: state['online'].pop(name)
         save_state()
 
 def to_ms(s):
@@ -70,16 +72,17 @@ def send_laps():
     message = ''
 
     # Start with the track name
-    if state['track_name']: message = message + '**Lap Times @ ' + state['track_name'] + '**\n'
+    if state['track_name']: message = message + '**' + state['track_name'] + '**\n'
 
     # Now loop over the entries
     for n in range(len(s)): message = message + '**'+str(n+1) + '.** ' + s[n][1] + ' ' + s[n][0] + '\n'
 
     # If we have an id edit the message. Otherwise send it.
-    if state['track_message_id'] != None: 
-        try:    webhook_standings.edit_message(state['track_message_id'], content=message)
-        except: state['track_message_id'] = webhook_standings.send(message, wait=True).id
-    else:       state['track_message_id'] = webhook_standings.send(message, wait=True).id
+    if webhook_standings:
+        if state['track_message_id'] != None:
+            try:    webhook_standings.edit_message(state['track_message_id'], content=message)
+            except: state['track_message_id'] = webhook_standings.send(message, wait=True).id
+        else:       state['track_message_id'] = webhook_standings.send(message, wait=True).id
 
     # Remember the state
     save_state()
@@ -90,9 +93,11 @@ os.chdir(os.path.dirname(os.path.abspath(__file__)))
 # Default values
 server_name           = ''
 path_log              = ''
-path_race_json        = ''
-url_webhook_log       = ''
-url_webhook_standings = ''
+path_race_json        = None
+url_webhook_log       = None
+url_webhook_standings = None
+webhook_log       = None
+webhook_standings = None
 
 # Get the user values from the ini file
 if os.path.exists('monitor.ini.private'): p = 'monitor.ini.private'
@@ -100,8 +105,8 @@ else                                    : p = 'monitor.ini'
 exec(open(p).read())
 
 # Create the webhooks
-webhook_log       = discord.Webhook.from_url(url_webhook_log, adapter=discord.RequestsWebhookAdapter())
-webhook_standings = discord.Webhook.from_url(url_webhook_log, adapter=discord.RequestsWebhookAdapter())
+if url_webhook_log:       webhook_log       = discord.Webhook.from_url(url_webhook_log,       adapter=discord.RequestsWebhookAdapter())
+if url_webhook_standings: webhook_standings = discord.Webhook.from_url(url_webhook_standings, adapter=discord.RequestsWebhookAdapter())
 
 # Dictionary of the server state
 if os.path.exists('state.json'): state = json.load(open('state.json'))
@@ -127,7 +132,7 @@ def update_state():
 
     # Initialize the track info
     # Load the race.json
-    if path_race_json != '':
+    if path_race_json:
 
         # Load the race.json data
         race = json.load(open(path_race_json))
@@ -138,7 +143,9 @@ def update_state():
 
             # If we have an old message id, clear it
             if state['track_message_id']:
-                webhook_standings.delete_message(state['track_message_id'])
+                if webhook_standings: 
+                    try: webhook_standings.delete_message(state['track_message_id'])
+                    except: print('Could not delete track message id', state['track_message_id'])
                 state['track_message_id'] = None
 
             # Reset the laps dictionary
