@@ -65,8 +65,8 @@ def send_laps():
     Sorts and sends the lap times to the discord.
     """
 
-    # Sort the laps by time. Becomes [(name,time),(name,time),...]
-    s = sorted(state['laps'].items(), key=lambda x: to_ms(x[1]))
+    # Sort the laps by time. Becomes [(name,(time,car)),(name,(time,car)),...]
+    s = sorted(state['laps'].items(), key=lambda x: to_ms(x[1][0]))
 
     # Assemble the message
     message = ''
@@ -75,7 +75,7 @@ def send_laps():
     if state['track_name']: message = message + '**' + state['track_name'] + '**\n'
 
     # Now loop over the entries
-    for n in range(len(s)): message = message + '**'+str(n+1) + '.** ' + s[n][1] + ' ' + s[n][0] + '('+state['online'][s[n][0]]['car']+')\n'
+    for n in range(len(s)): message = message + '**'+str(n+1) + '.** ' + s[n][1][0] + ' ' + s[n][0] + ' ('+s[n][1][1]+')\n'
 
     # If we have an id edit the message. Otherwise send it.
     if webhook_standings:
@@ -246,7 +246,7 @@ for line in sh.tail("-f", path_log, n=0, _iter=True):
                     # If the time is smaller than the existing or no entry exists
                     # Update it!
                     if not n in state['laps'] or to_ms(t) < to_ms(state['laps'][n]):
-                        state['laps'][n] = t
+                        state['laps'][n] = (t, state['online'][n]['car'])
                         send_laps()
 
     # If the track changed, update / reset the state and send an (empty) laps
