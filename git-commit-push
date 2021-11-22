@@ -1,0 +1,3 @@
+#!/bin/bash
+git commit -a
+git push https://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@github.com/jaxankey/Jax-Assetto-Tools.git
