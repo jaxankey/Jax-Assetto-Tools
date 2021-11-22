@@ -9,7 +9,7 @@
 # You should not need to edit this file.       #
 ################################################
 
-import os, urllib.request, json, random, time
+import os, urllib.request, json, random
 
 # Change to the directory of this script
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
@@ -153,7 +153,7 @@ os.system(path_restart)
 
 # If we got this far without an error, send a message to the discord
 if discord_webhook != '':
-    import discord
+    import discord, time
 
     # Open the webhook and send the message, then kill it later
     webhook = discord.Webhook.from_url(discord_webhook, adapter=discord.RequestsWebhookAdapter())
