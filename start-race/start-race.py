@@ -9,7 +9,7 @@
 # You should not need to edit this file.       #
 ################################################
 
-import os, urllib.request, json, random
+import os, urllib.request, json, random, time
 
 # Change to the directory of this script
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
@@ -18,7 +18,7 @@ os.chdir(os.path.dirname(os.path.abspath(__file__)))
 csv_url       = None
 path_ac       = None
 race_password = None
-qual_time     = None
+qual_time     = 30
 path_restart  = None
 discord_webhook = ''
 discord_message = 'Main event server is up!'
@@ -154,7 +154,9 @@ os.system(path_restart)
 # If we got this far without an error, send a message to the discord
 if discord_webhook != '':
     import discord
-    
-    # Open the webhook and send the message
+
+    # Open the webhook and send the message, then kill it later
     webhook = discord.Webhook.from_url(discord_webhook, adapter=discord.RequestsWebhookAdapter())
-    webhook.send(discord_message)
+    x = webhook.send(discord_message, wait=True)
+    time.sleep(qual_time*60)
+    x.delete()
