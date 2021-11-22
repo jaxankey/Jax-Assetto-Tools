@@ -75,14 +75,16 @@ def send_laps():
     if state['track_name']: message = message + '**' + state['track_name'] + '**\n'
 
     # Now loop over the entries
-    for n in range(len(s)): message = message + '**'+str(n+1) + '.** ' + s[n][1] + ' ' + s[n][0] + '\n'
+    for n in range(len(s)): message = message + '**'+str(n+1) + '.** ' + s[n][1] + ' ' + s[n][0] + '('+state['online'][s[n][0]]['car']+')\n'
 
     # If we have an id edit the message. Otherwise send it.
     if webhook_standings:
-        if state['track_message_id'] != None:
-            try:    webhook_standings.edit_message(state['track_message_id'], content=message)
-            except: state['track_message_id'] = webhook_standings.send(message, wait=True).id
-        else:       state['track_message_id'] = webhook_standings.send(message, wait=True).id
+        try:
+            if state['track_message_id'] != None:
+                try:    webhook_standings.edit_message(state['track_message_id'], content=message)
+                except: state['track_message_id'] = webhook_standings.send(message, wait=True).id
+            else:       state['track_message_id'] = webhook_standings.send(message, wait=True).id
+        except Exception as e: print(e)
 
     # Remember the state
     save_state()
@@ -236,8 +238,8 @@ for line in sh.tail("-f", path_log, n=0, _iter=True):
                     n = ' '.join(s)         # Name
 
                     # Append car to name
-                    if n in state['online'] and state['online'][n]['car']:
-                        n = n + ' (' + state['online'][n]['car'] + ')'
+                    #if n in state['online'] and state['online'][n]['car']:
+                    #    n = n + ' (' + state['online'][n]['car'] + ')'
 
                     print('  ->', repr(t), repr(n), to_ms(t))
 
