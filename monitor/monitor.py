@@ -20,6 +20,7 @@ path_race_json     = None
 url_webhook_log    = None
 url_webhook_laps   = None
 one_lap_per_driver = True
+url_more_laps      = None
 
 # Get the user values from the ini file
 if os.path.exists('monitor.ini.private'): p = 'monitor.ini.private'
@@ -230,8 +231,13 @@ class Monitor():
         # Now loop over the entries
         for n in range(len(s)): message = message + '**'+str(n+1) + '.** ' + s[n][1][0] + ' ' + s[n][0] + ' ('+s[n][1][1]+')\n'
 
+        # Footer
+        if url_more_laps: footer = '\n**More:** '+url_more_laps
+        else:             footer = ''
+
         # Make sure we're not over the 2000 character limit
-        if len(message) > 2000: message = message[0:1990] + ' ... '
+        if len(message+footer) > 2000: message = message[0:2000-7-len(footer)] + ' ... ' + footer
+        else:                          message = message + footer
         print(message)
 
         # If we have an id edit the message. Otherwise send it.
