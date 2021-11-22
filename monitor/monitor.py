@@ -35,11 +35,11 @@ class Monitor():
         Class for watching the AC log file and reacting to various events
         """
 
-        self.webhook_log       = None
+        self.webhook_log  = None
         self.webhook_laps = None
 
         # Create the webhooks for logging events and posting standings
-        if url_webhook_log:  self.webhook_log  = discord.Webhook.from_url(url_webhook_log,       adapter=discord.RequestsWebhookAdapter())
+        if url_webhook_log:  self.webhook_log  = discord.Webhook.from_url(url_webhook_log,  adapter=discord.RequestsWebhookAdapter())
         if url_webhook_laps: self.webhook_laps = discord.Webhook.from_url(url_webhook_laps, adapter=discord.RequestsWebhookAdapter())
 
         # Dictionary of the server state
@@ -58,8 +58,19 @@ class Monitor():
 
         # First run of update_state()
         self.update_state()
-        print(self.state)
+        print('LOADED STATE:\n', self.state)
+
+        # Parse the existing log
+        self.parse_lines(open(path_log).readlines(), False, False)
+        print('\nAFTER INITIAL PARSE:\n', self.state)
+
+        # Send the initial laps
         self.send_laps()
+
+        # Monitor the log
+        print('\nMONITORING FOR CHANGES...')
+        self.parse_lines(sh.tail("-f", path_log, n=0, _iter=True))
+
 
 
     def parse_lines(self, lines, log_drivers=True, update_laps=True):
@@ -168,8 +179,10 @@ class Monitor():
         if self.last_requested_car: message = message + '\n' + self.last_requested_car
 
         # Send the joined message if we're supposed to.
-        if log_drivers and self.webhook_log: id = self.webhook_log.send(message, wait=True).id
-        else:                                id = None
+        if log_drivers and self.webhook_log:
+            try:    id = self.webhook_log.send(message, wait=True).id
+            except: id = None
+        else: id = None
         self.state['online'][name] = dict(id=id, car=self.last_requested_car)
         self.save_state()
 
@@ -184,7 +197,8 @@ class Monitor():
 
             # Delete the message by name
             if self.webhook_log and self.state['online'][name]['id']:
-               self.webhook_log.delete_message(self.state['online'][name]['id'])
+               try: self.webhook_log.delete_message(self.state['online'][name]['id'])
+               except: pass
 
             # Remove it from the state
             if name in self.state['online']: self.state['online'].pop(name)
@@ -268,8 +282,3 @@ class Monitor():
 # Create the object
 self = Monitor()
 
-# Parse the existing log
-self.parse_lines(open(path_log).readlines(), False, False)
-
-# Monitor the log
-self.parse_lines(sh.tail("-f", path_log, n=0, _iter=True))
