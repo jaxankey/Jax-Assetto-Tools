@@ -14,11 +14,11 @@ import os, sh, json, discord
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
 # Default user settingsq
-server_name         = ''
-path_log            = ''
-path_race_json      = None
-url_webhook_log     = None
-url_webhook_laps    = None
+server_name        = ''
+path_log           = ''
+path_race_json     = None
+url_webhook_log    = None
+url_webhook_laps   = None
 one_lap_per_driver = True
 
 # Get the user values from the ini file
@@ -26,8 +26,7 @@ if os.path.exists('monitor.ini.private'): p = 'monitor.ini.private'
 else                                    : p = 'monitor.ini'
 exec(open(p).read())
 
-
-
+# Class for monitoring ac log file and reacting to different events
 class Monitor():
 
     def __init__(self):
@@ -35,6 +34,7 @@ class Monitor():
         Class for watching the AC log file and reacting to various events
         """
 
+        # Discord webhook objects
         self.webhook_log  = None
         self.webhook_laps = None
 
@@ -215,9 +215,11 @@ class Monitor():
         """
         Sorts and sends the lap times to the discord.
         """
+        print('\nSENDING LAPS MESSAGE')
 
         # Sort the laps by time. Becomes [(name,(time,car)),(name,(time,car)),...]
         s = sorted(self.state['laps'].items(), key=lambda x: self.to_ms(x[1][0]))
+        print(s)
 
         # Assemble the message
         message = ''
@@ -230,15 +232,22 @@ class Monitor():
 
         # Make sure we're not over the 2000 character limit
         if len(message) > 2000: message = message[0:1990] + ' ... '
+        print(message)
 
         # If we have an id edit the message. Otherwise send it.
         if self.webhook_laps:
-            try:
-                if self.state['track_message_id'] != None:
-                    try:    self.webhook_laps.edit_message(self.state['track_message_id'], content=message)
-                    except: self.state['track_message_id'] = self.webhook_laps.send(message, wait=True).id
-                else:       self.state['track_message_id'] = self.webhook_laps.send(message, wait=True).id
-            except Exception as e: print(e)
+            if self.state['track_message_id']:
+                print('Found track_message_id. Trying to edit...')
+                try:
+                    self.webhook_laps.edit_message(self.state['track_message_id'], content=message)
+                except:
+                    print("Nope. Sending new message...")
+                    self.state['track_message_id'] = self.webhook_laps.send(message, wait=True).id
+                    self.save_state()
+            else:
+                print('No track_message_id. Sending new message.')
+                self.state['track_message_id'] = self.webhook_laps.send(message, wait=True).id
+                self.save_state()
 
 
     def update_state(self):
