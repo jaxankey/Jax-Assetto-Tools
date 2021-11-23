@@ -8,7 +8,7 @@
 # See monitor.ini for configuration!                             #
 ##################################################################
 
-import os, sh, json, discord
+import os, sh, json, discord, shutil
 
 # Change to the directory of this script
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
@@ -45,24 +45,17 @@ class Monitor():
 
         # Dictionary of the server state
         if os.path.exists('state.json'): self.state = json.load(open('state.json'))
-        else:
-            self.state = dict(
-                online           = dict(), # Dictionary by name of message ids to modify / delete
-                track_name       = None,   # Track / layout name
-                track_directory  = None,   # Directory name of the track
-                track_message_id = None,   # id of the discord message about laps to edit
-                laps             = dict(), # Dictionary by name of valid laps for this track / layout
-            )
+        else: self.reset_state()
 
         # Dictionary to hold race.json information
-        self.race = None
+        self.race_json = None
 
-        # First run of update_state()
-        self.update_state()
+        # First run of update_state_with_race_json()
+        self.update_state_with_race_json()
         print('LOADED STATE:\n', self.state)
 
         # Parse the existing log
-        self.parse_lines(open(path_log).readlines(), False, False)
+        self.parse_lines(open(path_log).readlines(), False, False, True)
         print('\nAFTER INITIAL PARSE:\n', self.state)
 
         # Send the initial laps
@@ -72,9 +65,19 @@ class Monitor():
         print('\nMONITORING FOR CHANGES...')
         self.parse_lines(sh.tail("-f", path_log, n=0, _iter=True))
 
+    def reset_state(self):
+        """
+        Resets to state defaults (empty).
+        """
+        self.state = dict(
+            online           = dict(), # Dictionary of online user info, indexed by discord message id
+            track_name       = None,   # Track / layout name
+            track_directory  = None,   # Directory name of the track
+            track_message_id = None,   # id of the discord message about laps to edit
+            laps             = dict(), # Dictionary by name of valid laps for this track / layout
+        )
 
-
-    def parse_lines(self, lines, log_drivers=True, update_laps=True):
+    def parse_lines(self, lines, log_drivers=True, update_laps=True, do_not_save_state=False):
         """
         Runs the "for line in lines" loop on either a open().readlines() (finite)
         or a sh.tail() call (infinite).
@@ -98,8 +101,8 @@ class Monitor():
                 car = line[14:].replace('*','').strip()
 
                 # Reverse look-up the nice car name
-                if self.race and car in self.race['cars'].values():
-                    self.last_requested_car = list(self.race['cars'].keys())[list(self.race['cars'].values()).index(car)]
+                if self.race_json and car in self.race_json['cars'].values():
+                    self.last_requested_car = list(self.race_json['cars'].keys())[list(self.race_json['cars'].values()).index(car)]
                     print('  ->', repr(self.last_requested_car))
                 else:
                     self.last_requested_car = car
@@ -108,17 +111,17 @@ class Monitor():
             # DRIVER: Jack []
             elif line.find('DRIVER:') == 0:
                 print('\n'+line.strip())
-                self.driver_connects(line[7:].split('[')[0].strip(), log_drivers)
+                self.driver_connects(line[7:].split('[')[0].strip(), log_drivers, do_not_save_state)
 
             # Clean exit, driver disconnected:  Jack []
             elif line.find('Clean exit, driver disconnected') == 0:
                 print('\n'+line.strip())
-                self.driver_disconnects(line[33:].split('[')[0].strip(), log_drivers)
+                self.driver_disconnects(line[33:].split('[')[0].strip(), log_drivers, do_not_save_state)
 
             # Connection is now closed for Jack []
             elif line.find('Connection is now closed') == 0:
                 print('\n'+line.strip())
-                self.driver_disconnects(line[28:].split('[')[0].strip(), log_drivers)
+                self.driver_disconnects(line[28:].split('[')[0].strip(), log_drivers, do_not_save_state)
 
             # Lap completed
             # Result.OnLapCompleted. Cuts: 7
@@ -144,30 +147,75 @@ class Monitor():
 
                             print('  ->', repr(t), repr(n), self.to_ms(t))
 
+                            # Structure:
+                            # state['laps'][name][car] = '12:32:032'
+
+                            # Make sure this name is in the state
+                            if not n in self.state['laps']: self.state['laps'][n] = dict()
+
+                            # Make sure this car is in the state.name
+                            c = self.state['online'][n]['car']
+
+
                             # If the time is smaller than the existing or no entry exists
                             # Update it!
-                            if not n in self.state['laps'] \
-                            or self.to_ms(t) < self.to_ms(self.state['laps'][n][0]):
-                                self.state['laps'][n] = (t, self.state['online'][n]['car'])
-                                self.save_state()
+                            if not c in self.state['laps'][n] \
+                            or self.to_ms(t) < self.to_ms(self.state['laps'][n][c]):
+
+                                self.state['laps'][n][c] = t
+                                self.save_and_archive_state(do_not_save_state)
                                 if update_laps: self.send_laps()
 
-            # If the track changed, update / reset the state and send an (empty) laps
+            # New track!
             elif line.find('TRACK=') == 0 \
             and  line.split('=')[-1].strip() != self.state['track_directory']:
                 print('\n'+line.strip())
-                self.update_state()
-                if update_laps: self.send_laps()
+
+                # Run the new-track business on the new track name
+                self.new_track(line.split('=')[-1].strip())
 
         return
 
-    def save_state(self):
+    def new_track(self, new_track_directory):
         """
-        Writes the state to state.json.
+        If the track has changed, archive the old state.json and start anew!
         """
+        print('  new_track', self.state['track_directory'], '->', new_track_directory)
+
+        # Dump the existing state and copy to the archive
+        self.save_and_archive_state()
+
+        # Reset everything but the online users
+        self.reset_state()
+
+        # Stick the track directory in there
+        self.state['track_directory'] = new_track_directory
+
+        # Update the state with the race.json if it exists
+        self.update_state_with_race_json()
+
+        # Send the (empty) laps message
+        self.send_laps()
+
+    def save_and_archive_state(self, skip=False):
+        """
+        Writes the state to state.json and copies it to the archive.
+        """
+        if skip: return
+
+        print('  saving and archiving state')
+        # Dump the state
         json.dump(self.state, open('state.json','w'), indent=2)
 
-    def driver_connects(self, name, log_drivers):
+        # Copy to the archive based on track name if it exists.
+        if self.state['track_directory']:
+
+            # Make sure there's a place to put it and then put it
+            if not os.path.exists('archive'): os.mkdir('archive')
+            shutil.copy('state.json', os.path.join('archive', self.state['track_directory']+'.json'))
+
+
+    def driver_connects(self, name, log_drivers, do_not_save_state):
         """
         Sends a message about the player joining and removes the
         last requested car if any.
@@ -185,12 +233,12 @@ class Monitor():
             except: id = None
         else: id = None
         self.state['online'][name] = dict(id=id, car=self.last_requested_car)
-        self.save_state()
+        self.save_and_archive_state(do_not_save_state)
 
         # Kill the last requested car
         self.last_requested_car = None
 
-    def driver_disconnects(self, name, log_drivers):
+    def driver_disconnects(self, name, log_drivers, do_not_save_state):
         """
         Sends a message about the player leaving.
         """
@@ -203,7 +251,7 @@ class Monitor():
 
             # Remove it from the state
             if name in self.state['online']: self.state['online'].pop(name)
-            self.save_state()
+            self.save_and_archive_state(do_not_save_state)
 
     def to_ms(self, s):
         """
@@ -212,24 +260,84 @@ class Monitor():
         s = s.split(':')
         return int(s[0])*60000 + int(s[1])*1000 + int(s[2])
 
+    def update_state_with_race_json(self):
+        """
+        Assuming self.state exists, if path_race_json is not empty,
+        load race.json, and update the server state based on this.
+        """
+
+        # Initialize the track info
+        # Load the race.json
+        if path_race_json:
+
+            # Load the race.json data
+            self.race_json = json.load(open(path_race_json))
+
+            # If the track doesn't match the race.json,
+            # Reset everything! Initially state['track_name'] is None
+            if self.race_json['track']['name'] != self.state['track_name']:
+
+                # If we have an old message id, clear it
+                if self.state['track_message_id']:
+                    #if webhook_laps:
+                    #    try: webhook_laps.delete_message(self.state['track_message_id'])
+                    #    except: print('Could not delete track message id', self.state['track_message_id'])
+                    self.state['track_message_id'] = None
+
+                # Reset the laps dictionary
+                self.state['laps'] = dict()
+
+                # Update the track name and directory
+                self.state['track_name']      = self.race_json['track']['name']
+                self.state['track_directory'] = self.race_json['track']['directory']
+
+                # Dump modifications
+                self.save_and_archive_state()
+
+        # No race json, so we will use no fancy car names and not post laps
+        else: self.race_json = None
+
     def send_laps(self):
         """
         Sorts and sends the lap times to the discord.
         """
         print('\nSENDING LAPS MESSAGE')
+        # Structure:
+        # state['laps'][name][car] = '12:32:032'
+
+        # loop over the names, assembling a sorted list
+        # of the form [(time, name, car), ...]
+        s = []
+        print('DRIVER BESTS:')
+        for name in self.state['laps']:
+
+            # Get the list of [(car, lap), ...]
+            carlaps = self.state['laps'][name].items()
+            if len(carlaps) == 0: continue
+
+            # Sort each driver
+            carlaps = sorted(carlaps, key=lambda carlap: self.to_ms(carlap[1]))
+
+            # Append the best
+            s.append((carlaps[0][1], name, carlaps[0][0]))
+            print('  ', *s[-1])
+
 
         # Sort the laps by time. Becomes [(name,(time,car)),(name,(time,car)),...]
-        s = sorted(self.state['laps'].items(), key=lambda x: self.to_ms(x[1][0]))
-        print(s)
+        s = sorted(s, key=lambda i: self.to_ms(i[0]))
+
+        print('MESSAGE:')
 
         # Assemble the message
         message = ''
 
-        # Start with the track name
-        if self.state['track_name']: message = message + '**' + self.state['track_name'] + '**\n'
+        # JACK: Start with the track name
+        track_name = self.state['track_name']
+        if not track_name: track_name = self.state['track_directory']
+        if track_name: message = message + '**' + track_name + '**\n'
 
         # Now loop over the entries
-        for n in range(len(s)): message = message + '**'+str(n+1) + '.** ' + s[n][1][0] + ' ' + s[n][0] + ' ('+s[n][1][1]+')\n'
+        for n in range(len(s)): message = message + '**'+str(n+1) + '.** ' + s[n][0] + ' ' + s[n][1] + ' ('+s[n][2]+')\n'
 
         # Footer
         if url_more_laps: footer = '\n**More:** '+url_more_laps
@@ -249,49 +357,11 @@ class Monitor():
                 except:
                     print("Nope. Sending new message...")
                     self.state['track_message_id'] = self.webhook_laps.send(message, wait=True).id
-                    self.save_state()
+                    self.save_and_archive_state()
             else:
                 print('No track_message_id. Sending new message.')
                 self.state['track_message_id'] = self.webhook_laps.send(message, wait=True).id
-                self.save_state()
-
-
-    def update_state(self):
-        """
-        If path_race_json is not empty, load race.json, and update the server state
-        based on this.
-        """
-
-        # Initialize the track info
-        # Load the race.json
-        if path_race_json:
-
-            # Load the race.json data
-            self.race = json.load(open(path_race_json))
-
-            # If the track doesn't match the race.json,
-            # Reset everything!
-            if self.state['track_name'] != self.race['track']['name']:
-
-                # If we have an old message id, clear it
-                if self.state['track_message_id']:
-                    #if webhook_laps:
-                    #    try: webhook_laps.delete_message(self.state['track_message_id'])
-                    #    except: print('Could not delete track message id', self.state['track_message_id'])
-                    self.state['track_message_id'] = None
-
-                # Reset the laps dictionary
-                self.state['laps'] = dict()
-
-                # Update the track name and directory
-                self.state['track_name']      = self.race['track']['name']
-                self.state['track_directory'] = self.race['track']['directory']
-
-                # Dump modifications
-                self.save_state()
-
-        # No race json, so we will use no fancy car names and not post laps
-        else: self.race = None
+                self.save_and_archive_state()
 
 
 # Create the object

@@ -1,4 +1,5 @@
 carsets
 *.private
 git-*
-state.json
+*.json
+
