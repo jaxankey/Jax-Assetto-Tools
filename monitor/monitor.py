@@ -44,7 +44,8 @@ class Monitor():
         if url_webhook_laps: self.webhook_laps = discord.Webhook.from_url(url_webhook_laps, adapter=discord.RequestsWebhookAdapter())
 
         # Dictionary of the server state
-        if os.path.exists('state.json'): self.state = json.load(open('state.json'))
+        p = os.path.join('web','state.json')
+        if os.path.exists(p): self.state = json.load(open(p))
         else: self.reset_state()
 
         # Dictionary to hold race.json information
@@ -204,8 +205,10 @@ class Monitor():
         if skip: return
 
         print('  saving and archiving state')
+
         # Dump the state
-        json.dump(self.state, open('state.json','w'), indent=2)
+        p = os.path.join('web', 'state.json')
+        json.dump(self.state, open(p,'w'), indent=2)
 
         # Copy to the archive based on track name if it exists.
         if self.state['track_directory']:
@@ -213,7 +216,7 @@ class Monitor():
             # Make sure there's a place to put it and then put it
             path_archive = os.path.join('web', 'archive')
             if not os.path.exists(path_archive): os.mkdir(path_archive)
-            shutil.copy('state.json', os.path.join('web', 'archive', self.state['track_directory']+'.json'))
+            shutil.copy(p, os.path.join(path_archive, self.state['track_directory']+'.json'))
 
 
     def driver_connects(self, name, log_drivers, do_not_save_state):
