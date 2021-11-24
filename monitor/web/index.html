@@ -1,0 +1,200 @@
+<html><head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Laps!</title>
+  <style>
+
+    * {
+      padding: 0;
+      margin : 0;
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: 1em;
+      font-weight: normal;
+      color: white;
+    }
+
+    body {
+      height: 100%;
+      background-color: black;
+      padding: 1em;
+    }
+
+    h1 {font-size: 2em;}
+  
+    select {background: gray}
+
+    td {
+      padding: 0.2em;
+      background: gray;
+    }
+
+  </style>
+  <link rel="shortcut icon" type="image/ico" href="images/favicon.ico" />
+</head>
+<body>
+
+<h1>Laps?</h1>
+
+<select id='select_tracks' onchange='onchange_tracks()'></select>
+<select id='select_mode'   onchange='onchange_tracks()'>
+  <option value='All Laps'>All Laps</option>
+  <option value='One Per Driver'>One Per Driver</option>
+
+</select>
+
+<table id='table_laps'></table>
+
+
+
+<script>
+
+// Globals. Yeah, whatever.
+var tracks       = []
+var track_count  = 0
+var select_track = document.getElementById('select_tracks')
+var table_laps   = document.getElementById('table_laps')
+
+/**
+ * In-place sorts the supplied list of objects by the specified key.
+ * @param {list} objects 
+ * @param {string} key 
+ * @param {boolean} descending 
+ * @returns 
+ */
+function sort_objects_by_key(objects, key, descending) {
+
+  // If increasing
+  if(!descending) objects.sort(function(p1,p2) {return p1[key]-p2[key];});
+
+  // If descending
+  else            objects.sort(function(p1,p2) {return p2[key]-p1[key];});
+    
+  // All done.
+  return objects
+}
+
+// Retrieves a file's contents
+function get_data_from_url(url, handler) {
+  console.log('get_data_from_url', url, '...');
+
+  // Default handler
+  if(handler == undefined) handler = console.log  
+
+  // Now get the data from the URL in a reasonably cross-browser way
+  if (window.XMLHttpRequest) var xmlhttp = new XMLHttpRequest();                   // Code for IE7+, Firefox, Chrome, Opera, Safari
+  else                       var xmlhttp = new ActiveXObject("Microsoft.XMLHTTP"); // Code for IE6, IE5 (gross)
+  
+  // Set up the handler for when the process reaches its conclusion
+  xmlhttp.onload = function() { if (xmlhttp.status==200) handler(xmlhttp.responseText); };
+  
+  // Start the process
+  xmlhttp.open("GET", url);
+  xmlhttp.send(); 
+}   
+
+// Gets tracks list from archive folder html page
+function get_tracks(raw) { console.log('get_tracks()')
+
+  // Reset the tracks database
+  tracks.length = 0
+  track_count   = 0
+
+  // Split by li> and remove the first and last elements
+  var s = raw.split('li>')
+
+  // Every odd element is a track list item
+  for(var n=1; n<s.length; n+=2) {
+    
+    // Increment the count
+    track_count++
+
+    // ... with <a href="trackname.json">, so we exploit that.
+    var p = s[n].split('"')[1]
+
+    // Load the data for this track
+    get_data_from_url('archive/'+p, parse_track_json)
+  }
+}
+
+// Parse the track json contents
+function parse_track_json(raw) {
+  
+  // Parse the string into an object
+  var data = JSON.parse(raw)
+
+  // Add it to the tracks dictionary
+  tracks.push(data)
+  console.log('parse_track_json()', tracks[data['track_name']]);
+
+  // If we hit the track count, sort and initialize
+  if(tracks.length >= track_count) initialize();
+}
+
+// Initializes with the data in tracks
+function initialize() {
+  console.log('initialize()')
+
+  // Sort the tracks by track_name
+  sort_objects_by_key(tracks, 'track_name')
+
+  // Loop over the tracks, adding the
+  for(var n in tracks) {
+    var o = document.createElement('option')
+    o.value = o.text = tracks[n]['track_name']
+    select_track.appendChild(o)
+  }
+
+  // Finish by selecting the track
+  onchange_tracks();
+}
+
+// When someone selects a track
+function onchange_tracks() {
+  var t = select_track.selectedIndex
+  console.log('onchange_tracks()', tracks[t])
+
+  // Get just the laps for easy coding
+  var laps = tracks[t]['laps']
+
+  // Loop over the people and assemble a list of laps
+  var sorted = []
+  for(var n in laps) {
+    console.log('  ', n)
+    for(var c in laps[n]) {
+      console.log('    ', c, laps[n][c])
+      sorted.push({name:n, car:c, time:laps[n][c], t_ms:to_ms(laps[n][c])})
+    }
+  }
+  sort_objects_by_key(sorted, 't_ms')
+  console.log(sorted)
+
+  // Now add this to the table!
+  table_laps.innerHTML = '';
+  for(var i in sorted) {
+    var row = table_laps.insertRow()
+    var c_i = row.insertCell(0)
+    var c_t = row.insertCell(1)
+    var c_c = row.insertCell(2)
+    var c_n = row.insertCell(3)
+
+    c_i.innerText = parseInt(i)+1
+    c_t.innerText = sorted[i]['time']
+    c_c.innerText = sorted[i]['car']
+    c_n.innerText = sorted[i]['name']
+  }
+}
+
+// Converts xx:xx:xxx to milliseconds integer
+function to_ms(s) { 
+  s = s.split(':')
+  return parseInt(s[2])+parseInt(s[1])*1000+parseInt(s[0])*60000 
+}
+
+// Load the track laps data...
+get_data_from_url('/archive', get_tracks)
+
+
+</script>
+
+</body>
+</html>
