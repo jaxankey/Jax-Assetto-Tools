@@ -211,7 +211,8 @@ class Monitor():
         if self.state['track_directory']:
 
             # Make sure there's a place to put it and then put it
-            if not os.path.exists('archive'): os.mkdir('archive')
+            path_archive = os.path.join('web', 'archive')
+            if not os.path.exists(path_archive): os.mkdir(path_archive)
             shutil.copy('state.json', os.path.join('web', 'archive', self.state['track_directory']+'.json'))
 
 
