@@ -39,9 +39,6 @@ class Monitor():
         self.webhook_log  = None
         self.webhook_laps = None
 
-        # Timestamp of the log file
-        self.timestamp = 'notimestamp.'
-
         # Create the webhooks for logging events and posting standings
         if url_webhook_log:  self.webhook_log  = discord.Webhook.from_url(url_webhook_log,  adapter=discord.RequestsWebhookAdapter())
         if url_webhook_laps: self.webhook_laps = discord.Webhook.from_url(url_webhook_laps, adapter=discord.RequestsWebhookAdapter())
@@ -81,6 +78,7 @@ class Monitor():
             track_name       = None,   # Track / layout name
             track_directory  = None,   # Directory name of the track
             track_message_id = None,   # id of the discord message about laps to edit
+            archive_path     = None,   # Path to the archive file
             laps             = dict(), # Dictionary by name of valid laps for this track / layout
         )
 
@@ -218,8 +216,12 @@ class Monitor():
 
         print('  saving and archiving state')
 
-        # Dump the state
+        # Store the archive path
         if not os.path.exists('web'): os.mkdir('web')
+        path_archive = os.path.join('web', 'archive')
+        self.state['archive_path'] = os.path.join(path_archive, self.timestamp + self.state['track_directory']+'.json')
+
+        # Dump the state
         p = os.path.join('web', 'state.json')
         json.dump(self.state, open(p,'w'), indent=2)
 
@@ -227,9 +229,8 @@ class Monitor():
         if self.state['track_directory']:
 
             # Make sure there's a place to put it and then put it
-            path_archive = os.path.join('web', 'archive')
             if not os.path.exists(path_archive): os.mkdir(path_archive)
-            shutil.copy(p, os.path.join(path_archive, self.timestamp + self.state['track_directory']+'.json'))
+            shutil.copy(p, self.state['archive_path'])
 
 
     def driver_connects(self, name, log_drivers, do_not_save_state):

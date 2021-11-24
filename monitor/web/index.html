@@ -85,7 +85,7 @@ function get_data_from_url(url, handler) {
   else                       var xmlhttp = new ActiveXObject("Microsoft.XMLHTTP"); // Code for IE6, IE5 (gross)
   
   // Set up the handler for when the process reaches its conclusion
-  xmlhttp.onload = function() { if (xmlhttp.status==200) handler(xmlhttp.responseText); };
+  xmlhttp.onload = function() { if (xmlhttp.status==200) handler(xmlhttp.responseText, url); };
   
   // Start the process
   xmlhttp.open("GET", url);
@@ -117,10 +117,15 @@ function get_tracks(raw) { console.log('get_tracks()')
 }
 
 // Parse the track json contents
-function parse_track_json(raw) {
+function parse_track_json(raw, url) {
   
   // Parse the string into an object
   var data = JSON.parse(raw)
+  data['url'] = url
+  
+  // From the url, get the date stamp
+  var s = unescape(url).split('/')[1].split('.')[0]
+  data['timestamp'] = s
 
   // Add it to the tracks dictionary
   tracks.push(data)
@@ -135,17 +140,28 @@ function initialize() {
   console.log('initialize()')
 
   // Sort the tracks by track_name
-  sort_objects_by_key(tracks, 'track_name')
+  sort_objects_by_key(tracks, 'timestamp')
 
   // Loop over the tracks, adding the
   for(var n in tracks) {
     var o = document.createElement('option')
-    o.value = o.text = tracks[n]['track_name']
+    o.value = o.text = tracks[n]['timestamp'] +' '+ tracks[n]['track_name']
     select_track.appendChild(o)
   }
 
-  // Finish by selecting the track
-  onchange_tracks();
+  // Now load the current / last state.json
+  get_data_from_url('state.json', choose_current_track)
+}
+
+// Takes the data from state.json and chooses the track from select
+function choose_current_track(raw) {
+  
+  var data = JSON.parse(raw)
+  select_tracks.value = data['archive_path'].split('/')[2].split('.')[0] +' '+data['track_name']
+  console.log('choose_current_track()', select_tracks.value)
+
+  // Fill the table
+  onchange_tracks()
 }
 
 // When someone selects a track
