@@ -1,5 +1,0 @@
-#!/bin/bash
-
-cd "$(dirname "$0")"
-pkill -f monitor.py
-pkill -f acServer.log

@@ -1,4 +1,0 @@
-#!/bin/bash
-
-cd "$(dirname "$0")"
-./monitor.py &>~/logs/ac-monitor.log &

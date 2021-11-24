@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-import os, time
-from http.server import BaseHTTPRequestHandler, HTTPServer
+
+import http.server, socketserver, os
 
 # Change to the directory of this script
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
@@ -11,21 +11,12 @@ if os.path.exists('website.ini.private'): p = 'website.ini.private'
 else                                    : p = 'website.ini'
 exec(open(p).read())
 
-class MyServer(BaseHTTPRequestHandler):
-    def do_GET(self):
-        print('Request:', self.path)
+# Request handler that is restricted to a single directory
+class Handler(http.server.SimpleHTTPRequestHandler):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, directory=http_directory, **kwargs)
 
-        # Load the html page.
-        with open('website.html') as f: self.html = f.read()
-
-        self.send_response(200)
-        self.send_header("Content-type", "text/html")
-        self.end_headers()
-        self.wfile.write(bytes(self.html, "utf-8"))
-
-
-webServer = HTTPServer((hostName, serverPort), MyServer)
-print("Server started http://%s:%s" % (hostName, serverPort))
-
-try: webServer.serve_forever()
-except KeyboardInterrupt: pass
+# Open the TCP server and serve until killed
+with socketserver.TCPServer(("", http_port), Handler) as httpd:
+    print("serving at port", http_port)
+    httpd.serve_forever()

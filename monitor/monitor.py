@@ -212,7 +212,7 @@ class Monitor():
 
             # Make sure there's a place to put it and then put it
             if not os.path.exists('archive'): os.mkdir('archive')
-            shutil.copy('state.json', os.path.join('archive', self.state['track_directory']+'.json'))
+            shutil.copy('state.json', os.path.join('web', 'archive', self.state['track_directory']+'.json'))
 
 
     def driver_connects(self, name, log_drivers, do_not_save_state):
