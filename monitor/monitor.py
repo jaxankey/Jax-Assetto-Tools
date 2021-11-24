@@ -39,6 +39,9 @@ class Monitor():
         self.webhook_log  = None
         self.webhook_laps = None
 
+        # Timestamp of the log file
+        self.timestamp = 'notimestamp.'
+
         # Create the webhooks for logging events and posting standings
         if url_webhook_log:  self.webhook_log  = discord.Webhook.from_url(url_webhook_log,  adapter=discord.RequestsWebhookAdapter())
         if url_webhook_laps: self.webhook_laps = discord.Webhook.from_url(url_webhook_laps, adapter=discord.RequestsWebhookAdapter())
@@ -58,6 +61,9 @@ class Monitor():
         # Parse the existing log
         self.parse_lines(open(path_log).readlines(), False, False, True)
         print('\nAFTER INITIAL PARSE:\n', self.state)
+
+        # Save and archive
+        self.save_and_archive_state()
 
         # Send the initial laps
         self.send_laps()
@@ -175,6 +181,12 @@ class Monitor():
                 # Run the new-track business on the new track name
                 self.new_track(line.split('=')[-1].strip())
 
+            # Time stamp is one above the CPU number
+            elif line.find('Num CPU:') == 0:
+                self.timestamp = self.history[1].strip().replace(' ', '.')+'.'
+                print('\nTIMESTAMP:', self.timestamp)
+
+
         return
 
     def new_track(self, new_track_directory):
@@ -207,6 +219,7 @@ class Monitor():
         print('  saving and archiving state')
 
         # Dump the state
+        if not os.path.exists('web'): os.mkdir('web')
         p = os.path.join('web', 'state.json')
         json.dump(self.state, open(p,'w'), indent=2)
 
@@ -216,7 +229,7 @@ class Monitor():
             # Make sure there's a place to put it and then put it
             path_archive = os.path.join('web', 'archive')
             if not os.path.exists(path_archive): os.mkdir(path_archive)
-            shutil.copy(p, os.path.join(path_archive, self.state['track_directory']+'.json'))
+            shutil.copy(p, os.path.join(path_archive, self.timestamp + self.state['track_directory']+'.json'))
 
 
     def driver_connects(self, name, log_drivers, do_not_save_state):
