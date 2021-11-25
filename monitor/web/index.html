@@ -10,36 +10,57 @@
       font-family: Arial, Helvetica, sans-serif;
       font-size: 1em;
       font-weight: normal;
-      color: white;
+      color: #FEE;
+      border-radius: 0;
     }
 
     body {
       height: 100%;
-      background-color: black;
+      background-color: #222;
       padding: 1em;
     }
 
     h1 {font-size: 2em;}
   
-    select {background: gray}
+    select, td {
+      padding: 0.5em;
+      background: transparent;
+      border: 1px solid #FEE;
+      margin-top: 0.5em;
+    }
+    select:focus {
+      outline: none;
+    }
+    select option {
+      color: #000;
+    }
+
+    table {
+      margin-top: 0.5em;
+      border: none;
+      border-collapse: collapse;
+    }
+    
+    tr:nth-child(odd) {background: #FF777733;}
 
     td {
-      padding: 0.2em;
-      background: gray;
+      background: transparent;
     }
+
+    #select_tracks {
+      margin-right: 0.5em;
+    }
+  
 
   </style>
   <link rel="shortcut icon" type="image/ico" href="images/favicon.ico" />
 </head>
 <body>
 
-<h1>Laps?</h1>
 
-<select id='select_tracks' onchange='onchange_tracks()'></select>
-<select id='select_mode'   onchange='onchange_tracks()'>
+<select id='select_tracks' onchange='onchange_tracks()'></select><select id='select_mode'   onchange='onchange_tracks()'>
   <option value='All Laps'>All Laps</option>
-  <option value='One Per Driver'>One Per Driver</option>
-
+  <option value='Best Per Driver'>Driver Best</option>
 </select>
 
 <table id='table_laps'></table>
@@ -52,6 +73,7 @@
 var tracks       = []
 var track_count  = 0
 var select_track = document.getElementById('select_tracks')
+var select_mode  = document.getElementById('select_mode')
 var table_laps   = document.getElementById('table_laps')
 
 /**
@@ -166,6 +188,8 @@ function choose_current_track(raw) {
 
 // When someone selects a track
 function onchange_tracks() {
+
+  // Get the track index. This should match that of the tracks list
   var t = select_track.selectedIndex
   console.log('onchange_tracks()', tracks[t])
 
@@ -176,7 +200,17 @@ function onchange_tracks() {
   var sorted = []
   for(var n in laps) {
     console.log('  ', n)
-    for(var c in laps[n]) {
+
+    // If we're supposed to find the fastest car for this name
+    if(select_mode.selectedIndex == 1) {
+      
+      // Find the car with the minimum time
+      var c = Object.keys(laps[n]).reduce((a,b) => to_ms(laps[n][a]) < to_ms(laps[n][b]) ? a : b)
+      sorted.push({name:n, car:c, time:laps[n][c], t_ms:to_ms(laps[n][c])})
+    }
+    
+    // Otherwise add all the laps.
+    else for(var c in laps[n]) {
       console.log('    ', c, laps[n][c])
       sorted.push({name:n, car:c, time:laps[n][c], t_ms:to_ms(laps[n][c])})
     }
@@ -186,6 +220,11 @@ function onchange_tracks() {
 
   // Now add this to the table!
   table_laps.innerHTML = '';
+
+  // Add the titles
+
+
+  // Add the data
   for(var i in sorted) {
     var row = table_laps.insertRow()
     var c_i = row.insertCell(0)
@@ -193,7 +232,9 @@ function onchange_tracks() {
     var c_c = row.insertCell(2)
     var c_n = row.insertCell(3)
 
-    c_i.innerText = parseInt(i)+1
+    //c_i.style.textAlign='right'
+
+    c_i.innerText = parseInt(i)+1 + '.'
     c_t.innerText = sorted[i]['time']
     c_c.innerText = sorted[i]['car']
     c_n.innerText = sorted[i]['name']
