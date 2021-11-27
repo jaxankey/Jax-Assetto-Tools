@@ -8,7 +8,7 @@
 # See monitor.ini for configuration!                             #
 ##################################################################
 
-import os, sh, json, discord, shutil
+import os, sh, json, discord, shutil, pprint
 
 # Change to the directory of this script
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
@@ -57,7 +57,8 @@ class Monitor():
 
         # Parse the existing log
         self.parse_lines(open(path_log).readlines(), False, False, True)
-        print('\nAFTER INITIAL PARSE:\n', self.state)
+        print('\nAFTER INITIAL PARSE:')
+        pprint.pprint(self.state)
 
         # Save and archive
         self.save_and_archive_state()
@@ -80,6 +81,7 @@ class Monitor():
             track_message_id = None,   # id of the discord message about laps to edit
             archive_path     = None,   # Path to the archive file
             laps             = dict(), # Dictionary by name of valid laps for this track / layout
+            naughties        = dict(), # Dictionary by name of cut laps
         )
 
     def parse_lines(self, lines, log_drivers=True, update_laps=True, do_not_save_state=False):
@@ -133,43 +135,49 @@ class Monitor():
             elif line.find('Result.OnLapCompleted') == 0:
                 print('\n'+line.strip())
 
-                # Valid lap
-                if int(line.split('Cuts:')[-1]) == 0:
+                # Get the number of cuts (0 is valid)
+                cuts = int(line.split('Cuts:')[-1])
 
-                    # Get the driver name and time from the history
-                    for l in self.history:
-                        if l.find('LAP ') == 0:
+                # Get the laps key 'laps' for good laps, 'naughties' for cut laps.
+                if cuts: laps = 'naughties'
+                else:    laps = 'laps'
 
-                            # Split the interesting part by space, get the time and name
-                            s = l[4:].split(' ') # List of elements
-                            t = s.pop(-1).strip()   # Time string
-                            n = ' '.join(s)         # Name
+                # Get the driver name and time from the history
+                for l in self.history:
+                    if l.find('LAP ') == 0 and l.find('LAP WITH CUTS') != 0:
 
-                            # Append car to name
-                            if not one_lap_per_driver \
-                            and n in self.state['online'] and self.state['online'][n]['car']:
-                                n = n + ' (' + self.state['online'][n]['car'] + ')'
+                        # Split the interesting part by space, get the time and name
+                        s = l[4:].split(' ') # List of elements
+                        t = s.pop(-1).strip()   # Time string
+                        n = ' '.join(s)         # Name
 
-                            print('  ->', repr(t), repr(n), self.to_ms(t))
+                        print('  ->', repr(t), repr(n), cuts, 'cuts')
 
-                            # Structure:
-                            # state['laps'][name][car] = '12:32:032'
+                        # Make sure this name is in the state
+                        if not n in self.state[laps]: self.state[laps][n] = dict()
 
-                            # Make sure this name is in the state
-                            if not n in self.state['laps']: self.state['laps'][n] = dict()
+                        # Should never happen, but if the person is no longer online, poop out.
+                        if not n in self.state['online']:
+                            print('  WEIRD: DRIVER OFFLINE NOW??')
+                            break
 
-                            # Make sure this car is in the state.name
-                            c = self.state['online'][n]['car']
+                        # Get the car for the online person with this name
+                        c = self.state['online'][n]['car']
 
+                        # Structure:
+                        # state[laps][n][car] = {'time': '12:32:032', 'cuts': 3}
 
-                            # If the time is smaller than the existing or no entry exists
-                            # Update it!
-                            if not c in self.state['laps'][n] \
-                            or self.to_ms(t) < self.to_ms(self.state['laps'][n][c]):
+                        # If the time is better than the existing or no entry exists
+                        # Update it!
+                        if not c in self.state[laps][n] \
+                        or self.to_ms(t) < self.to_ms(self.state[laps][n][c]['time']):
 
-                                self.state['laps'][n][c] = t
-                                self.save_and_archive_state(do_not_save_state)
-                                if update_laps: self.send_laps()
+                            self.state[laps][n][c] = dict(time=t, cuts=cuts)
+                            self.save_and_archive_state(do_not_save_state)
+                            if update_laps: self.send_laps()
+
+                        # No need to keep looping through the history.
+                        break
 
             # New track!
             elif line.find('TRACK=') == 0 \
@@ -216,21 +224,23 @@ class Monitor():
 
         print('  saving and archiving state')
 
-        # Store the archive path
+        # Make sure we have the appropriate directories
         if not os.path.exists('web'): os.mkdir('web')
         path_archive = os.path.join('web', 'archive')
-        self.state['archive_path'] = os.path.join(path_archive, self.timestamp + self.state['track_directory']+'.json')
+        if not os.path.exists(path_archive): os.mkdir(path_archive)
+
+        # Store the archive path
+        if self.state['track_directory']:
+            self.state['archive_path'] = os.path.join(path_archive, self.timestamp + self.state['track_directory']+'.json')
+        else:
+            self.state['archive_path'] = None
 
         # Dump the state
         p = os.path.join('web', 'state.json')
         json.dump(self.state, open(p,'w'), indent=2)
 
         # Copy to the archive based on track name if it exists.
-        if self.state['track_directory']:
-
-            # Make sure there's a place to put it and then put it
-            if not os.path.exists(path_archive): os.mkdir(path_archive)
-            shutil.copy(p, self.state['archive_path'])
+        if self.state['archive_path']: shutil.copy(p, self.state['archive_path'])
 
 
     def driver_connects(self, name, log_drivers, do_not_save_state):
@@ -334,7 +344,7 @@ class Monitor():
             if len(carlaps) == 0: continue
 
             # Sort each driver
-            carlaps = sorted(carlaps, key=lambda carlap: self.to_ms(carlap[1]))
+            carlaps = sorted(carlaps, key=lambda carlap: self.to_ms(carlap[1]['time']))
 
             # Append the best
             s.append((carlaps[0][1], name, carlaps[0][0]))
@@ -342,7 +352,7 @@ class Monitor():
 
 
         # Sort the laps by time. Becomes [(name,(time,car)),(name,(time,car)),...]
-        s = sorted(s, key=lambda i: self.to_ms(i[0]))
+        s = sorted(s, key=lambda i: self.to_ms(i[0]['time']))
 
         print('MESSAGE:')
 
@@ -355,7 +365,7 @@ class Monitor():
         if track_name: message = message + '**' + track_name + '**\n'
 
         # Now loop over the entries
-        for n in range(len(s)): message = message + '**'+str(n+1) + '.** ' + s[n][0] + ' ' + s[n][1] + ' ('+s[n][2]+')\n'
+        for n in range(len(s)): message = message + '**'+str(n+1) + '.** ' + s[n][0]['time'] + ' ' + s[n][1] + ' ('+s[n][2]+')\n'
 
         # Footer
         if url_more_laps: footer = '\n**More:** '+url_more_laps
