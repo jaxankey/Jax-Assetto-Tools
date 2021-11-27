@@ -231,8 +231,8 @@ function update_table() {
     c_c.innerText = sorted[i]['car']
     c_n.innerText = sorted[i]['name']
 
-    if(1 == sorted[i]['cuts']) c_t.innerText = c_t.innerText + ' (' + String(sorted[i]['cuts']) + ' cut)'
-    else if(sorted[i]['cuts']) c_t.innerText = c_t.innerText + ' (' + String(sorted[i]['cuts']) + ' cuts)'
+    if(1 == sorted[i]['cuts']) c_t.innerText = c_t.innerText + ' (' + String(sorted[i]['cuts']) + '\u00a0naughty)'
+    else if(sorted[i]['cuts']) c_t.innerText = c_t.innerText + ' (' + String(sorted[i]['cuts']) + '\u00a0naughties)'
   }
 }
 
@@ -249,10 +249,10 @@ function get_laps(laps) {
       
       // Find the car with the minimum time
       var c = Object.keys(laps[n]).reduce((a,b) => laps[n][a]['time_ms'] < laps[n][b]['time_ms'] ? a : b)
-      sorted.push({name:n, car:c, time:laps[n][c]['time'], t_ms:laps[n][c]['time_ms']})
+      sorted.push({name:n, car:c, time:laps[n][c]['time'], t_ms:laps[n][c]['time_ms'], cuts:laps[n][c]['cuts']})
     }
     
-    // Otherwise add all the laps.
+    // Otherwise add all the car bests.
     else for(var c in laps[n]) {
       console.log('    ', c, laps[n][c])
       sorted.push({name:n, car:c, time:laps[n][c]['time'], t_ms:laps[n][c]['time_ms'], cuts:laps[n][c]['cuts']})
