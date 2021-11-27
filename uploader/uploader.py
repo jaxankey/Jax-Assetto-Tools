@@ -44,7 +44,7 @@ class server():
         # Server stuff
         self.tab_settings.new_autorow()
         self.tab_settings.add(egg.gui.Label('Login:'))
-        self.text_login = self.tab_settings.add(egg.gui.TextBox('username@ec2-whatever.compute.amazonaws.com', autosettings_path='text_login'), alignment=0)
+        self.text_login = self.tab_settings.add(egg.gui.TextBox('username@ec2-or-whatever.compute.amazonaws.com', autosettings_path='text_login'), alignment=0)
 
         self.tab_settings.new_autorow()
         self.tab_settings.add(egg.gui.Label('keyfile.pem:'))
@@ -456,8 +456,24 @@ class server():
         """
         Refresh cars and tracks
         """
+        # Remember the track
+        track  = self.combo_tracks.get_text()
+        layout = self.combo_layouts.get_text()
+
+        # Search for tracks
         self.update_tracks()
+
+        # Try to reset the track by name
+        try:
+            self.combo_tracks.set_text(track)
+            self.combo_layouts.set_text(layout)
+        except: pass
+
+        # Search for cars
         self.update_cars()
+
+        # Reload the carset
+        self.button_load.click()
 
     def get_server_cfg_source(self):
         """
