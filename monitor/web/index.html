@@ -18,6 +18,10 @@
       height: 100%;
       background-color: #222;
       padding: 1em;
+      bottom: 0;
+    }
+    #main {
+      padding-bottom: 1em;
     }
 
     h1 {font-size: 2em;}
@@ -27,6 +31,7 @@
       background: transparent;
       border: 1px solid #FEE;
       margin-top: 0.5em;
+      margin-right: 0.5em;
     }
     select:focus {
       outline: none;
@@ -46,10 +51,6 @@
     td {
       background: transparent;
     }
-
-    #select_tracks {
-      margin-right: 0.5em;
-    }
   
 
   </style>
@@ -57,25 +58,25 @@
 </head>
 <body>
 
-
-<select id='select_tracks' onchange='onchange_tracks()'></select><select id='select_mode'   onchange='onchange_tracks()'>
+<div id='main'>
+<select id='select_tracks' onchange='update_table()'></select><select id='select_mode'   onchange='update_table()'>
   <option value='All Laps'>All Laps</option>
   <option value='Best Per Driver'>Driver Best</option>
-</select>
+</select><input type='checkbox' id='checkbox_naughties' onchange='update_table()'> Naughties</input>
 
 <table id='table_laps'></table>
-
+</div> 
 
 
 <script>
 
 // Globals. Yeah, whatever.
-var tracks       = []
-var track_count  = 0
-var select_track = document.getElementById('select_tracks')
-var select_mode  = document.getElementById('select_mode')
-var table_laps   = document.getElementById('table_laps')
-
+var tracks             = []
+var track_count        = 0
+var select_track       = document.getElementById('select_tracks')
+var select_mode        = document.getElementById('select_mode')
+var table_laps         = document.getElementById('table_laps')
+var checkbox_naughties = document.getElementById('checkbox_naughties')
 /**
  * In-place sorts the supplied list of objects by the specified key.
  * @param {list} objects 
@@ -146,12 +147,11 @@ function parse_track_json(raw, url) {
   data['url'] = url
   
   // From the url, get the date stamp
-  var s = unescape(url).split('/')[1].split('.')[0]
-  data['timestamp'] = s
+  data['timestamp'] = unescape(url).split('/')[1].split('.')[0]
 
   // Add it to the tracks dictionary
   tracks.push(data)
-  console.log('parse_track_json()', tracks[data['track_name']]);
+  console.log('parse_track_json()', data);
 
   // If we hit the track count, sort and initialize
   if(tracks.length >= track_count) initialize();
@@ -183,38 +183,30 @@ function choose_current_track(raw) {
   console.log('choose_current_track()', select_tracks.value)
 
   // Fill the table
-  onchange_tracks()
+  update_table()
 }
 
 // When someone selects a track
-function onchange_tracks() {
+function update_table() {
 
   // Get the track index. This should match that of the tracks list
   var t = select_track.selectedIndex
-  console.log('onchange_tracks()', tracks[t])
+  console.log('update_table()', tracks[t])
 
   // Get just the laps for easy coding
-  var laps = tracks[t]['laps']
+  // Structure: tracks[t]['laps'][name][car] = {'time':'13:23:344', time_ms:1234567, 'cuts':0}
+  // Or       : tracks[t]['naughties']... for the same structure
+  var laps      = tracks[t]['laps']
+  var naughties = tracks[t]['naughties']
 
-  // Loop over the people and assemble a list of laps
-  var sorted = []
-  for(var n in laps) {
-    console.log('  ', n)
+  // Get the good laps
+  // Structure: sorted = [{name:.., car:.., time:.., time_ms:..}, ...]
+  sorted = get_laps(laps)
+  
+  // If we're supposed to include naughties, do so
+  if(checkbox_naughties.checked) sorted = sorted.concat(get_laps(naughties))
 
-    // If we're supposed to find the fastest car for this name
-    if(select_mode.selectedIndex == 1) {
-      
-      // Find the car with the minimum time
-      var c = Object.keys(laps[n]).reduce((a,b) => to_ms(laps[n][a]) < to_ms(laps[n][b]) ? a : b)
-      sorted.push({name:n, car:c, time:laps[n][c], t_ms:to_ms(laps[n][c])})
-    }
-    
-    // Otherwise add all the laps.
-    else for(var c in laps[n]) {
-      console.log('    ', c, laps[n][c])
-      sorted.push({name:n, car:c, time:laps[n][c], t_ms:to_ms(laps[n][c])})
-    }
-  }
+  // Sort them by time
   sort_objects_by_key(sorted, 't_ms')
   console.log(sorted)
 
@@ -238,14 +230,38 @@ function onchange_tracks() {
     c_t.innerText = sorted[i]['time']
     c_c.innerText = sorted[i]['car']
     c_n.innerText = sorted[i]['name']
+
+    if(1 == sorted[i]['cuts']) c_t.innerText = c_t.innerText + ' (' + String(sorted[i]['cuts']) + ' cut)'
+    else if(sorted[i]['cuts']) c_t.innerText = c_t.innerText + ' (' + String(sorted[i]['cuts']) + ' cuts)'
   }
 }
 
-// Converts xx:xx:xxx to milliseconds integer
-function to_ms(s) { 
-  s = s.split(':')
-  return parseInt(s[2])+parseInt(s[1])*1000+parseInt(s[0])*60000 
+// Returns a sorted list of best laps
+function get_laps(laps) {
+  
+  // Loop over the people and assemble a list of laps
+  var sorted = []
+  for(var n in laps) {
+    console.log('  ', n)
+
+    // If we're supposed to find the fastest car for this name
+    if(select_mode.selectedIndex == 1) {
+      
+      // Find the car with the minimum time
+      var c = Object.keys(laps[n]).reduce((a,b) => laps[n][a]['time_ms'] < laps[n][b]['time_ms'] ? a : b)
+      sorted.push({name:n, car:c, time:laps[n][c]['time'], t_ms:laps[n][c]['time_ms']})
+    }
+    
+    // Otherwise add all the laps.
+    else for(var c in laps[n]) {
+      console.log('    ', c, laps[n][c])
+      sorted.push({name:n, car:c, time:laps[n][c]['time'], t_ms:laps[n][c]['time_ms'], cuts:laps[n][c]['cuts']})
+    }
+  }
+  return sorted
 }
+
+
 
 // Load the track laps data...
 get_data_from_url('/archive', get_tracks)

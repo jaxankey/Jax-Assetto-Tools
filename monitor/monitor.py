@@ -39,6 +39,9 @@ class Monitor():
         self.webhook_log  = None
         self.webhook_laps = None
 
+        # Timestampe of the server log
+        self.timestamp = None
+
         # Create the webhooks for logging events and posting standings
         if url_webhook_log:  self.webhook_log  = discord.Webhook.from_url(url_webhook_log,  adapter=discord.RequestsWebhookAdapter())
         if url_webhook_laps: self.webhook_laps = discord.Webhook.from_url(url_webhook_laps, adapter=discord.RequestsWebhookAdapter())
@@ -153,6 +156,9 @@ class Monitor():
 
                         print('  ->', repr(t), repr(n), cuts, 'cuts')
 
+                        # Get the new time in ms
+                        t_ms = self.to_ms(t)
+
                         # Make sure this name is in the state
                         if not n in self.state[laps]: self.state[laps][n] = dict()
 
@@ -165,14 +171,14 @@ class Monitor():
                         c = self.state['online'][n]['car']
 
                         # Structure:
-                        # state[laps][n][car] = {'time': '12:32:032', 'cuts': 3}
+                        # state[laps][n][car] = {'time': '12:32:032', 'time_ms':12345, 'cuts': 3}
 
                         # If the time is better than the existing or no entry exists
                         # Update it!
                         if not c in self.state[laps][n] \
-                        or self.to_ms(t) < self.to_ms(self.state[laps][n][c]['time']):
+                        or t_ms < self.state[laps][n][c]['time_ms']:
 
-                            self.state[laps][n][c] = dict(time=t, cuts=cuts)
+                            self.state[laps][n][c] = dict(time=t, time_ms=t_ms, cuts=cuts)
                             self.save_and_archive_state(do_not_save_state)
                             if update_laps: self.send_laps()
 
@@ -230,7 +236,7 @@ class Monitor():
         if not os.path.exists(path_archive): os.mkdir(path_archive)
 
         # Store the archive path
-        if self.state['track_directory']:
+        if self.state['track_directory'] and self.timestamp:
             self.state['archive_path'] = os.path.join(path_archive, self.timestamp + self.state['track_directory']+'.json')
         else:
             self.state['archive_path'] = None
