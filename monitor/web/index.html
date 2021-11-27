@@ -237,8 +237,8 @@ function update_table() {
     c_c.innerText = sorted[i]['car']
     c_n.innerText = sorted[i]['name']
 
-    if(1 == sorted[i]['cuts']) c_t.innerText = c_t.innerText + ' (' + String(sorted[i]['cuts']) + '\u00a0naughty)'
-    else if(sorted[i]['cuts']) c_t.innerText = c_t.innerText + ' (' + String(sorted[i]['cuts']) + '\u00a0naughties)'
+    if(1 == sorted[i]['cuts']) c_t.innerText = c_t.innerText + ' (' + String(sorted[i]['cuts']) + '\u00a0cut)'
+    else if(sorted[i]['cuts']) c_t.innerText = c_t.innerText + ' (' + String(sorted[i]['cuts']) + '\u00a0cuts)'
   }
 }
 
