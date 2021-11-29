@@ -347,6 +347,8 @@ class Monitor():
     def send_laps(self):
         """
         Sorts and sends the lap times to the discord.
+        JACK: Pick up the race.json 'carset' string if it's there and not [new carset] or '' or None, 
+              and use it for the title. And @everyone.
         """
         print('\nSENDING LAPS MESSAGE')
         # Structure:
