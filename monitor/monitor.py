@@ -85,6 +85,7 @@ class Monitor():
             archive_path     = None,   # Path to the archive file
             laps             = dict(), # Dictionary by name of valid laps for this track / layout
             naughties        = dict(), # Dictionary by name of cut laps
+            carset           = None,   # carset name from race.json if present
         )
 
     def parse_lines(self, lines, log_drivers=True, update_laps=True, do_not_save_state=False):
@@ -197,8 +198,8 @@ class Monitor():
             #       archive file. timestamp_temp queue only update if track changes
             # Time stamp is one above the CPU number
             elif line.find('Num CPU:') == 0:
-                self.timestamp = self.history[1].strip().replace(' ', '.')+'.'
-                print('\nTIMESTAMP:', self.timestamp)
+                self.timestamp_last = self.history[1].strip().replace(' ', '.')+'.'
+                print('\nTIMESTAMP:', self.timestamp_last)
 
 
         return
@@ -208,7 +209,8 @@ class Monitor():
         Runs through self.state['online'][name], deleting message ids from the webhook
         """
         for name in self.state['online']:
-            self.webhook_log.delete_message(self.state['online'][name]['id'])
+            try: self.webhook_log.delete_message(self.state['online'][name]['id'])
+            except: pass
             self.state['online'].pop(name)
 
     def new_track(self, new_track_directory):
@@ -216,6 +218,9 @@ class Monitor():
         If the track has changed, archive the old state.json and start anew!
         """
         print('  new_track', self.state['track_directory'], '->', new_track_directory)
+
+        # Timestamp changes only for new track
+        self.timestamp = self.timestamp_last
 
         # Dump the existing state and copy to the archive
         self.save_and_archive_state()
@@ -229,7 +234,7 @@ class Monitor():
         # Stick the track directory in there
         self.state['track_directory'] = new_track_directory
 
-        # Update the state with the race.json if it exists
+        # Update the state with the race.json if it exists (gives track and cars and carset info)
         self.update_state_with_race_json()
 
         # Send the (empty) laps message
@@ -276,10 +281,10 @@ class Monitor():
 
         # Send the joined message if we're supposed to.
         if log_drivers and self.webhook_log:
-            try:    id = self.webhook_log.send(message, wait=True).id
-            except: id = None
-        else: id = None
-        self.state['online'][name] = dict(id=id, car=self.last_requested_car)
+            try:    i = self.webhook_log.send(message, wait=True).id
+            except: i = None
+        else: i = None
+        self.state['online'][name] = dict(id=i, car=self.last_requested_car)
         self.save_and_archive_state(do_not_save_state)
 
         # Kill the last requested car
@@ -337,6 +342,7 @@ class Monitor():
                 # Update the track name and directory
                 self.state['track_name']      = self.race_json['track']['name']
                 self.state['track_directory'] = self.race_json['track']['directory']
+                self.state['carset']          = self.race_json['carset']
 
                 # Dump modifications
                 self.save_and_archive_state()
@@ -347,8 +353,6 @@ class Monitor():
     def send_laps(self):
         """
         Sorts and sends the lap times to the discord.
-        JACK: Pick up the race.json 'carset' string if it's there and not [new carset] or '' or None, 
-              and use it for the title. And @everyone.
         """
         print('\nSENDING LAPS MESSAGE')
         # Structure:
@@ -378,12 +382,15 @@ class Monitor():
         print('MESSAGE:')
 
         # Assemble the message
-        message = ''
+        message = '@everyone\n'
+        
+        # If we have a carset, start with that
+        if self.state['carset']: message = message + '**' + str(self.state['carset'])+' at **'
 
-        # JACK: Start with the track name
+        # Track name
         track_name = self.state['track_name']
         if not track_name: track_name = self.state['track_directory']
-        if track_name: message = message + '**' + track_name + '**\n'
+        if track_name: message = message + '**' + track_name + '!**\n'
 
         # Now loop over the entries
         for n in range(len(s)): message = message + '**'+str(n+1) + '.** ' + s[n][0]['time'] + ' ' + s[n][1] + ' ('+s[n][2]+')\n'
@@ -405,11 +412,13 @@ class Monitor():
                     self.webhook_laps.edit_message(self.state['track_message_id'], content=message)
                 except:
                     print("Nope. Sending new message...")
-                    self.state['track_message_id'] = self.webhook_laps.send(message, wait=True).id
+                    try: self.state['track_message_id'] = self.webhook_laps.send(message, wait=True).id
+                    except: print('Error: Could not send message on webhook_laps.')
                     self.save_and_archive_state()
             else:
                 print('No track_message_id. Sending new message.')
-                self.state['track_message_id'] = self.webhook_laps.send(message, wait=True).id
+                try: self.state['track_message_id'] = self.webhook_laps.send(message, wait=True).id
+                except: print('Error: Could not send message on webhook_laps.')
                 self.save_and_archive_state()
 
 

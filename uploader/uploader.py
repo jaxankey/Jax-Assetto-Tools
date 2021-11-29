@@ -228,7 +228,8 @@ class server():
 
         # CARSET NAME
         self.log ('  carset')
-        self.race_json['carset'] = self.combo_carsets.get_text()
+        if self.combo_carsets() > 0: self.race_json['carset'] = self.combo_carsets.get_text()
+        else:                        self.race_json['carset'] = None
 
         # CARS DICTIONARY (Lookup by nice name)
         self.log('  cars')
