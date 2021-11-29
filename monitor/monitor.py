@@ -78,7 +78,7 @@ class Monitor():
         Resets to state defaults (empty).
         """
         self.state = dict(
-            online           = dict(), # Dictionary of online user info, indexed by discord message id
+            online           = dict(), # Dictionary of online user info, indexed by name = {id:123890, car:'carname'}
             track_name       = None,   # Track / layout name
             track_directory  = None,   # Directory name of the track
             track_message_id = None,   # id of the discord message about laps to edit
@@ -193,6 +193,8 @@ class Monitor():
                 # Run the new-track business on the new track name
                 self.new_track(line.split('=')[-1].strip())
 
+            # JACK: This causes race restarting to create a new 
+            #       archive file. timestamp_temp queue only update if track changes
             # Time stamp is one above the CPU number
             elif line.find('Num CPU:') == 0:
                 self.timestamp = self.history[1].strip().replace(' ', '.')+'.'
@@ -200,6 +202,14 @@ class Monitor():
 
 
         return
+
+    def delete_online_messages(self):
+        """
+        Runs through self.state['online'][name], deleting message ids from the webhook
+        """
+        for name in self.state['online']:
+            self.webhook_log.delete_message(self.state['online'][name]['id'])
+            self.state['online'].pop(name)
 
     def new_track(self, new_track_directory):
         """
@@ -212,6 +222,9 @@ class Monitor():
 
         # Reset everything but the online users
         self.reset_state()
+
+        # Remove all online driver messages
+        self.delete_online_messages()
 
         # Stick the track directory in there
         self.state['track_directory'] = new_track_directory

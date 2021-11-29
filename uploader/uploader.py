@@ -226,6 +226,10 @@ class server():
         self.log('\nPrepping race data:')
         self.race_json = dict()
 
+        # CARSET NAME
+        self.log ('  carset')
+        self.race_json['carset'] = self.combo_carsets.get_text()
+
         # CARS DICTIONARY (Lookup by nice name)
         self.log('  cars')
         self.race_json['cars'] = dict()
