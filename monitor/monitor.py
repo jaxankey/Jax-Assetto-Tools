@@ -48,15 +48,21 @@ class Monitor():
 
         # Dictionary of the server state
         p = os.path.join('web','state.json')
-        if os.path.exists(p): self.state = json.load(open(p))
-        else: self.reset_state()
+        if os.path.exists(p):
+            self.state = json.load(open(p))
+            print('\nFOUND state.json, loaded')
+            pprint.pprint(self.state)
+        else:
+            print('\nRESETTING STATE...')
+            self.reset_state()
 
         # Dictionary to hold race.json information
         self.race_json = None
 
         # First run of update_state_with_race_json()
         self.update_state_with_race_json()
-        print('LOADED STATE:\n', self.state)
+        print('\nLOADED STATE:')
+        pprint.pprint(self.state)
 
         # Parse the existing log
         self.parse_lines(open(path_log).readlines(), False, False, True)
@@ -317,6 +323,7 @@ class Monitor():
         Assuming self.state exists, if path_race_json is not empty,
         load race.json, and update the server state based on this.
         """
+        print('\nupdate_state_with_race_json()')
 
         # Initialize the track info
         # Load the race.json
@@ -324,10 +331,14 @@ class Monitor():
 
             # Load the race.json data
             self.race_json = json.load(open(path_race_json))
+            print('Loaded race.json:')
+            pprint.pprint(self.race_json)
 
             # If the track doesn't match the race.json,
             # Reset everything! Initially state['track_name'] is None
-            if self.race_json['track']['name'] != self.state['track_name']:
+            if self.race_json['track']['name'] != self.state['track_name'] \
+            or 'carset' not in self.state \
+            or self.race_json['carset']        != self.state['carset']:
 
                 # If we have an old message id, clear it
                 if self.state['track_message_id']:
@@ -383,14 +394,15 @@ class Monitor():
 
         # Assemble the message
         message = '@everyone\n'
-        
+
         # If we have a carset, start with that
-        if self.state['carset']: message = message + '**' + str(self.state['carset'])+' at **'
+        if self.state['carset']: message = message + '**' + str(self.state['carset'])+' at '
+        else:                    message = message + '**'
 
         # Track name
         track_name = self.state['track_name']
         if not track_name: track_name = self.state['track_directory']
-        if track_name: message = message + '**' + track_name + '!**\n'
+        if track_name: message = message + track_name + '!**\n'
 
         # Now loop over the entries
         for n in range(len(s)): message = message + '**'+str(n+1) + '.** ' + s[n][0]['time'] + ' ' + s[n][1] + ' ('+s[n][2]+')\n'
