@@ -12,6 +12,8 @@ import os, sh, json, discord, shutil, pprint
 
 # Change to the directory of this script
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
+print('WORKING DIRECTORY:')
+print(os.getcwd())
 
 # Default user settingsq
 server_name        = ''
@@ -69,10 +71,14 @@ class Monitor():
         print('\nAFTER INITIAL PARSE:')
         pprint.pprint(self.state)
 
+        # Timestamp only gets updated when the track CHANGES, which will not happen
+        # on the initial parse if we have a state.json already.
+        self.timestamp = self.timestamp_last
+
         # Save and archive
         self.save_and_archive_state()
 
-        # Send the initial laps
+        # Send the initial laps (skipped)
         self.send_laps()
 
         # Monitor the log
@@ -207,9 +213,6 @@ class Monitor():
                 self.timestamp_last = self.history[1].strip().replace(' ', '.')+'.'
                 print('\nTIMESTAMP:', self.timestamp_last)
 
-
-        return
-
     def delete_online_messages(self):
         """
         Runs through self.state['online'][name], deleting message ids from the webhook
@@ -243,6 +246,9 @@ class Monitor():
         # Update the state with the race.json if it exists (gives track and cars and carset info)
         self.update_state_with_race_json()
 
+        # Archive it
+        self.save_and_archive_state()
+
         # Send the (empty) laps message
         self.send_laps()
 
@@ -252,7 +258,7 @@ class Monitor():
         """
         if skip: return
 
-        print('  saving and archiving state')
+        print('SAVING/ARCHIVING STATE')
 
         # Make sure we have the appropriate directories
         if not os.path.exists('web'): os.mkdir('web')
@@ -264,6 +270,8 @@ class Monitor():
             self.state['archive_path'] = os.path.join(path_archive, self.timestamp + self.state['track_directory']+'.json')
         else:
             self.state['archive_path'] = None
+
+        print('  archive_path:', self.state['archive_path'])
 
         # Dump the state
         p = os.path.join('web', 'state.json')
@@ -393,16 +401,15 @@ class Monitor():
         print('MESSAGE:')
 
         # Assemble the message
-        message = '@everyone\n'
+        message = '@everyone\n**This week: '
 
         # If we have a carset, start with that
-        if self.state['carset']: message = message + '**' + str(self.state['carset'])+' at '
-        else:                    message = message + '**'
+        if self.state['carset']: message = message + str(self.state['carset'])+' at '
 
         # Track name
         track_name = self.state['track_name']
         if not track_name: track_name = self.state['track_directory']
-        if track_name: message = message + track_name + '!**\n'
+        if track_name: message = message + track_name + '!**\n\n'
 
         # Now loop over the entries
         for n in range(len(s)): message = message + '**'+str(n+1) + '.** ' + s[n][0]['time'] + ' ' + s[n][1] + ' ('+s[n][2]+')\n'
