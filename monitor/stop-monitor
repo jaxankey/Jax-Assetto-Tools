@@ -2,4 +2,4 @@
 
 cd "$(dirname "$0")"
 pkill -f monitor.py
-pkill -f "tail -f"
+pkill -f acServer.log

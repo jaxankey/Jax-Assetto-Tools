@@ -1,4 +1,6 @@
 #!/bin/bash
 
 cd "$(dirname "$0")"
+
+mkdir -p ~/logs
 ./monitor.py &>~/logs/ac-monitor.log &

@@ -24,7 +24,6 @@ url_webhook_laps   = None
 laps_header        = ''
 laps_footer        = ''
 one_lap_per_driver = True
-url_more_laps      = None
 
 # Get the user values from the ini file
 if os.path.exists('monitor.ini.private'): p = 'monitor.ini.private'
