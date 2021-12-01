@@ -21,6 +21,8 @@ path_log           = ''
 path_race_json     = None
 url_webhook_log    = None
 url_webhook_laps   = None
+laps_header        = ''
+laps_footer        = ''
 one_lap_per_driver = True
 url_more_laps      = None
 
@@ -401,7 +403,7 @@ class Monitor():
         print('MESSAGE:')
 
         # Assemble the message
-        message = '@everyone\n**This week: '
+        message = laps_header + '**'
 
         # If we have a carset, start with that
         if self.state['carset']: message = message + str(self.state['carset'])+' at '
@@ -414,13 +416,9 @@ class Monitor():
         # Now loop over the entries
         for n in range(len(s)): message = message + '**'+str(n+1) + '.** ' + s[n][0]['time'] + ' ' + s[n][1] + ' ('+s[n][2]+')\n'
 
-        # Footer
-        if url_more_laps: footer = '\n**More:** '+url_more_laps
-        else:             footer = ''
-
         # Make sure we're not over the 2000 character limit
-        if len(message+footer) > 2000: message = message[0:2000-7-len(footer)] + ' ... ' + footer
-        else:                          message = message + footer
+        if len(message+'\n'+laps_footer) > 2000: message = message[0:2000-7-len(laps_footer)] + ' ...\n' + laps_footer
+        else:                                    message = message +'\n'+ laps_footer
         print(message)
 
         # If we have an id edit the message. Otherwise send it.
