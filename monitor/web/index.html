@@ -122,26 +122,23 @@ function get_data_from_url(url, handler) {
 }   
 
 // Gets tracks list from archive folder html page
-function get_tracks(raw) { console.log('get_tracks()')
+function get_archive(raw) { console.log('get_archive()')
 
-  // Reset the tracks database
-  tracks.length = 0
-  track_count   = 0
+  // Split by newline
+  var s = raw.split('\n')
+  console.log(s)
 
-  // Split by li> and remove the first and last elements
-  var s = raw.split('li>')
+  // Every line is a track path
+  for(var n in s) {
+   
+    // Strip off web/
+    path = s[n].slice(4)
 
-  // Every odd element is a track list item
-  for(var n=1; n<s.length; n+=2) {
-    
     // Increment the count
     track_count++
 
-    // ... with <a href="trackname.json">, so we exploit that.
-    var p = s[n].split('"')[1]
-
     // Load the data for this track
-    get_data_from_url('archive/'+p, parse_track_json)
+    get_data_from_url(path, parse_track_json)
   }
 }
 
@@ -270,7 +267,7 @@ function get_laps(laps) {
 
 
 // Load the track laps data...
-get_data_from_url('/archive', get_tracks)
+get_data_from_url('/archive.txt', get_archive)
 
 
 </script>

@@ -8,7 +8,7 @@
 # See monitor.ini for configuration!                             #
 ##################################################################
 
-import os, sh, json, discord, shutil, pprint
+import os, sh, json, discord, shutil, pprint, glob
 
 # Change to the directory of this script
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
@@ -267,7 +267,7 @@ class Monitor():
         path_archive = os.path.join('web', 'archive')
         if not os.path.exists(path_archive): os.mkdir(path_archive)
 
-        # Store the archive path
+        # Store the archive path for this particular state.json
         if self.state['track_directory'] and self.timestamp:
             self.state['archive_path'] = os.path.join(path_archive, self.timestamp + self.state['track_directory']+'.json')
         else:
@@ -282,6 +282,13 @@ class Monitor():
         # Copy to the archive based on track name if it exists.
         if self.state['archive_path']: shutil.copy(p, self.state['archive_path'])
 
+        # Provide the website with a list of archives
+        paths = glob.glob(os.path.join(path_archive, '*'))
+        paths.sort(reverse=True)
+        print('  ARCHIVES:', paths)
+        f = open(path_archive+'.txt', 'w')
+        f.write('\n'.join(paths))
+        f.close()
 
     def driver_connects(self, name, log_drivers, do_not_save_state):
         """
