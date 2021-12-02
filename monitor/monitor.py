@@ -15,15 +15,18 @@ os.chdir(os.path.dirname(os.path.abspath(__file__)))
 print('WORKING DIRECTORY:')
 print(os.getcwd())
 
-# Default user settingsq
-server_name        = ''
-path_log           = ''
-path_race_json     = None
-url_webhook_log    = None
-url_webhook_laps   = None
-laps_header        = ''
-laps_footer        = ''
-one_lap_per_driver = True
+# Default user settings
+server_name         = ''
+path_log            = ''
+path_race_json      = None
+url_webhook_online  = None
+url_webhook_laps    = None
+online_header       = ''
+online_footer       = ''
+laps_header         = ''
+laps_footer         = ''
+web_archive_history = 0
+debug               = False
 
 # Get the user values from the ini file
 if os.path.exists('monitor.ini.private'): p = 'monitor.ini.private'
@@ -39,15 +42,15 @@ class Monitor():
         """
 
         # Discord webhook objects
-        self.webhook_log  = None
+        self.webhook_online  = None
         self.webhook_laps = None
 
         # Timestampe of the server log
         self.timestamp = None
 
         # Create the webhooks for logging events and posting standings
-        if url_webhook_log:  self.webhook_log  = discord.Webhook.from_url(url_webhook_log,  adapter=discord.RequestsWebhookAdapter())
-        if url_webhook_laps: self.webhook_laps = discord.Webhook.from_url(url_webhook_laps, adapter=discord.RequestsWebhookAdapter())
+        if url_webhook_online: self.webhook_online  = discord.Webhook.from_url(url_webhook_online, adapter=discord.RequestsWebhookAdapter())
+        if url_webhook_laps:   self.webhook_laps = discord.Webhook.from_url(url_webhook_laps,   adapter=discord.RequestsWebhookAdapter())
 
         # Dictionary of the server state
         p = os.path.join('web','state.json')
@@ -68,7 +71,8 @@ class Monitor():
         pprint.pprint(self.state)
 
         # Parse the existing log
-        self.parse_lines(open(path_log).readlines(), False, False, True)
+        if debug: self.parse_lines(open(path_log).readlines())
+        else:     self.parse_lines(open(path_log).readlines(), False, False, True)
         print('\nAFTER INITIAL PARSE:')
         pprint.pprint(self.state)
 
@@ -83,22 +87,26 @@ class Monitor():
         self.send_laps()
 
         # Monitor the log
-        print('\nMONITORING FOR CHANGES...')
-        self.parse_lines(sh.tail("-f", path_log, n=0, _iter=True))
+        if not debug:
+            print('\nMONITORING FOR CHANGES...')
+            self.parse_lines(sh.tail("-f", path_log, n=0, _iter=True))
 
     def reset_state(self):
         """
         Resets to state defaults (empty).
         """
         self.state = dict(
-            online           = dict(), # Dictionary of online user info, indexed by name = {id:123890, car:'carname'}
-            track_name       = None,   # Track / layout name
-            track_directory  = None,   # Directory name of the track
-            track_message_id = None,   # id of the discord message about laps to edit
-            archive_path     = None,   # Path to the archive file
-            laps             = dict(), # Dictionary by name of valid laps for this track / layout
-            naughties        = dict(), # Dictionary by name of cut laps
-            carset           = None,   # carset name from race.json if present
+            online            = dict(), # Dictionary of online user info, indexed by name = {id:123890, car:'carname'}
+            online_message_id = None,   # Message id for the "who is online" message
+
+            track_name        = None,   # Track / layout name
+            track_directory   = None,   # Directory name of the track
+            laps_message_id   = None,   # id of the discord message about laps to edit
+
+            archive_path      = None,   # Path to the archive of state.json
+            laps              = dict(), # Dictionary by name of valid laps for this track / layout
+            naughties         = dict(), # Dictionary by name of cut laps
+            carset            = None,   # carset name from race.json if present
         )
 
     def parse_lines(self, lines, log_drivers=True, update_laps=True, do_not_save_state=False):
@@ -207,7 +215,7 @@ class Monitor():
                 # Run the new-track business on the new track name
                 self.new_track(line.split('=')[-1].strip())
 
-            # JACK: This causes race restarting to create a new 
+            # JACK: This causes race restarting to create a new
             #       archive file. timestamp_temp queue only update if track changes
             # Time stamp is one above the CPU number
             elif line.find('Num CPU:') == 0:
@@ -219,7 +227,7 @@ class Monitor():
         Runs through self.state['online'][name], deleting message ids from the webhook
         """
         for name in self.state['online']:
-            try: self.webhook_log.delete_message(self.state['online'][name]['id'])
+            try: self.webhook_online.delete_message(self.state['online'][name]['id'])
             except: pass
             self.state['online'].pop(name)
 
@@ -284,10 +292,40 @@ class Monitor():
         # Provide the website with a list of archives
         paths = glob.glob(os.path.join(path_archive, '*'))
         paths.sort(reverse=True)
-        print('  ARCHIVES:', paths)
+
+        # If we're not keeping the full history, trim it
+        if web_archive_history: paths = paths[0:web_archive_history]
+
+        print('  ARCHIVES:\n   ', '\n    '.join(paths))
         f = open(path_archive+'.txt', 'w')
         f.write('\n'.join(paths))
         f.close()
+
+    def send_online(self):
+        """
+        Assembles the online list string from state, online_header and
+        online_footer, then sends it. Returns message_id
+        """
+        print('send_online():')
+
+        # If there are any online, send it
+        if len(self.state['online'].keys()) > 0:
+
+            onlines = []; n=1
+            for name in self.state['online']:
+                onlines.append('**'+str(n)+'.** '+name+' ('+self.state['online'][name]['car']+')')
+                n += 1
+
+            # Send it
+            self.state['online_message_id'] = self.send_message(
+                self.webhook_online, '\n'.join(onlines),
+                online_header, online_footer,
+                self.state['online_message_id'])
+
+        # Otherwise, delete the message and set it to none
+        elif self.state['online_message_id'] != None:
+            self.delete_message(self.webhook_online, self.state['online_message_id'])
+            self.state['online_message_id'] = None
 
     def driver_connects(self, name, log_drivers, do_not_save_state):
         """
@@ -295,37 +333,57 @@ class Monitor():
         last requested car if any.
         """
 
-        # Assemble the message
-        message = name + ' is on ' + server_name + '!'
+        # Update the online list
+        self.state['online'][name] = dict(car=self.last_requested_car)
 
-        # If we have a last requested car...
-        if self.last_requested_car: message = message + '\n' + self.last_requested_car
+        # Send the message & save
+        if log_drivers:           self.send_online()
+        if not do_not_save_state: self.save_and_archive_state()
 
-        # Send the joined message if we're supposed to.
-        if log_drivers and self.webhook_log:
-            try:    i = self.webhook_log.send(message, wait=True).id
-            except: i = None
-        else: i = None
-        self.state['online'][name] = dict(id=i, car=self.last_requested_car)
-        self.save_and_archive_state(do_not_save_state)
+        # # OLD METHOD THAT SENT / REMOVED A MESSAGE FOR EACH DRIVER
+        # # Assemble the message
+        # message = name + ' is on ' + server_name + '!'
 
-        # Kill the last requested car
-        self.last_requested_car = None
+        # # If we have a last requested car...
+        # if self.last_requested_car: message = message + '\n' + self.last_requested_car
+
+        # # Send the joined message if we're supposed to.
+        # if log_drivers and self.webhook_online:
+        #     try:    i = self.webhook_online.send(message, wait=True).id
+        #     except: i = None
+        # else: i = None
+        # self.state['online'][name] = dict(id=i, car=self.last_requested_car)
+        # self.save_and_archive_state(do_not_save_state)
+
+        # # Kill the last requested car
+        # self.last_requested_car = None
 
     def driver_disconnects(self, name, log_drivers, do_not_save_state):
         """
         Sends a message about the player leaving.
         """
-        if name in self.state['online']:
 
-            # Delete the message by name
-            if self.webhook_log and self.state['online'][name]['id']:
-               try: self.webhook_log.delete_message(self.state['online'][name]['id'])
-               except: pass
+        # Only do anything if the name is in the list
+        if not name in self.state['online']: return
 
-            # Remove it from the state
-            if name in self.state['online']: self.state['online'].pop(name)
-            self.save_and_archive_state(do_not_save_state)
+        # Pop it
+        self.state['online'].pop(name)
+
+        # Send the message & save
+        if log_drivers:           self.send_online()
+        if not do_not_save_state: self.save_and_archive_state()
+
+        # OLD METHOD
+        # if name in self.state['online']:
+
+        #     # Delete the message by name
+        #     if self.webhook_online and self.state['online'][name]['id']:
+        #        try: self.webhook_online.delete_message(self.state['online'][name]['id'])
+        #        except: pass
+
+        #     # Remove it from the state
+        #     if name in self.state['online']: self.state['online'].pop(name)
+        #     self.save_and_archive_state(do_not_save_state)
 
     def to_ms(self, s):
         """
@@ -357,11 +415,11 @@ class Monitor():
             or self.race_json['carset']        != self.state['carset']:
 
                 # If we have an old message id, clear it
-                if self.state['track_message_id']:
+                if self.state['laps_message_id']:
                     #if webhook_laps:
-                    #    try: webhook_laps.delete_message(self.state['track_message_id'])
-                    #    except: print('Could not delete track message id', self.state['track_message_id'])
-                    self.state['track_message_id'] = None
+                    #    try: webhook_laps.delete_message(self.state['laps_message_id'])
+                    #    except: print('Could not delete track message id', self.state['laps_message_id'])
+                    self.state['laps_message_id'] = None
 
                 # Reset the laps dictionary
                 self.state['laps'] = dict()
@@ -376,6 +434,40 @@ class Monitor():
 
         # No race json, so we will use no fancy car names and not post laps
         else: self.race_json = None
+
+    def delete_message(self, webhook, message_id):
+        """
+        Deletes the supplied message.
+        """
+        print('delete_message()')
+        if webhook and message_id:
+            try: webhook.delete_message(message_id)
+            except: pass
+
+    def send_message(self, webhook, message, header, footer, message_id=None):
+        """
+        Sends a message with the supplied header and footer, making sure it's
+        less than 2000 characters total. Returns the message id
+        """
+        # Always add the header
+        message = header+'\n\n'+message
+
+        # Make sure we're not over the 2000 character limit
+        if len(message+'\n\n'+footer) > 2000: message = message[0:2000-7-len(footer)] + ' ...\n\n' + footer
+        else:                                 message = message +'\n\n'+ footer
+        print(message)
+
+        # If the message_id is supplied, edit, otherwise, send
+        if webhook:
+            if not message_id == None:
+                try:    webhook.edit_message(message_id, content=message)
+                except: message_id = webhook.send(message, wait=True).id
+            else:
+                try:    message_id = webhook.send(message, wait=True).id
+                except: message_id = None
+
+        # Return it.
+        return message_id
 
     def send_laps(self):
         """
@@ -409,40 +501,26 @@ class Monitor():
         print('MESSAGE:')
 
         # Assemble the message
-        message = laps_header + '**'
+        header = laps_header + '**'
 
         # If we have a carset, start with that
-        if self.state['carset']: message = message + str(self.state['carset'])+' at '
+        if self.state['carset']: header = header + str(self.state['carset'])+' at '
 
         # Track name
         track_name = self.state['track_name']
         if not track_name: track_name = self.state['track_directory']
-        if track_name: message = message + track_name + '!**\n\n'
+        if track_name: header = header + track_name + '!**'
 
         # Now loop over the entries
-        for n in range(len(s)): message = message + '**'+str(n+1) + '.** ' + s[n][0]['time'] + ' ' + s[n][1] + ' ('+s[n][2]+')\n'
+        laps = []
+        for n in range(len(s)): laps.append('**'+str(n+1) + '.** ' + s[n][0]['time'] + ' ' + s[n][1] + ' ('+s[n][2]+')')
 
-        # Make sure we're not over the 2000 character limit
-        if len(message+'\n'+laps_footer) > 2000: message = message[0:2000-7-len(laps_footer)] + ' ...\n' + laps_footer
-        else:                                    message = message +'\n'+ laps_footer
-        print(message)
+        # Send it
+        self.state['laps_message_id'] = self.send_message(self.webhook_laps, '\n'.join(laps), header, laps_footer, self.state['laps_message_id'])
+        if self.state['laps_message_id'] == None: print('DID NOT EDIT OR SEND LAPS MESSAGE')
 
-        # If we have an id edit the message. Otherwise send it.
-        if self.webhook_laps:
-            if self.state['track_message_id']:
-                print('Found track_message_id. Trying to edit...')
-                try:
-                    self.webhook_laps.edit_message(self.state['track_message_id'], content=message)
-                except:
-                    print("Nope. Sending new message...")
-                    try: self.state['track_message_id'] = self.webhook_laps.send(message, wait=True).id
-                    except: print('Error: Could not send message on webhook_laps.')
-                    self.save_and_archive_state()
-            else:
-                print('No track_message_id. Sending new message.')
-                try: self.state['track_message_id'] = self.webhook_laps.send(message, wait=True).id
-                except: print('Error: Could not send message on webhook_laps.')
-                self.save_and_archive_state()
+        # Save the state.
+        self.save_and_archive_state()
 
 
 # Create the object

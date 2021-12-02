@@ -2,4 +2,5 @@ carsets
 *.private
 git-*
 *.json
+archive.txt
 
