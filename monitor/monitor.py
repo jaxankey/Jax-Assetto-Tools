@@ -85,6 +85,7 @@ class Monitor():
 
         # Send the initial laps (skipped)
         self.send_laps()
+        self.send_online()
 
         # Monitor the log
         if not debug:
