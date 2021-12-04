@@ -21,6 +21,7 @@ path_log            = ''
 path_race_json      = None
 url_webhook_online  = None
 url_webhook_laps    = None
+url_mods            = ''
 online_header       = ''
 online_footer       = ''
 laps_header         = ''
@@ -436,40 +437,6 @@ class Monitor():
         # No race json, so we will use no fancy car names and not post laps
         else: self.race_json = None
 
-    def delete_message(self, webhook, message_id):
-        """
-        Deletes the supplied message.
-        """
-        print('delete_message()')
-        if webhook and message_id:
-            try: webhook.delete_message(message_id)
-            except: pass
-
-    def send_message(self, webhook, message, header, footer, message_id=None):
-        """
-        Sends a message with the supplied header and footer, making sure it's
-        less than 2000 characters total. Returns the message id
-        """
-        # Always add the header
-        message = header+'\n\n'+message
-
-        # Make sure we're not over the 2000 character limit
-        if len(message+'\n\n'+footer) > 2000: message = message[0:2000-7-len(footer)] + ' ...\n\n' + footer
-        else:                                 message = message +'\n\n'+ footer
-        print(message)
-
-        # If the message_id is supplied, edit, otherwise, send
-        if webhook:
-            if not message_id == None:
-                try:    webhook.edit_message(message_id, content=message)
-                except: message_id = webhook.send(message, wait=True).id
-            else:
-                try:    message_id = webhook.send(message, wait=True).id
-                except: message_id = None
-
-        # Return it.
-        return message_id
-
     def send_laps(self):
         """
         Sorts and sends the lap times to the discord.
@@ -502,7 +469,7 @@ class Monitor():
         print('MESSAGE:')
 
         # Assemble the message
-        header = laps_header + '**'
+        header = laps_header + '**['
 
         # If we have a carset, start with that
         if self.state['carset']: header = header + str(self.state['carset'])+' at '
@@ -510,7 +477,7 @@ class Monitor():
         # Track name
         track_name = self.state['track_name']
         if not track_name: track_name = self.state['track_directory']
-        if track_name: header = header + track_name + '!**'
+        if track_name: header = header + track_name + '!]('+url_mods+')**'
 
         # Now loop over the entries
         laps = []
@@ -522,6 +489,51 @@ class Monitor():
 
         # Save the state.
         self.save_and_archive_state()
+
+
+    def delete_message(self, webhook, message_id):
+        """
+        Deletes the supplied message.
+        """
+        print('delete_message()')
+        if webhook and message_id:
+            try: webhook.delete_message(message_id)
+            except: pass
+
+    def send_message(self, webhook, message, header, footer, message_id=None):
+        """
+        Sends a message with the supplied header and footer, making sure it's
+        less than 2000 characters total. Returns the message id
+        """
+        print('send_message()')
+
+        # Always add the header
+        message = header+'\n\n'+message
+
+        # Make sure we're not over the 4096 character limit
+        if len(message+'\n\n'+footer) > 4096: message = message[0:2000-7-len(footer)] + ' ...\n\n' + footer
+        else:                                 message = message +'\n\n'+ footer
+        print(message)
+
+        # If the message_id is supplied, edit, otherwise, send
+        if webhook:
+
+            # Sending by embed makes it prettier and larger
+            e = discord.Embed()
+            e.color       = 15548997 # Red
+            e.description = message
+
+            # Decide whether to make a new message or use the existing
+            if not message_id == None:
+                try:    webhook.edit_message(message_id, embeds=[e])
+                except: message_id = webhook.send('', embeds=[e], wait=True).id
+            else:
+                try:    message_id = webhook.send('', embeds=[e], wait=True).id
+                except: message_id = None
+
+        # Return it.
+        return message_id
+
 
 
 # Create the object
