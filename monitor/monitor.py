@@ -24,6 +24,7 @@ url_webhook_laps    = None
 url_mods            = ''
 online_header       = ''
 online_footer       = ''
+venue_header        = ''
 laps_header         = ''
 laps_footer         = ''
 web_archive_history = 0
@@ -41,17 +42,27 @@ class Monitor():
         """
         Class for watching the AC log file and reacting to various events
         """
+        global url_webhook_online
 
         # Discord webhook objects
-        self.webhook_online  = None
-        self.webhook_laps = None
+        self.webhook_online  = None # List of webhooks
+        self.webhook_laps    = None
 
         # Timestampe of the server log
         self.timestamp = None
 
-        # Create the webhooks for logging events and posting standings
-        if url_webhook_online: self.webhook_online  = discord.Webhook.from_url(url_webhook_online, adapter=discord.RequestsWebhookAdapter())
-        if url_webhook_laps:   self.webhook_laps = discord.Webhook.from_url(url_webhook_laps,   adapter=discord.RequestsWebhookAdapter())
+        # Create the webhooks for logging who is online
+        if url_webhook_online:
+            if type(url_webhook_online) == str: url_webhook_online = [url_webhook_online]
+            self.webhook_online = []
+
+            # Loop over the webhooks
+            for url in url_webhook_online:
+                self.webhook_online.append(discord.Webhook.from_url(url, adapter=discord.RequestsWebhookAdapter()))
+
+        # We only stick laps in one place
+        if url_webhook_laps:
+            self.webhook_laps   = discord.Webhook.from_url(url_webhook_laps,   adapter=discord.RequestsWebhookAdapter())
 
         # Dictionary of the server state
         p = os.path.join('web','state.json')
@@ -99,7 +110,7 @@ class Monitor():
         """
         self.state = dict(
             online            = dict(), # Dictionary of online user info, indexed by name = {id:123890, car:'carname'}
-            online_message_id = None,   # Message id for the "who is online" message
+            online_message_id = [],     # List of message ids for the "who is online" messages
 
             track_name        = None,   # Track / layout name
             track_directory   = None,   # Directory name of the track
@@ -318,16 +329,32 @@ class Monitor():
                 onlines.append('**'+str(n)+'.** '+name+' ('+self.state['online'][name]['car']+')')
                 n += 1
 
-            # Send it
-            self.state['online_message_id'] = self.send_message(
-                self.webhook_online, '\n'.join(onlines),
-                online_header, online_footer,
-                self.state['online_message_id'])
+            # Send it for each webhook
+            #
+            # Remember the existing ids and clear the list to repopulate
+            ids = self.state['online_message_id']
+            self.state['online_message_id'] = []
+            for i in range(len(self.webhook_online)):
 
-        # Otherwise, delete the message and set it to none
-        elif self.state['online_message_id'] != None:
-            self.delete_message(self.webhook_online, self.state['online_message_id'])
-            self.state['online_message_id'] = None
+                # Use existing message id or go none
+                if i < len(ids): id = ids[i]
+                else:            id = None
+
+                # Append the new message id while sending
+                self.state['online_message_id'].append(self.send_message(
+                    self.webhook_online[i], '\n'+'\n'.join(onlines),
+                    online_header, online_footer, id))
+
+        # Otherwise, delete the messages and remove the message ids
+        else:
+            for i in range(len(self.webhook_online)):
+
+                # If we have a message id for this webhook, delete the message
+                if i < len(self.state['online_message_id']):
+                    self.delete_message(self.webhook_online[i], self.state['online_message_id'][i])
+
+            # Reset the online message ids
+            self.state['online_message_id'] = []
 
     def driver_connects(self, name, log_drivers, do_not_save_state):
         """
@@ -469,7 +496,7 @@ class Monitor():
         print('MESSAGE:')
 
         # Assemble the message
-        header = laps_header + '**['
+        header = venue_header + '**['
 
         # If we have a carset, start with that
         if self.state['carset']: header = header + str(self.state['carset'])+' at '
@@ -478,6 +505,9 @@ class Monitor():
         track_name = self.state['track_name']
         if not track_name: track_name = self.state['track_directory']
         if track_name: header = header + track_name + '!]('+url_mods+')**'
+
+        # Below the venue and above laps
+        header = header + '\n' + laps_header
 
         # Now loop over the entries
         laps = []
@@ -508,7 +538,7 @@ class Monitor():
         print('send_message()')
 
         # Always add the header
-        message = header+'\n\n'+message
+        message = header+'\n'+message
 
         # Make sure we're not over the 4096 character limit
         if len(message+'\n\n'+footer) > 4096: message = message[0:2000-7-len(footer)] + ' ...\n\n' + footer
