@@ -9,7 +9,7 @@
 # You should not need to edit this file.       #
 ################################################
 
-import os, urllib.request, json, random
+import os, urllib.request, json, random, pprint
 
 # Change to the directory of this script
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
@@ -20,7 +20,7 @@ path_ac       = None
 race_password = None
 qual_time     = 30
 path_restart  = None
-discord_webhook = ''
+discord_webhook = None
 discord_message = 'Main event server is up!'
 
 # Get the user values 
@@ -54,7 +54,11 @@ def get_entry_string(slot, name='', guid='', car='', skin=''):
 # Get the master cars and skins dictionaries sent by the uploader
 race = json.load(open('race.json'))
 print('Opening race.json:')
-print(race)
+pprint.pprint(race)
+
+# Get the look-up table for nice car names
+car_names = {}
+for k in race['cars']: car_names[race['cars'][k]] = k
 
 # Open the CSV and go to town on it
 print('\nPARSING CSV FILE:')
@@ -66,7 +70,7 @@ with urllib.request.urlopen(csv_url) as f:
     # Loop over the lines of the csv file
     n=0              # Slot index
     entries     = [] # List of entry strings
-    seen_cars   = [] # List of seen cars (directories) for filling the rest
+    seen_cars   = {} # List of seen cars (directories) {cardir:count, cardir:count} for filling the rest
     for row in rows:
 
         # Split by ','
@@ -83,7 +87,8 @@ with urllib.request.urlopen(csv_url) as f:
             print(slot, name, car)
 
             # Update the seen cars list
-            if not car in seen_cars: seen_cars.append(car)
+            if not car in seen_cars: seen_cars[car] = 1
+            else:                    seen_cars[car] += 1
 
             # Get a random skin for this car
             skin = race['skins'][car][random.randrange(len(race['skins'][car]))]
@@ -113,7 +118,7 @@ for n in range(len(ls)):
     # Get the slot number, update the password & car list
     if   key == 'MAX_CLIENTS': N = int(s[1].strip())
     elif key == 'PASSWORD'   : ls[n] = 'PASSWORD='+race_password+'\n'
-    elif key == 'CARS'       : ls[n] = 'CARS='+';'.join(seen_cars)+'\n'
+    elif key == 'CARS'       : ls[n] = 'CARS='+';'.join(seen_cars.keys())+'\n'
     elif key == 'TIME' and section == '[QUALIFY]': ls[n] = 'TIME=150\n'
 
 # Update the file
@@ -123,21 +128,30 @@ print('wrote server_cfg.ini')
 # Make sure there aren't more entries than max clients
 if len(entries) > N: entries = entries[0:N]
 
+# Get a list of seen_cars ordered by popularity
+seen_cars_sorted = sorted(seen_cars.items(), key=lambda item: item[1], reverse=True)
+print("\nSorted seen cars:", seen_cars_sorted)
+
 # now fill the remaining slots in the entries list
 print('filling remaining entries...')
-m = 0 # seen_cars index to be cyclically incremented
+m = 0 # seen_cars_sorted index to be cyclically incremented
+open_cars = {} # Dictionary of number of open cars {car_name:count, car_name:count,...}
 for n in range(len(entries), N):
 
     # Get the next car (directory)
-    car = seen_cars[m]
+    car = seen_cars_sorted[m][0]
     m += 1
-    if m >= len(seen_cars): m = 0
+    if m >= len(seen_cars_sorted): m = 0
 
     # Get a random skin for this car
     skin = race['skins'][car][random.randrange(len(race['skins'][car]))]
 
     # Append the entry
     entries.append(get_entry_string(n, '', '', car, skin))
+
+    # Include in open_cars list
+    if car not in open_cars: open_cars[car] = 1
+    else:                    open_cars[car] += 1
 
 # Get the full string!
 s = '\n\n'.join(entries) + '\n'
@@ -148,11 +162,22 @@ f = open(path_entry_list, 'w', encoding='utf-8'); f.write(s); f.close()
 print('Written to entry_list.ini')
 
 # Change to root and restart
-print('Retarting server...')
-os.system(path_restart)
+if path_restart:
+    print('Retarting server...')
+    os.system(path_restart)
+
+# Assemble the message whether we plan to send it or not
+if len(open_cars.keys()):
+    discord_message = discord_message + '\n\nUnreserved cars:'
+    for car in open_cars.keys(): 
+        discord_message = discord_message+'\n  '+car_names[car]+' ('+str(open_cars[car])+')'
+
+# Print for inspection
+print('\nDiscord Message:')
+print(discord_message)
 
 # If we got this far without an error, send a message to the discord
-if discord_webhook != '':
+if discord_webhook:
     import discord, time
 
     # Open the webhook and send the message, then kill it later
