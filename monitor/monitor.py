@@ -250,11 +250,11 @@ class Monitor():
         """
         print('  new_track', self.state['track_directory'], '->', new_track_directory)
 
-        # Timestamp changes only for new track
-        self.timestamp = self.timestamp_last
-
-        # Dump the existing state and copy to the archive
+        # Dump the existing state and copy to the archive before we update the timestamp
         self.save_and_archive_state()
+
+        # Timestamp changes only for new track; use the most recently seen timestamp
+        self.timestamp = self.timestamp_last
 
         # Reset everything but the online users
         self.reset_state()
