@@ -96,8 +96,7 @@ class Monitor():
         self.save_and_archive_state()
 
         # Send the initial laps (skipped)
-        self.send_laps()
-        self.send_online()
+        self.send_state_messages()
 
         # Monitor the log
         if not debug:
@@ -215,7 +214,7 @@ class Monitor():
 
                             self.state[laps][n][c] = dict(time=t, time_ms=t_ms, cuts=cuts)
                             self.save_and_archive_state(do_not_save_state)
-                            if update_laps: self.send_laps()
+                            if update_laps: self.send_state_messages()
 
                         # No need to keep looping through the history.
                         break
@@ -272,7 +271,7 @@ class Monitor():
         self.save_and_archive_state()
 
         # Send the (empty) laps message
-        self.send_laps()
+        self.state_messages()
 
     def save_and_archive_state(self, skip=False):
         """
@@ -314,47 +313,6 @@ class Monitor():
         f.write('\n'.join(paths))
         f.close()
 
-    def send_online(self):
-        """
-        Assembles the online list string from state, online_header and
-        online_footer, then sends it. Returns message_id
-        """
-        print('send_online():')
-
-        # If there are any online, send it
-        if len(self.state['online'].keys()) > 0:
-
-            onlines = []; n=1
-            for name in self.state['online']:
-                onlines.append('**'+str(n)+'.** '+name+' ('+self.state['online'][name]['car']+')')
-                n += 1
-
-            # Send it for each webhook
-            #
-            # Remember the existing ids and clear the list to repopulate
-            ids = self.state['online_message_id']
-            self.state['online_message_id'] = []
-            for i in range(len(self.webhook_online)):
-
-                # Use existing message id or go none
-                if i < len(ids): id = ids[i]
-                else:            id = None
-
-                # Append the new message id while sending
-                self.state['online_message_id'].append(self.send_message(
-                    self.webhook_online[i], '\n'+'\n'.join(onlines),
-                    online_header, online_footer, id))
-
-        # Otherwise, delete the messages and remove the message ids
-        else:
-            for i in range(len(self.webhook_online)):
-
-                # If we have a message id for this webhook, delete the message
-                if i < len(self.state['online_message_id']):
-                    self.delete_message(self.webhook_online[i], self.state['online_message_id'][i])
-
-            # Reset the online message ids
-            self.state['online_message_id'] = []
 
     def driver_connects(self, name, log_drivers, do_not_save_state):
         """
@@ -366,7 +324,7 @@ class Monitor():
         self.state['online'][name] = dict(car=self.last_requested_car)
 
         # Send the message & save
-        if log_drivers:           self.send_online()
+        if log_drivers:           self.send_state_messages()
         if not do_not_save_state: self.save_and_archive_state()
 
         # # OLD METHOD THAT SENT / REMOVED A MESSAGE FOR EACH DRIVER
@@ -399,7 +357,7 @@ class Monitor():
         self.state['online'].pop(name)
 
         # Send the message & save
-        if log_drivers:           self.send_online()
+        if log_drivers:           self.send_state_messages()
         if not do_not_save_state: self.save_and_archive_state()
 
         # OLD METHOD
@@ -464,17 +422,16 @@ class Monitor():
         # No race json, so we will use no fancy car names and not post laps
         else: self.race_json = None
 
-    def send_laps(self):
+    def get_laps_string(self):
         """
-        Sorts and sends the lap times to the discord.
+        Returns a string list of driver best laps for sending to discord.
         """
-        print('\nSENDING LAPS MESSAGE')
-        # Structure:
-        # state['laps'][name][car] = '12:32:032'
 
-        # loop over the names, assembling a sorted list
-        # of the form [(time, name, car), ...]
-        s = []
+        # If there are no laps, return None so we know not to use them.
+        if len(self.state['laps'].keys()) == 0: return None
+
+        # Scan through the state and collect the driver best laps.
+        laps = []
         print('DRIVER BESTS:')
         for name in self.state['laps']:
 
@@ -486,64 +443,221 @@ class Monitor():
             carlaps = sorted(carlaps, key=lambda carlap: self.to_ms(carlap[1]['time']))
 
             # Append the best
-            s.append((carlaps[0][1], name, carlaps[0][0]))
-            print('  ', *s[-1])
-
+            laps.append((carlaps[0][1], name, carlaps[0][0]))
+            print('  ', *laps[-1])
 
         # Sort the laps by time. Becomes [(name,(time,car)),(name,(time,car)),...]
-        s = sorted(s, key=lambda i: self.to_ms(i[0]['time']))
+        laps = sorted(laps, key=lambda i: self.to_ms(i[0]['time']))
 
-        print('MESSAGE:')
+        # get the text lines to assemble
+        lines = []
+        for n in range(len(laps)): lines.append('**'+str(n+1) + '.** ' + laps[n][0]['time'] + ' ' + laps[n][1] + ' ('+laps[n][2]+')')
 
-        # Assemble the message
-        header = venue_header + '**['
+        # Return the list joined by newlines!
+        return '\n'.join(lines)
+
+    def get_onlines_string(self):
+        """
+        Returns a string list of who is online.
+        """
+        # Otherwise, return None so we know to delete this
+        if len(self.state['online'].keys()) == 0: return None
+
+        # If there are any online
+        onlines = []; n=1
+        for name in self.state['online']:
+            onlines.append('**'+str(n)+'.** '+name+' ('+self.state['online'][name]['car']+')')
+            n += 1
+
+        # Return the list
+        return '\n'.join(onlines)
+
+    def send_state_messages(self):
+        """
+        Sends the state to the discord server. This includes a general info
+        post with laps and who is online (to be edited when things change)
+        and a "hey!" post if people come online.
+        """
+        print('send_state_messages()')
+
+        # Get the list of who is online
+        onlines = self.get_onlines_string()
+        print('Online:\n', onlines)
+
+        # Get the list of driver best laps
+        laps = self.get_laps_string()
+        print('Laps:\n', laps)
+
+        ###################################
+        # INFO MESSAGE WITH LAPS AND ONLINE
+
+        # Assemble the message body
+        body = venue_header + '**['
 
         # If we have a carset, start with that
-        if self.state['carset']: header = header + str(self.state['carset'])+' at '
+        if self.state['carset']: body = body + str(self.state['carset'])+' at '
 
         # Track name
         track_name = self.state['track_name']
         if not track_name: track_name = self.state['track_directory']
-        if track_name: header = header + track_name + '!]('+url_mods+')**'
+        if track_name: body = body + track_name + '!]('+url_mods+')**'
 
         # Below the venue and above laps
-        header = header + '\n' + laps_header
+        body = body + '\n\n'
+        if onlines: body = body + online_header + '\n' + onlines + '\n\n'
+        if laps   : body = body + 'Laps:\n' + laps
 
-        # Now loop over the entries
-        laps = []
-        for n in range(len(s)): laps.append('**'+str(n+1) + '.** ' + s[n][0]['time'] + ' ' + s[n][1] + ' ('+s[n][2]+')')
-
-        # Send it
-        self.state['laps_message_id'] = self.send_message(self.webhook_laps, '\n'.join(laps), header, laps_footer, self.state['laps_message_id'])
+        # Send the main info message
+        self.state['laps_message_id'] = self.send_message(self.webhook_laps, body, laps_footer, self.state['laps_message_id'])
         if self.state['laps_message_id'] == None: print('DID NOT EDIT OR SEND LAPS MESSAGE')
+
+
+        #########################################
+        # HAY MESSAGE WITH JUST ONLINES
+
+        # If there is anyone online send a message about it
+        if onlines:
+
+            # Assemble the message body
+            body = online_header + '\n' + onlines
+
+            # Send the message
+            self.state['online_message_id'] = self.send_message(self.webhook_online, body, online_footer, self.state['online_message_id'])
+            if self.state['online_message_id'] == None: print('DID NOT EDIT OR SEND ONLINES')
+
+        # Otherwise, try to delete any existing message
+        else: self.delete_message(self.webhook_online, self.state['online_message_id'])
 
         # Save the state.
         self.save_and_archive_state()
+
+
+
+    # def send_online(self):
+    #     """
+    #     Assembles the online list string from state, online_header and
+    #     online_footer, then sends it. Returns message_id
+    #     """
+    #     print('send_online():')
+
+    #     # If there are any online, send it
+    #     if len(self.state['online'].keys()) > 0:
+
+    #         onlines = []; n=1
+    #         for name in self.state['online']:
+    #             onlines.append('**'+str(n)+'.** '+name+' ('+self.state['online'][name]['car']+')')
+    #             n += 1
+
+    #         # Send it for each webhook
+    #         #
+    #         # Remember the existing ids and clear the list to repopulate
+    #         ids = self.state['online_message_id']
+    #         self.state['online_message_id'] = []
+    #         for i in range(len(self.webhook_online)):
+
+    #             # Use existing message id or go none
+    #             if i < len(ids): id = ids[i]
+    #             else:            id = None
+
+    #             # Append the new message id while sending
+    #             self.state['online_message_id'].append(self.send_message(
+    #                 self.webhook_online[i], '\n'+'\n'.join(onlines),
+    #                 online_header, online_footer, id))
+
+    #     # Otherwise, delete the messages and remove the message ids
+    #     else:
+    #         for i in range(len(self.webhook_online)):
+
+    #             # If we have a message id for this webhook, delete the message
+    #             if i < len(self.state['online_message_id']):
+    #                 self.delete_message(self.webhook_online[i], self.state['online_message_id'][i])
+
+    #         # Reset the online message ids
+    #         self.state['online_message_id'] = []
+
+    # def send_laps(self):
+    #     """
+    #     Sorts and sends the lap times to the discord.
+    #     """
+    #     print('\nSENDING LAPS MESSAGE')
+    #     # Structure:
+    #     # state['laps'][name][car] = '12:32:032'
+
+    #     # loop over the names, assembling a sorted list
+    #     # of the form [(time, name, car), ...]
+    #     s = []
+    #     print('DRIVER BESTS:')
+    #     for name in self.state['laps']:
+
+    #         # Get the list of [(car, lap), ...]
+    #         carlaps = self.state['laps'][name].items()
+    #         if len(carlaps) == 0: continue
+
+    #         # Sort each driver
+    #         carlaps = sorted(carlaps, key=lambda carlap: self.to_ms(carlap[1]['time']))
+
+    #         # Append the best
+    #         s.append((carlaps[0][1], name, carlaps[0][0]))
+    #         print('  ', *s[-1])
+
+
+    #     # Sort the laps by time. Becomes [(name,(time,car)),(name,(time,car)),...]
+    #     s = sorted(s, key=lambda i: self.to_ms(i[0]['time']))
+
+    #     print('MESSAGE:')
+
+    #     # Assemble the message
+    #     header = venue_header + '**['
+
+    #     # If we have a carset, start with that
+    #     if self.state['carset']: header = header + str(self.state['carset'])+' at '
+
+    #     # Track name
+    #     track_name = self.state['track_name']
+    #     if not track_name: track_name = self.state['track_directory']
+    #     if track_name: header = header + track_name + '!]('+url_mods+')**'
+
+    #     # Below the venue and above laps
+    #     header = header + '\n' + laps_header
+
+    #     # Now loop over the entries
+    #     laps = []
+    #     for n in range(len(s)): laps.append('**'+str(n+1) + '.** ' + s[n][0]['time'] + ' ' + s[n][1] + ' ('+s[n][2]+')')
+
+    #     # Send it
+    #     self.state['laps_message_id'] = self.send_message(self.webhook_laps, '\n'.join(laps), header, laps_footer, self.state['laps_message_id'])
+    #     if self.state['laps_message_id'] == None: print('DID NOT EDIT OR SEND LAPS MESSAGE')
+
+    #     # Save the state.
+    #     self.save_and_archive_state()
 
 
     def delete_message(self, webhook, message_id):
         """
         Deletes the supplied message.
         """
+        # Make sure we actually have a message id
+        if not type(message_id) == int: return
+
         print('delete_message()')
         if webhook and message_id:
             try: webhook.delete_message(message_id)
             except: pass
 
-    def send_message(self, webhook, message, header, footer, message_id=None):
+    def send_message(self, webhook, body, footer, message_id=None):
         """
         Sends a message with the supplied header and footer, making sure it's
         less than 2000 characters total. Returns the message id
         """
-        print('send_message()')
+        print('\nsend_message()')
 
-        # Always add the header
-        message = header+'\n'+message
+        # Make sure we are given a proper message_id
+        if not type(message_id) == int: message_id = None
 
         # Make sure we're not over the 4096 character limit
-        if len(message+'\n\n'+footer) > 4096: message = message[0:2000-7-len(footer)] + ' ...\n\n' + footer
-        else:                                 message = message +'\n\n'+ footer
-        print(message)
+        if len(body+'\n\n'+footer) > 4096: body = body[0:2000-7-len(footer)] + ' ...\n\n' + footer
+        else:                              body = body +'\n\n'+ footer
+        print(body)
 
         # If the message_id is supplied, edit, otherwise, send
         if webhook:
@@ -551,7 +665,7 @@ class Monitor():
             # Sending by embed makes it prettier and larger
             e = discord.Embed()
             e.color       = 15548997 # Red
-            e.description = message
+            e.description = body
 
             # Decide whether to make a new message or use the existing
             if not message_id == None:
