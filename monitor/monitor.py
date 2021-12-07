@@ -53,12 +53,10 @@ class Monitor():
 
         # Create the webhooks for logging who is online
         if url_webhook_online:
-            if type(url_webhook_online) == str: url_webhook_online = [url_webhook_online]
-            self.webhook_online = []
 
             # Loop over the webhooks
             for url in url_webhook_online:
-                self.webhook_online.append(discord.Webhook.from_url(url, adapter=discord.RequestsWebhookAdapter()))
+                self.webhook_online = discord.Webhook.from_url(url, adapter=discord.RequestsWebhookAdapter())
 
         # We only stick laps in one place
         if url_webhook_laps:
@@ -109,7 +107,7 @@ class Monitor():
         """
         self.state = dict(
             online            = dict(), # Dictionary of online user info, indexed by name = {id:123890, car:'carname'}
-            online_message_id = [],     # List of message ids for the "who is online" messages
+            online_message_id = None,     # List of message ids for the "who is online" messages
 
             track_name        = None,   # Track / layout name
             track_directory   = None,   # Directory name of the track
@@ -505,7 +503,7 @@ class Monitor():
         # Below the venue and above laps
         body = body + '\n\n'
         if onlines: body = body + online_header + '\n' + onlines + '\n\n'
-        if laps   : body = body + 'Laps:\n' + laps
+        if laps   : body = body + '**Laps:**\n' + laps
 
         # Send the main info message
         self.state['laps_message_id'] = self.send_message(self.webhook_laps, body, laps_footer, self.state['laps_message_id'])
@@ -519,7 +517,7 @@ class Monitor():
         if onlines:
 
             # Assemble the message body
-            body = online_header + '\n' + onlines
+            body = online_header + '\n\n' + onlines
 
             # Send the message
             self.state['online_message_id'] = self.send_message(self.webhook_online, body, online_footer, self.state['online_message_id'])
@@ -668,7 +666,7 @@ class Monitor():
             e.description = body
 
             # Decide whether to make a new message or use the existing
-            if not message_id == None:
+            if message_id:
                 try:    webhook.edit_message(message_id, embeds=[e])
                 except: message_id = webhook.send('', embeds=[e], wait=True).id
             else:
