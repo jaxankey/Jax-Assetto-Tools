@@ -490,23 +490,27 @@ class Monitor():
         # INFO MESSAGE WITH LAPS AND ONLINE
 
         # Assemble the message body
-        body = venue_header + '**['
+        body1 = venue_header + '**['
 
         # If we have a carset, start with that
-        if self.state['carset']: body = body + str(self.state['carset'])+' at '
+        if self.state['carset']: body1 = body1 + str(self.state['carset'])+' at '
 
         # Track name
         track_name = self.state['track_name']
         if not track_name: track_name = self.state['track_directory']
-        if track_name: body = body + track_name + '!]('+url_mods+')**'
+        if track_name: body1 = body1 + track_name + '!]('+url_mods+')**'
 
         # Below the venue and above laps
-        body = body + '\n\n'
-        if onlines: body = body + online_header + '\n' + onlines + '\n\n'
-        if laps   : body = body + '**Laps:**\n' + laps
+        body1 = body1 + '\n\n'
+        if laps: body1 = body1 + '**Laps:**\n' + laps
+
+        # Separate body for who's online (laps get cut first)
+        if onlines: body2 = '\n\n' + online_header + '\n' + onlines + '\n\n'
+        else:       body2 = ''
+        
 
         # Send the main info message
-        self.state['laps_message_id'] = self.send_message(self.webhook_laps, body, laps_footer, self.state['laps_message_id'])
+        self.state['laps_message_id'] = self.send_message(self.webhook_laps, body1, body2, '\n\n'+laps_footer, self.state['laps_message_id'])
         if self.state['laps_message_id'] == None: print('DID NOT EDIT OR SEND LAPS MESSAGE')
 
 
@@ -517,10 +521,10 @@ class Monitor():
         if onlines:
 
             # Assemble the message body
-            body = online_header + '\n\n' + onlines
+            body1 = online_header + '\n\n' + onlines
 
             # Send the message
-            self.state['online_message_id'] = self.send_message(self.webhook_online, body, online_footer, self.state['online_message_id'])
+            self.state['online_message_id'] = self.send_message(self.webhook_online, body1, '', '\n\n'+online_footer, self.state['online_message_id'])
             if self.state['online_message_id'] == None: print('DID NOT EDIT OR SEND ONLINES')
 
         # Otherwise, try to delete any existing message
@@ -528,107 +532,6 @@ class Monitor():
 
         # Save the state.
         self.save_and_archive_state()
-
-
-
-    # def send_online(self):
-    #     """
-    #     Assembles the online list string from state, online_header and
-    #     online_footer, then sends it. Returns message_id
-    #     """
-    #     print('send_online():')
-
-    #     # If there are any online, send it
-    #     if len(self.state['online'].keys()) > 0:
-
-    #         onlines = []; n=1
-    #         for name in self.state['online']:
-    #             onlines.append('**'+str(n)+'.** '+name+' ('+self.state['online'][name]['car']+')')
-    #             n += 1
-
-    #         # Send it for each webhook
-    #         #
-    #         # Remember the existing ids and clear the list to repopulate
-    #         ids = self.state['online_message_id']
-    #         self.state['online_message_id'] = []
-    #         for i in range(len(self.webhook_online)):
-
-    #             # Use existing message id or go none
-    #             if i < len(ids): id = ids[i]
-    #             else:            id = None
-
-    #             # Append the new message id while sending
-    #             self.state['online_message_id'].append(self.send_message(
-    #                 self.webhook_online[i], '\n'+'\n'.join(onlines),
-    #                 online_header, online_footer, id))
-
-    #     # Otherwise, delete the messages and remove the message ids
-    #     else:
-    #         for i in range(len(self.webhook_online)):
-
-    #             # If we have a message id for this webhook, delete the message
-    #             if i < len(self.state['online_message_id']):
-    #                 self.delete_message(self.webhook_online[i], self.state['online_message_id'][i])
-
-    #         # Reset the online message ids
-    #         self.state['online_message_id'] = []
-
-    # def send_laps(self):
-    #     """
-    #     Sorts and sends the lap times to the discord.
-    #     """
-    #     print('\nSENDING LAPS MESSAGE')
-    #     # Structure:
-    #     # state['laps'][name][car] = '12:32:032'
-
-    #     # loop over the names, assembling a sorted list
-    #     # of the form [(time, name, car), ...]
-    #     s = []
-    #     print('DRIVER BESTS:')
-    #     for name in self.state['laps']:
-
-    #         # Get the list of [(car, lap), ...]
-    #         carlaps = self.state['laps'][name].items()
-    #         if len(carlaps) == 0: continue
-
-    #         # Sort each driver
-    #         carlaps = sorted(carlaps, key=lambda carlap: self.to_ms(carlap[1]['time']))
-
-    #         # Append the best
-    #         s.append((carlaps[0][1], name, carlaps[0][0]))
-    #         print('  ', *s[-1])
-
-
-    #     # Sort the laps by time. Becomes [(name,(time,car)),(name,(time,car)),...]
-    #     s = sorted(s, key=lambda i: self.to_ms(i[0]['time']))
-
-    #     print('MESSAGE:')
-
-    #     # Assemble the message
-    #     header = venue_header + '**['
-
-    #     # If we have a carset, start with that
-    #     if self.state['carset']: header = header + str(self.state['carset'])+' at '
-
-    #     # Track name
-    #     track_name = self.state['track_name']
-    #     if not track_name: track_name = self.state['track_directory']
-    #     if track_name: header = header + track_name + '!]('+url_mods+')**'
-
-    #     # Below the venue and above laps
-    #     header = header + '\n' + laps_header
-
-    #     # Now loop over the entries
-    #     laps = []
-    #     for n in range(len(s)): laps.append('**'+str(n+1) + '.** ' + s[n][0]['time'] + ' ' + s[n][1] + ' ('+s[n][2]+')')
-
-    #     # Send it
-    #     self.state['laps_message_id'] = self.send_message(self.webhook_laps, '\n'.join(laps), header, laps_footer, self.state['laps_message_id'])
-    #     if self.state['laps_message_id'] == None: print('DID NOT EDIT OR SEND LAPS MESSAGE')
-
-    #     # Save the state.
-    #     self.save_and_archive_state()
-
 
     def delete_message(self, webhook, message_id):
         """
@@ -642,19 +545,28 @@ class Monitor():
             try: webhook.delete_message(message_id)
             except: pass
 
-    def send_message(self, webhook, body, footer, message_id=None):
+    def send_message(self, webhook, body1, body2, footer, message_id=None):
         """
         Sends a message with the supplied header and footer, making sure it's
-        less than 2000 characters total. Returns the message id
+        less than 4096 characters total. Returns the message id
         """
         print('\nsend_message()')
 
         # Make sure we are given a proper message_id
         if not type(message_id) == int: message_id = None
 
-        # Make sure we're not over the 4096 character limit
-        if len(body+'\n\n'+footer) > 4096: body = body[0:2000-7-len(footer)] + ' ...\n\n' + footer
-        else:                              body = body +'\n\n'+ footer
+        # Keep the total character limit below 4096, cutting body1 first, then body 2
+        if len(body1+body2+footer) > 4070: # 4070 gives a little buffer for ... and stuff. I don't wanna count.
+            
+            # If body2 and footer are already over the limit, just trim body2 and be done
+            if len(body2+footer) > 4070: body = body2[0:4070-len(footer)] + ' ...' + footer
+            
+            # Otherwise, we trim body1
+            else:                        body = body1[0:4070-len(body2)-len(footer)] + ' ...' + body2 + footer
+
+        # Otherwise just use the whole thing
+        else: body = body1 + body2 + footer
+
         print(body)
 
         # If the message_id is supplied, edit, otherwise, send
