@@ -508,7 +508,7 @@ class Monitor():
         if laps: body1 = body1 + '**Laps:**\n' + laps
 
         # Separate body for who's online (laps get cut first)
-        if onlines: body2 = '\n\n' + online_header + '\n' + onlines + '\n\n'
+        if onlines: body2 = '\n\n' + online_header + '\n' + onlines
         else:       body2 = ''
 
         # Send the main info message
