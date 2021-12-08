@@ -25,6 +25,7 @@ url_mods            = ''
 online_header       = ''
 online_footer       = ''
 venue_header        = ''
+venue_subheader     = ''
 laps_header         = ''
 laps_footer         = ''
 web_archive_history = 0
@@ -218,15 +219,19 @@ class Monitor():
                         break
 
             # New track!
-            elif line.find('TRACK=') == 0 \
-            and  line.split('=')[-1].strip() != self.state['track_directory']:
+            elif line.find('TRACK=') == 0:
                 print('\n'+line.strip())
-
+                
+                # Get the track
+                track_directory = line.split('=')[-1].strip()
+                print('  ', track_directory, self.state['track_directory'])
+                
                 # Run the new-track business on the new track name
-                self.new_track(line.split('=')[-1].strip())
+                if track_directory != self.state['track_directory']:
+                    self.new_track(line.split('=')[-1].strip())
 
             # JACK: This causes race restarting to create a new
-            #       archive file. timestamp_temp queue only update if track changes
+            #       archive file. timestamp_last should only update if track / car changes
             # Time stamp is one above the CPU number
             elif line.find('Num CPU:') == 0:
                 self.timestamp_last = self.history[1].strip().replace(' ', '.')+'.'
