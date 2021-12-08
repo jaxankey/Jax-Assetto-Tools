@@ -4,10 +4,18 @@ import glob, codecs, os, shutil, pathlib, random, json, pyperclip, webbrowser
 import spinmob.egg as egg
 egg.gui.egg_settings_path = os.path.join(egg.settings.path_home, 'ac_server_uploader')
 
+# Change to the directory of this script
+os.chdir(os.path.dirname(os.path.abspath(__file__)))
+print('WORKING DIRECTORY:')
+print(os.getcwd())
+
 # GUI class for configuring the server
 class server():
+    """
+    GUI class for uploading content and restarting the assetto server.
+    """
 
-    def __init__(self):
+    def __init__(self, blocking=True):
 
         ######################
         # Set the working directory to that of the script
@@ -128,9 +136,6 @@ class server():
         # Test mode
         self.checkbox_test = self.grid2s.add(egg.gui.CheckBox('Test Mode', autosettings_path='checkbox_test'))
 
-        # Show it.
-        self.window.show()
-
         ###################
         # Load tracks and cars
         self.button_refresh.click()
@@ -138,6 +143,11 @@ class server():
 
         # Do this after updating carsets to avoid issues
         self.combo_carsets.signal_changed.connect(self._combo_carsets_changed)
+
+
+        ######################
+        # Show it no more commands below this.
+        self.window.show(blocking)
 
     def _button_upload_clicked(self,e):
         """
