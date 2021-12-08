@@ -500,6 +500,9 @@ class Monitor():
         if not track_name: track_name = self.state['track_directory']
         if track_name: body1 = body1 + track_name + '!]('+url_mods+')**'
 
+        # Subheader
+        body1 = body1 + venue_subheader
+
         # Below the venue and above laps
         body1 = body1 + '\n\n'
         if laps: body1 = body1 + '**Laps:**\n' + laps
@@ -507,7 +510,6 @@ class Monitor():
         # Separate body for who's online (laps get cut first)
         if onlines: body2 = '\n\n' + online_header + '\n' + onlines + '\n\n'
         else:       body2 = ''
-        
 
         # Send the main info message
         self.state['laps_message_id'] = self.send_message(self.webhook_laps, body1, body2, '\n\n'+laps_footer, self.state['laps_message_id'])
