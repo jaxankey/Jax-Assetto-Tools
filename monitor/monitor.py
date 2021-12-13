@@ -276,6 +276,8 @@ class Monitor():
         """
         If the track has changed, archive the old state.json and start anew!
         """
+        print('new_venue()')
+        
         # Dump the existing state and copy to the archive before we update the timestamp
         self.save_and_archive_state()
 
@@ -289,7 +291,6 @@ class Monitor():
         self.delete_online_messages()
 
         # Stick the track directory in there
-        print('new_venue()')
         print('  track ', self.state['track_directory'], '->', track)
         print('  layout', self.state['track_layout'],    '->', layout)
         print('  cars  ', self.state['cars'],            '->', cars)
