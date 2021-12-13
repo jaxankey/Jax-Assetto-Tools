@@ -274,7 +274,7 @@ class Monitor():
         self.save_and_archive_state()
 
         # Send the (empty) laps message
-        self.state_messages()
+        self.send_state_messages()
 
     def save_and_archive_state(self, skip=False):
         """
