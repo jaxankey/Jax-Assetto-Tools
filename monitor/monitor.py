@@ -63,29 +63,29 @@ class Monitor():
         if url_webhook_laps:
             self.webhook_laps   = discord.Webhook.from_url(url_webhook_laps,   adapter=discord.RequestsWebhookAdapter())
 
-        # Dictionary of the server state
+        # Reset the state to start
+        self.reset_state()
+
+        # Load an existing state.json if it's there to get last settings
         p = os.path.join('web','state.json')
         if os.path.exists(p):
-            self.state = json.load(open(p))
+            self.state.update(json.load(open(p)))
             print('\nFOUND state.json, loaded')
-            pprint.pprint(self.state)
-        else:
-            print('\nRESETTING STATE...')
-            self.reset_state()
+            if debug: pprint.pprint(self.state)
 
         # Dictionary to hold race.json information
         self.race_json = None
 
         # First run of update_state_with_race_json()
         self.update_state_with_race_json()
-        print('\nLOADED STATE:')
-        pprint.pprint(self.state)
+        print('\nLOADED STATE')
+        if debug: pprint.pprint(self.state)
 
         # Parse the existing log
         if debug: self.parse_lines(open(path_log).readlines())
         else:     self.parse_lines(open(path_log).readlines(), False, False, True)
         print('\nAFTER INITIAL PARSE:')
-        pprint.pprint(self.state)
+        if debug: pprint.pprint(self.state)
 
         # Timestamp only gets updated when the track CHANGES, which will not happen
         # on the initial parse if we have a state.json already.
@@ -112,12 +112,14 @@ class Monitor():
 
             track_name        = None,   # Track / layout name
             track_directory   = None,   # Directory name of the track
+            track_layout      = None,   # Layout name
             laps_message_id   = None,   # id of the discord message about laps to edit
 
             archive_path      = None,   # Path to the archive of state.json
             laps              = dict(), # Dictionary by name of valid laps for this track / layout
             naughties         = dict(), # Dictionary by name of cut laps
             carset            = None,   # carset name from race.json if present
+            cars              = list(), # List of car directories
         )
 
     def parse_lines(self, lines, log_drivers=True, update_laps=True, do_not_save_state=False):
@@ -218,19 +220,36 @@ class Monitor():
                         # No need to keep looping through the history.
                         break
 
-            # New track!
-            # JACK This doesn't detect layout changes. Try the 
-            # CALLING http://93.57.10.21/lobby.ashx/register?name=discord.me%2FLoPeN+for+cars%2C+tracks%2C+and+laughs%21+Flags+drop+Sundays+9%3A30pm+%26+10pm+ET&port=9600&tcp_port=9600&max_clients=24&track=lilski_watkins_glen-boot_classic&cars=gt4_aston_martin_vantage%2Cgt4_audi_r8%2Cgt4_camaro%2Cgt4_ford_mustang%2Cgt4_mclaren_570s%2Cgt4_mercedes_amg%2Cgt4_porsche_cayman_718%2Cgt4_toyota_supra&timeofday=-32&sessions=2,3&durations=900000,1200&password=0&version=202&pickup=1&autoclutch=1&abs=0&tc=1&stability=0&legal_tyres=&fixed_setup=0&timed=1&extra=1&pit=0&inverted=1
-            elif line.find('TRACK=') == 0:
+            # Check if track or carset has changed from the CALLING line after initialization
+            elif line.find('CALLING ') == 0:
                 print('\n'+line.strip())
+
+                # Split off the ? then split by &
+                items = line.split('?')[1].split('&')
                 
-                # Get the track
-                track_directory = line.split('=')[-1].strip()
-                print('  ', track_directory, self.state['track_directory'])
-                
-                # Run the new-track business on the new track name
-                if track_directory != self.state['track_directory']:
-                    self.new_track(line.split('=')[-1].strip())
+                # Make the items into a dictionary
+                for item in items: 
+                    s = item.split('=')
+                    if(len(s) > 1): 
+
+                        # Cars list
+                        if s[0] == 'cars': 
+                            cars = s[1].split('%2C')
+                            print('  Cars:', cars)
+                        
+                        # Track directory and layout
+                        elif s[0] == 'track': 
+                            tl = s[1].split('-')
+                            track_directory = tl[0]
+                            if len(tl) > 1: track_layout = tl[1]
+                            else:           track_layout = None
+                            print('  Track:', track_directory, track_layout)
+                            
+                # If we have new cars or new track, initialize that.
+                if set(cars)       != set(self.state['cars'])       \
+                or track_directory != self.state['track_directory'] \
+                or track_layout    != self.state['track_layout']:
+                    self.new_venue(track_directory, track_layout, cars)
 
             # Time stamp is one above the CPU number. Only cache it and wait for
             # venue change to reduce the number of log files
@@ -253,12 +272,10 @@ class Monitor():
             except: pass
             self.state['online'].pop(name)
 
-    def new_track(self, new_track_directory):
+    def new_venue(self, track, layout, cars):
         """
         If the track has changed, archive the old state.json and start anew!
         """
-        print('  new_track', self.state['track_directory'], '->', new_track_directory)
-
         # Dump the existing state and copy to the archive before we update the timestamp
         self.save_and_archive_state()
 
@@ -272,7 +289,14 @@ class Monitor():
         self.delete_online_messages()
 
         # Stick the track directory in there
-        self.state['track_directory'] = new_track_directory
+        print('new_venue()')
+        print('  track ', self.state['track_directory'], '->', track)
+        print('  layout', self.state['track_layout'],    '->', layout)
+        print('  cars  ', self.state['cars'],            '->', cars)
+
+        self.state['track_directory'] = track
+        self.state['track_layout']    = layout
+        self.state['cars']            = cars
 
         # Update the state with the race.json if it exists (gives track and cars and carset info)
         self.update_state_with_race_json()
