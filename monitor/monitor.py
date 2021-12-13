@@ -230,12 +230,17 @@ class Monitor():
                 if track_directory != self.state['track_directory']:
                     self.new_track(line.split('=')[-1].strip())
 
-            # JACK: This causes race restarting to create a new
-            #       archive file. timestamp_last should only update if track / car changes
-            # Time stamp is one above the CPU number
+            # Time stamp is one above the CPU number. Only cache it and wait for
+            # venue change to reduce the number of log files
             elif line.find('Num CPU:') == 0:
                 self.timestamp_last = self.history[1].strip().replace(' ', '.')+'.'
                 print('\nTIMESTAMP:', self.timestamp_last)
+
+            # Attempt to catch a new log file; clear out onlines
+            elif line.find('Assetto Corsa Dedicated Server') == 0:
+                self.state['online'] = dict()
+                self.send_state_messages()
+                self.save_and_archive_state()
 
     def delete_online_messages(self):
         """
