@@ -219,6 +219,8 @@ class Monitor():
                         break
 
             # New track!
+            # JACK This doesn't detect layout changes. Try the 
+            # CALLING http://93.57.10.21/lobby.ashx/register?name=discord.me%2FLoPeN+for+cars%2C+tracks%2C+and+laughs%21+Flags+drop+Sundays+9%3A30pm+%26+10pm+ET&port=9600&tcp_port=9600&max_clients=24&track=lilski_watkins_glen-boot_classic&cars=gt4_aston_martin_vantage%2Cgt4_audi_r8%2Cgt4_camaro%2Cgt4_ford_mustang%2Cgt4_mclaren_570s%2Cgt4_mercedes_amg%2Cgt4_porsche_cayman_718%2Cgt4_toyota_supra&timeofday=-32&sessions=2,3&durations=900000,1200&password=0&version=202&pickup=1&autoclutch=1&abs=0&tc=1&stability=0&legal_tyres=&fixed_setup=0&timed=1&extra=1&pit=0&inverted=1
             elif line.find('TRACK=') == 0:
                 print('\n'+line.strip())
                 
