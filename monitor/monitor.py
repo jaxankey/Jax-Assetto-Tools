@@ -284,7 +284,7 @@ class Monitor():
         # Timestamp changes only for new track; use the most recently seen timestamp
         self.timestamp = self.timestamp_last
 
-        # Reset everything but the online users
+        # Reset everything; new venue happens when the server resets, which boots people (hopefully)
         self.reset_state()
 
         # Remove all online driver messages
@@ -467,7 +467,7 @@ class Monitor():
 
         # Scan through the state and collect the driver best laps.
         laps = []
-        print('DRIVER BESTS:')
+        if debug: print('DRIVER BESTS:')
         for name in self.state['laps']:
 
             # Get the list of [(car, lap), ...]
@@ -479,7 +479,7 @@ class Monitor():
 
             # Append the best
             laps.append((carlaps[0][1], name, carlaps[0][0]))
-            print('  ', *laps[-1])
+            if debug: print('  ', *laps[-1])
 
         # Sort the laps by time. Becomes [(name,(time,car)),(name,(time,car)),...]
         laps = sorted(laps, key=lambda i: self.to_ms(i[0]['time']))
@@ -517,11 +517,11 @@ class Monitor():
 
         # Get the list of who is online
         onlines = self.get_onlines_string()
-        print('Online:\n', onlines)
+        if debug: print('Online:\n', onlines)
 
         # Get the list of driver best laps
         laps = self.get_laps_string()
-        print('Laps:\n', laps)
+        if debug: print('Laps:\n'+laps)
 
         ###################################
         # INFO MESSAGE WITH LAPS AND ONLINE
@@ -605,7 +605,7 @@ class Monitor():
         # Otherwise just use the whole thing
         else: body = body1 + body2 + footer
 
-        print(body)
+        if debug: print(body)
 
         # If the message_id is supplied, edit, otherwise, send
         if webhook:
