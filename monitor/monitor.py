@@ -85,7 +85,7 @@ class Monitor():
         if debug: self.parse_lines(open(path_log).readlines())
         else:     self.parse_lines(open(path_log).readlines(), False, False, True)
         print('\nAFTER INITIAL PARSE:')
-        if debug: pprint.pprint(self.state)
+        pprint.pprint(self.state)
 
         # Timestamp only gets updated when the track CHANGES, which will not happen
         # on the initial parse if we have a state.json already.
