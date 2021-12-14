@@ -23,19 +23,17 @@ This repository is for me to remember how I configured my Assetto Corsa (AC) Ubu
 
 In principle, the rest of this document will work with any Ubuntu- or Debian-based Linux server, and can be readily adapted to other operating systems. 
 
-## Installing Assetto Server On Ubuntu
+## Installing and Running the Assetto Corsa Server on Ubuntu
 
-Once you have a remote Ubuntu server with `ssh` access via an identity file, you can login with a command like `ssh -i "/path/to/identity/file.pem" username@blah-blah`, and similarly use `scp` to transfer files. Both `ssh` and `scp` are required for the `uploader` script to work. To get `ssh` and `scp` on your Windows machine, I recommend [Cygwin](https://cygwin.com/): run the installer, and make sure to choose the latest `OpenSSH` package. Then the Windows console will have these commands. Note for simple file transfers using the same identity file, you can use something like [FileZilla](https://filezilla-project.org/), connecting via "SFTP".
+Once we have a remote Ubuntu server with `ssh` access via an identity file, we can login with a command like `ssh -i "C:\local\path\to\identity_file.pem" username@blah-blah` (AWS provides this command via the "Connect" button associated with your instance, under "SSH Client"). To get a nice version of `ssh` on a Windows machine, I recommend [Cygwin](https://cygwin.com/): run the installer, and make sure to include the latest `OpenSSH` package; then the Windows console will have these command. Note this comes with `scp`, which allows for uploading over `ssh` connections (used by the content uploader!), but for simple file transfers you can also use something like [FileZilla](https://filezilla-project.org/), connecting via "SFTP" with the same identity file.
 
-Once logged into the remote Ubuntu server, we can install the Assetto Corsa server as follows.
-
-First we need to make sure we have a few libraries installed:
+Once we are logged in via `ssh`, we can install the Assetto Corsa server. First we need to make sure we have a few libraries installed:
 
 ```console
 username@blah-blah:~$ sudo apt-get install lib32gcc1 zlib1g
 ```
 
-For me, zlib1g was already installed. Anyway, we can then install Steam (I installed to the home directory `~`, i.e., `/home/ubuntu`):
+For me, zlib1g was already installed. Next we install Steam (I installed to the home directory `~`, i.e., `/home/ubuntu`):
 
 ```console
 username@blah-blah:~$ mkdir ~/steam
@@ -59,20 +57,26 @@ Steam> app_update 302550
 Steam> exit
 ```
 
-Check the directory `~/steam/assetto/cfg/` (e.g. by typing `ls ~/steam/assetto/cfg`) for configuration files. You can view / edit this file with `nano ~/steam/assetto/cfg/server_cfg.ini` (or use relative paths). For now I would only change the variable `NAME` to something that will be easy to find in the Kunos list. Also find and write down the `UDP_PORT`, `TCP_PORT`, and `HTTP_PORT` values, so you know what ports you need to open. For my AWS server, I opened firewall ports `TCP/UDP 9600` and `TCP 8081` using the web interface (click your instance id link -> "Security" -> link below "Security Groups" -> "Edit Inbound Rules" button), but you can also use a tool like `ufw` or something fancier to configure your firewall. Make sure any hardware interfaces (e.g., routers) also forward these ports to the right computer. 
+Next, we check the directory `~/steam/assetto/cfg/` (e.g. by typing `ls ~/steam/assetto/cfg`) for configuration files. We can view / edit the `server_cfg.ini` file with `nano ~/steam/assetto/cfg/server_cfg.ini` (or use relative paths). To get the server running, I recommend only changing the variable `NAME` to something that will be easy to find in the Kunos list. Also look for and note the values of `UDP_PORT`, `TCP_PORT`, and `HTTP_PORT`, so you know what ports you need to open. On my AWS server, I ended up opening firewall ports `TCP/UDP 9600` and `TCP 8081` using the web interface (instance page -> "Security" -> link below "Security Groups" -> "Edit Inbound Rules"), but you can also use a tool like `ufw` or something fancier to configure your firewall. If you're running a home server, also make sure any routers etc are forwarding these ports to the right computer.
 
-Next, change to the assetto directory, and start the server!
+Finally, change to the assetto directory, and start the server:
 
 ```console
 username@blah-blah:~/steam$ cd assetto
-username@blah-blah:~/steam/assetto$ ./acServer &> ~/ac-server-log.txt &
+username@blah-blah:~/steam/assetto$ ./acServer
 ```
 
-In the second command, we redirect the server output to the text file `~/ac-server-log.txt`, which you can view with `cat ~/ac-server-log.txt` or `nano` as above, and the last `&` makes it persist after I log out. Make sure the log file doesn't have any (serious) errors (you will see warnings), and check that you can find the `acServer` process with the command `htop` (may need to install this with `sudo apt install htop`). You can also run the `./acServer` with nothing to see the output in real time, which helps for troubleshooting.
+Now go find and try to connect to the server! You will see information logged to the running terminal as server events happen. 
 
-Go find and try to connect to the server!
+If you want the server to continue running after you logout, first kill the current server with `ctrl`+`c`, then use the command
 
-If you want to stop the server,
+```
+username@blah-blah:~/steam/assetto$ ./acServer &> ~/acServer.log &
+```
+
+Here, `&>` redirects the output to the file `~/acServer.log`, which we can view with `cat ~/acServer.log` or `nano ~/acServer.log` as above. The last `&` ensures this will continue to run after we log out. Make sure the log file doesn't have any (serious) errors (some warnings are normal), and check that you can find the `acServer` process with the command `htop` (installed with `sudo apt install htop`). 
+
+If you want to stop the server, you can do so from `htop`, or run a command like
 
 ```console
 pkill acServer
