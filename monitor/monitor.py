@@ -245,9 +245,9 @@ class Monitor():
                             else:           track_layout = None
                             print('  Track:', track_directory, track_layout)
                             
-                # If we have new cars or new track, initialize that.
-                if set(cars)       != set(self.state['cars'])       \
-                or track_directory != self.state['track_directory'] \
+                # If we have (entirely!) new cars or new track, initialize that.
+                if len(set(cars).intersection(self.state['cars'])) == 0 \
+                or track_directory != self.state['track_directory']     \
                 or track_layout    != self.state['track_layout']:
                     self.new_venue(track_directory, track_layout, cars)
 
