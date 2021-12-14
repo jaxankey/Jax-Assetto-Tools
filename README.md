@@ -1,26 +1,25 @@
 # Jack's Assetto Server Tutorial & Tools (UNDER CONSTRUCTION)
-This repository is for me to remember how I configured my AWS Assetto Corsa (AC) Ubuntu server, and to not lose the precious, precious scripts I wrote to automate it. Most of these instructions will work for any Assetto Server, though. 
+This repository is for me to remember how I configured my Assetto Corsa (AC) Ubuntu server running on Amazon Web Services (AWS), and to not lose scripts I wrote to automate it. Most of this will work for any remote Linux-based AC server, though.
 
 **Targeted Workflow:** I host weekly races with the [League of Perpetual Novices](https://discord.me/LoPeN) with a 24/7 practice server, and car reservation via a simple [Google Sheet](https://www.google.ca/sheets/about/). The server is run in "pickup" mode, meaning people who don't sign up can still hop in at any time. Unfortunately, due to limitations in AC's server code, pickup mode precludes people choosing specific skins. I am also incredibly busy. As such, I need:
- 1. A one-step of choosing a track-cars combo, uploading via `ssh`, restarting the server
- 2. A quick way to adjust the reservation sheet so people can only select the specified cars
- 3. An automated server script that grabs the reservation data and starts qualification a few hours before the race
+ 1. A quick method for choosing a track-cars combo, uploading (via `ssh`), restarting the server, setting up the reservations sheet, and informing everyone on the discord server.
+ 2. A discord bot that monitors the server, sending Discord messages with lap times and who is on the server
+ 3. A script that grabs the reservation data, reconfigures the server, starts the event, and notifies the Discord group
 
 **To be included here:**
- * Some information about Amazon Web Services
- * Instructions for setting up an Ubuntu AC server remotely
- * Instructions for setting up the reservation sheet
- * A script for selecting tracks, selecting cars, randomizing skins, uploading via `ssh`, restarting the server, copying the car list to the clipboard, and forwarding me to the google sheet so I can paste this in (making it easy for people to choose a car).
- * A script for the server to automatically grabbing the reservation data, update the config files, and restart the server, along with instructions for automating this with `crontab`.
+ * Some basic information about Amazon Web Services
+ * Instructions for setting up a remote Ubuntu AC server
+ * Instructions for setting up a google reservations sheet
+ * Information about how to use the scripts
 
 ## Amazon Web Services (AWS)
-I choose AWS to host because they have a very fast internet connection, nearly 100% uptime, and solid security measures. I also don't have any personal information on their network and really do not care if someone smashes their server to pieces. Just make sure you have a really strong password ;).
+**About:** I choose AWS to host because they have a very fast internet connection, nearly 100% uptime, and solid security measures. I also don't have any personal information on their network and really do not care if someone smashes their server to pieces, either digitally or mechanically. In Canadia and 'Murrica (at least), AWS offers an ["Always Free Tier"](https://aws.amazon.com/free/), providing 1 full-time processor, plenty of RAM / storage, 15GB of free outbound bandwidth per month, and additional traffic at $0.09 (CAD) per GB. 
 
-In Canadia and Murrica at least, AWS offers an ["Always Free Tier"](https://aws.amazon.com/free/), providing 1 full-time processor, plenty of RAM / storage, 15GB of free outbound traffic, and additional traffic at about $0.09 (CAD) per GB. We are still benchmarking usage, but preliminary tests suggest small weekly races may not hit the limit, and bigger grids may cost about $3-$7 per month, which is competitive with my favorite hosting company, [GTX Gaming](https://www.gtxgaming.co.uk/). 
+**Bandwidth Usage:** Hosting a weekly event with 10-15 drivers (two 40-minute heats, qualifying, and a 24/7 practice server) uses a few GB of outbound bandwidth per month. With the server set to 18 Hz refresh rate (plenty), we measured that ~10 cars use ~170 KiB/s, meaning a solid hour of racing uses about 630 MB. For N clients, the server must send N people N packets each, so this data rate should nominally scale as N *squared*, meaning 24 clients should use at most ~4 GB/hour, while a handful of people randomly practicing during the week use essentially nothing. Additionally, Assetto does some optimization, sending less information for cars that are farther away, meaning N-squared is a generous upper bound. To get a sense of potential cost beyond 15 GB, if you get 40 people to race a full hour 5 times a month, the N-squared upper bound is about 50 GB or ~$5 CAD. This is competitive with my favorite hosting company, [GTX Gaming](https://www.gtxgaming.co.uk/), which provided me 24 slots for about $5-$6 CAD a month (note these could be *full*, 24/7; it's a different pricing model). I switched to AWS because our needs are simple and I wanted to automate everything.
 
-I will not include much information about AWS (Amazon will do a better job of this), except to say that I set up the following:
+**Setting up AWS:** I will not include much information about how to set up and access an AWS server (Amazon will do a better job of this), except to say that I use the following:
  * A `t2.micro` instance with Ubuntu Linux on it
- * SSH login enabled using an identity file (\*.pem) that I generated and downloaded from the AWS web interface
+ * SSH login enabled using an identity file (\*.pem) generated and downloaded from the AWS web interface
 
 In principle, the rest of this document will work with any Ubuntu- or Debian-based Linux server, and can be readily adapted to other operating systems. 
 
