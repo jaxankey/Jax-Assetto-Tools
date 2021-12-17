@@ -12,4 +12,4 @@ This repository is for me to remember how I configured my Assetto Corsa (AC) Ubu
  * Instructions for setting up a google reservations sheet
  * Information about how to use the scripts
 
-**[CHECK THE WIKI](https://github.com/jaxankey/Jax-Assetto-Tools/wiki)** for more information!
+**[See the Wiki](https://github.com/jaxankey/Jax-Assetto-Tools/wiki)** for more information!
