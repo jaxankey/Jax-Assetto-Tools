@@ -464,6 +464,11 @@ class server():
         if self.combo_carsets.get_index() == 0:
             name, ok = egg.pyqtgraph.QtGui.QInputDialog.getText(egg.pyqtgraph.QtGui.QWidget(), 'New Carset', 'Name your carset:')
             if not ok or name.strip() == '': return
+            
+            # Add it to the combo and select it
+            self.combo_carsets.add_item(name)
+            self.combo_carsets.set_text(name)
+
 
         # Otherwise use what's there.
         else: name = self.combo_carsets.get_text()
@@ -475,10 +480,6 @@ class server():
         f = open(os.path.join('carsets', name), 'w')
         f.write(str(self.get_selected_cars()))
         f.close()
-
-        # Add it to the combo and select it
-        self.combo_carsets.add_item(name)
-        self.combo_carsets.set_text(name)
 
     def _button_browse_pem_clicked(self, e):
         """
