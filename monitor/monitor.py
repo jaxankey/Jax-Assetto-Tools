@@ -153,17 +153,17 @@ class Monitor():
                     self.last_requested_car = car
 
             # Driver name comes toward the end of someone connecting
-            # DRIVER: Jack []
+            # DRIVER: Driver Name []
             elif line.find('DRIVER:') == 0:
                 print('\n'+line.strip())
                 self.driver_connects(line[7:].split('[')[0].strip(), log_drivers, do_not_save_state)
 
-            # Clean exit, driver disconnected:  Jack []
+            # Clean exit, driver disconnected:  Driver Name []
             elif line.find('Clean exit, driver disconnected') == 0:
                 print('\n'+line.strip())
                 self.driver_disconnects(line[33:].split('[')[0].strip(), log_drivers, do_not_save_state)
 
-            # Connection is now closed for Jack []
+            # Connection is now closed for Driver Name []
             elif line.find('Connection is now closed') == 0:
                 print('\n'+line.strip())
                 self.driver_disconnects(line[28:].split('[')[0].strip(), log_drivers, do_not_save_state)
@@ -226,30 +226,36 @@ class Monitor():
 
                 # Split off the ? then split by &
                 items = line.split('?')[1].split('&')
-                
+
                 # Make the items into a dictionary
-                for item in items: 
+                for item in items:
                     s = item.split('=')
-                    if(len(s) > 1): 
+                    if(len(s) > 1):
 
                         # Cars list
-                        if s[0] == 'cars': 
+                        if s[0] == 'cars':
                             cars = s[1].split('%2C')
                             print('  Cars:', cars)
-                        
+
                         # Track directory and layout
-                        elif s[0] == 'track': 
+                        elif s[0] == 'track':
                             tl = s[1].split('-')
                             track_directory = tl[0]
                             if len(tl) > 1: track_layout = tl[1]
                             else:           track_layout = None
                             print('  Track:', track_directory, track_layout)
-                            
+
                 # If we have (entirely!) new cars or new track, initialize that.
                 if len(set(cars).intersection(self.state['cars'])) == 0 \
                 or track_directory != self.state['track_directory']     \
                 or track_layout    != self.state['track_layout']:
                     self.new_venue(track_directory, track_layout, cars)
+
+                # Otherwise, load the new race_json to cover some changes in car stuff
+                else: self.update_state_with_race_json()
+
+                # Regardless, update the cars
+                self.state['cars'] = cars
 
             # Time stamp is one above the CPU number. Only cache it and wait for
             # venue change to reduce the number of log files
@@ -277,7 +283,7 @@ class Monitor():
         If the track has changed, archive the old state.json and start anew!
         """
         print('new_venue()')
-        
+
         # Dump the existing state and copy to the archive before we update the timestamp
         self.save_and_archive_state()
 
@@ -347,7 +353,6 @@ class Monitor():
         f = open(path_archive+'.txt', 'w')
         f.write('\n'.join(paths))
         f.close()
-
 
     def driver_connects(self, name, log_drivers, do_not_save_state):
         """
@@ -433,8 +438,7 @@ class Monitor():
             # If the track doesn't match the race.json,
             # Reset everything! Initially state['track_name'] is None
             if self.race_json['track']['name'] != self.state['track_name'] \
-            or 'carset' not in self.state \
-            or self.race_json['carset']        != self.state['carset']:
+            or 'carset' not in self.state:
 
                 # If we have an old message id, clear it
                 if self.state['laps_message_id']:
@@ -446,7 +450,7 @@ class Monitor():
                 # Reset the laps dictionary
                 self.state['laps'] = dict()
 
-                # Update the track name and directory
+                # Update the track name, directory, and carset name
                 self.state['track_name']      = self.race_json['track']['name']
                 self.state['track_directory'] = self.race_json['track']['directory']
                 self.state['carset']          = self.race_json['carset']
@@ -474,12 +478,20 @@ class Monitor():
             carlaps = self.state['laps'][name].items()
             if len(carlaps) == 0: continue
 
-            # Sort each driver
+            # Sort the laps by car for each driver into ((nice_carname, time), (nice_carname, time), ...)
             carlaps = sorted(carlaps, key=lambda carlap: self.to_ms(carlap[1]['time']))
 
-            # Append the best
-            laps.append((carlaps[0][1], name, carlaps[0][0]))
-            if debug: print('  ', *laps[-1])
+            # JACK: Loop from fastest down, and take the first car that exists in the state.
+            # race.json['cars'].keys() has the nice names. and race.json['cars'][nice_name] gives the directory name.
+            # race_json doesn't always exist, though, but state['cars'] is a list of directory names.
+            for carlap in carlaps:
+
+                # If the car with this time is part of the venue, store it and break the loop
+                if carlap[0] in self.state['cars'] \
+                or self.race_json and carlap[0] in self.race_json['cars']:
+                    laps.append((carlap[1], name, carlap[0]))
+                    if debug: print('  ', *laps[-1])
+                    break
 
         # Sort the laps by time. Becomes [(name,(time,car)),(name,(time,car)),...]
         laps = sorted(laps, key=lambda i: self.to_ms(i[0]['time']))
