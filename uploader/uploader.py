@@ -53,9 +53,15 @@ class server():
         self.tab_settings.new_autorow()
         self.tab_settings.add(egg.gui.Label('Login:'))
         self.text_login = self.tab_settings.add(egg.gui.TextBox('username@ec2-or-whatever.compute.amazonaws.com', 
-            tip='Your server login string, e.g., username@ssh-web-address.whatever',
+            tip='Your server\'s ssh username@ssh-web-address',
             autosettings_path='text_login'), alignment=0)
-
+        
+        self.tab_settings.new_autorow()
+        self.tab_settings.add(egg.gui.Label('Port:'))
+        self.text_port = self.tab_settings.add(egg.gui.TextBox('22', 
+            tip='SSH Port (default is 22)',
+            autosettings_path='text_port'), alignment=0)
+        
         self.tab_settings.new_autorow()
         self.tab_settings.add(egg.gui.Label('keyfile.pem:'))
         self.text_pem          = self.tab_settings.add(egg.gui.TextBox('C:\\path\\to\\whatever.pem',
@@ -300,9 +306,10 @@ class server():
         self.log('\nServer stuff:')
 
         # Server info
-        login  = self.text_login.get_text()
-        pem    = os.path.abspath(self.text_pem.get_text())
-        remote = self.text_remote.get_text()
+        login   = self.text_login.get_text()
+        port    = self.text_port .get_text()
+        pem     = os.path.abspath(self.text_pem.get_text())
+        remote  = self.text_remote.get_text()
         restart = self.text_restart.get_text()
 
         # Compress the files we gathered (MUCH faster upload)
@@ -320,14 +327,14 @@ class server():
         # Upload the archive
         else:
             self.log('  Uploading uploads.7z...')
-            c = 'scp -i "' + pem + '" uploads.7z '+login+':"'+remote+'"'
+            c = 'scp -P '+port+' -i "' + pem + '" uploads.7z '+login+':"'+remote+'"'
             print(c)
             if self.checkbox_test(): self.log('    (skipped in test mode)')
             else:                    self.system(c)
 
             # Remote extract
             self.log('  Extracting remote uploads.7z...')
-            c = 'ssh -i "'+pem+'" '+login+' 7z x -aoa steam/assetto/uploads.7z -o./steam/assetto/'
+            c = 'ssh -p '+port+' -i "'+pem+'" '+login+' 7z x -aoa steam/assetto/uploads.7z -o./steam/assetto/'
             print(c)
             if self.checkbox_test(): self.log('    (skipped in test mode)')
             else:                    self.system(c)
@@ -336,7 +343,7 @@ class server():
         self.log('  Restarting server...')
         print(c)
         if restart != '': 
-            c = 'ssh -i "'+pem+'" '+login+' '+restart
+            c = 'ssh -p '+port+' -i "'+pem+'" '+login+' '+restart
             if self.checkbox_test(): self.log('    (skipped in test mode)')
             else:                    self.system(c)
 
@@ -416,11 +423,12 @@ class server():
         """
         # Server info
         login  = self.text_login.get_text()
+        port   = self.text_port .get_text()
         pem    = os.path.abspath(self.text_pem.get_text())
         remote = self.text_remote.get_text()
 
         # Upload path
-        c = 'scp -i "' + pem + '" "'+path+'" '+login+':"'+remote+'"'
+        c = 'scp -P '+port+' -i "' + pem + '" "'+path+'" '+login+':"'+remote+'"'
         print(c)
         self.system(c)
 
