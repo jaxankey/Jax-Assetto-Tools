@@ -258,10 +258,12 @@ class server():
             self.log('Launching supplied URL...')
             webbrowser.open(self.text_url())
 
-        # Tracks: all .ini just to be safe (and more like the server)
+        # Track data
         self.log('\nPrepping track:')
         self.log('  '+track)
         d = os.path.join(local, 'content', 'tracks', track)
+
+        # all .ini just to be safe (and more like the server)
         for s in pathlib.Path(d).rglob('*.ini'):
 
             # Get the relative path
@@ -273,6 +275,20 @@ class server():
             # Copy it over
             os.makedirs(os.path.dirname(x), exist_ok=True)
             shutil.copy(s, x)
+
+        # Also the ui_track.json for each layout (and root path)
+        rs = self.combo_layouts.get_all_items() + ['']
+        for r in rs:
+            s = os.path.join(d, 'ui', r, 'ui_track.json')        
+            if os.path.exists(s):
+                
+                # Destination
+                x = os.path.abspath(os.path.join(temp_tracks, track, 'ui', r, 'ui_track.json'))
+                
+                # Copy it.
+                os.makedirs(os.path.dirname(x), exist_ok=True)
+                shutil.copy(s, x)
+
 
         # Writes the server_cfg.ini files based on selection.
         self.generate_cfg()
