@@ -468,7 +468,8 @@ class server():
         # Update the list selection
         self.list_cars.clearSelection()
         for s in selected:
-            self.list_cars.findItems(s, egg.pyqtgraph.QtCore.Qt.MatchExactly)[0].setSelected(True)
+            try:    self.list_cars.findItems(s, egg.pyqtgraph.QtCore.Qt.MatchExactly)[0].setSelected(True)
+            except: print('WARNING: Cars seem to be missing.')
 
     def _button_save_clicked(self,e):
         """
