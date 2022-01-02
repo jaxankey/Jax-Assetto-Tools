@@ -230,19 +230,26 @@ class server():
         self.log('\nPrepping cars:')
         for car in cars:
             self.log('  '+ self.cars[car])
-            d = os.path.join(local, 'content', 'cars', car, 'data')
 
-            # Look for directory first
+            # Look for and copy the data folder first
+            d = os.path.join(local, 'content', 'cars', car, 'data')
             if os.path.exists(d):
                 c = os.path.abspath(os.path.join(temp_cars, car))
                 os.makedirs(c, exist_ok=True)
                 shutil.copytree(d, os.path.join(c,'data'))
 
-            # Now do the acd
+            # Look for and copy the data.acd file too.
             if os.path.exists(d+'.acd'):
                 c = os.path.abspath(os.path.join(temp_cars, car))
                 os.makedirs(c, exist_ok=True)
                 shutil.copy(d+'.acd', os.path.join(c,'data.acd'))
+                
+            # Look for and copy the ui_car.json
+            ui = os.path.join(local, 'content', 'cars', car, 'ui', 'ui_car.json')
+            if os.path.exists(ui):
+                c = os.path.abspath(os.path.join(temp_cars, car, 'ui'))
+                os.makedirs(c, exist_ok=True)
+                shutil.copy(ui, os.path.join(c,'ui_car.json'))
 
         # Copy the nice cars list to the clipboard
         pyperclip.copy(self.get_nice_selected_cars_string())
