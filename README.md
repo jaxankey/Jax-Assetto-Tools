@@ -7,7 +7,7 @@ This repository is for me to remember how I configured my Assetto Corsa (AC) Ubu
     * reconfigure and restart the server
     * set up the reservations sheet
     * inform everyone about the event on [our Discord server](https://discord.me/LoPeN).
- 2. A bot that monitors the server, sending Discord messages with lap times and who is on the server
+ 2. A simple-to-configure bot that monitors the server, sending Discord messages with lap times and who is on the server
  3. An event-night script that grabs the current reservation data, reconfigures the server, starts the event, and notifies everyone
 
 **To be included here:**
