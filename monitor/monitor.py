@@ -8,6 +8,8 @@
 # See monitor.ini for configuration!                             #
 ##################################################################
 
+# JACK: load ui_... if no race.json, then work on groups
+
 import os, json, discord, shutil, pprint, glob, time
 
 # Change to the directory of this script
