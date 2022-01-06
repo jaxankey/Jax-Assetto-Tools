@@ -3,4 +3,6 @@ carsets
 git-*
 *.json
 archive.txt
+uploads
+uploads.7z
 

@@ -8,34 +8,59 @@
 # See monitor.ini for configuration!                             #
 ##################################################################
 
-import os, sh, json, discord, shutil, pprint, glob
+import os, json, discord, shutil, pprint, glob, time
 
 # Change to the directory of this script
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
-print('WORKING DIRECTORY:')
-print(os.getcwd())
 
-# Default user settings
-server_name         = ''
+# USER SETTINGS from monitor.ini or monitor.ini.private
+
+# Important paths!
 path_log            = ''
-path_race_json      = None
-path_carsets        = None
+path_ac             = None
+
+# Temporary post for who is online
 url_webhook_online  = None
-url_webhook_laps    = None
-url_mods            = ''
 online_header       = ''
 online_footer       = ''
+
+# Persistent post for venue information
+url_webhook_info    = None
+url_mods            = ''
 venue_header        = ''
 venue_subheader     = ''
 laps_header         = ''
 laps_footer         = ''
+
+# Other
 web_archive_history = 0
-debug               = False
+debug               = True
 
 # Get the user values from the ini file
 if os.path.exists('monitor.ini.private'): p = 'monitor.ini.private'
 else                                    : p = 'monitor.ini'
 exec(open(p).read())
+
+# Tail function that starts from the top.
+def tail(f, start_from_end=False):
+    """
+    Function that tails the supplied file stream.
+    
+    f is the file specifier such as is returned from the open() command
+    
+    start_from_end will skip everything that exists thus far.
+    """
+
+    # Go to the end of the file
+    if start_from_end: f.seek(0,2) 
+    
+    # This goes on indefinitely
+    while True:
+        line = f.readline()
+        if line: yield line
+        else:    time.sleep(1.0)
+
+
 
 # Class for monitoring ac log file and reacting to different events
 class Monitor():
@@ -48,21 +73,18 @@ class Monitor():
 
         # Discord webhook objects
         self.webhook_online  = None # List of webhooks
-        self.webhook_laps    = None
+        self.webhook_info    = None
 
         # Timestampe of the server log
         self.timestamp = None
 
-        # Create the webhooks for logging who is online
+        # Create the webhook for who is online
         if url_webhook_online:
+            self.webhook_online = discord.Webhook.from_url(url_webhook_online, adapter=discord.RequestsWebhookAdapter())
 
-            # Loop over the webhooks
-            for url in url_webhook_online:
-                self.webhook_online = discord.Webhook.from_url(url, adapter=discord.RequestsWebhookAdapter())
-
-        # We only stick laps in one place
-        if url_webhook_laps:
-            self.webhook_laps   = discord.Webhook.from_url(url_webhook_laps,   adapter=discord.RequestsWebhookAdapter())
+        # Create the webhook for more info
+        if url_webhook_info: 
+            self.webhook_info = discord.Webhook.from_url(url_webhook_info, adapter=discord.RequestsWebhookAdapter())
 
         # Reset the state to start
         self.reset_state()
@@ -83,25 +105,24 @@ class Monitor():
         if debug: pprint.pprint(self.state)
 
         # Parse the existing log
-        if debug: self.parse_lines(open(path_log).readlines())
-        else:     self.parse_lines(open(path_log).readlines(), False, False, True)
+        self.parse_lines(open(path_log).readlines(), True)
         print('\nAFTER INITIAL PARSE:')
         pprint.pprint(self.state)
 
         # Timestamp only gets updated when the track CHANGES, which will not happen
-        # on the initial parse if we have a state.json already.
+        # on the initial parse if we have a state.json from a previous run already.
         self.timestamp = self.timestamp_last
 
-        # Save and archive
-        self.save_and_archive_state()
-
-        # Send the initial laps (skipped)
+        # Send the initial laps (skipped above to avoid a flurry of posts when starting)
         self.send_state_messages()
 
-        # Monitor the log
+        # Save and archive (also skipped to avoid a flurry of saves)
+        self.save_and_archive_state()
+
+        # Monitor the file, but don't bother if we're just debugging.
         if not debug:
             print('\nMONITORING FOR CHANGES...')
-            self.parse_lines(sh.tail("-f", path_log, n=0, _iter=True))
+            self.parse_lines(tail(open(path_log), True))
 
     def reset_state(self):
         """
@@ -123,7 +144,7 @@ class Monitor():
             cars              = list(), # List of car directories
         )
 
-    def parse_lines(self, lines, log_drivers=True, update_laps=True, do_not_save_state=False):
+    def parse_lines(self, lines, init=False):
         """
         Runs the "for line in lines" loop on either a open().readlines() (finite)
         or a sh.tail() call (infinite).
@@ -157,17 +178,17 @@ class Monitor():
             # DRIVER: Driver Name []
             elif line.find('DRIVER:') == 0:
                 print('\n'+line.strip())
-                self.driver_connects(line[7:].split('[')[0].strip(), log_drivers, do_not_save_state)
+                self.driver_connects(line[7:].split('[')[0].strip(), init)
 
             # Clean exit, driver disconnected:  Driver Name []
             elif line.find('Clean exit, driver disconnected') == 0:
                 print('\n'+line.strip())
-                self.driver_disconnects(line[33:].split('[')[0].strip(), log_drivers, do_not_save_state)
+                self.driver_disconnects(line[33:].split('[')[0].strip(), init)
 
             # Connection is now closed for Driver Name []
             elif line.find('Connection is now closed') == 0:
                 print('\n'+line.strip())
-                self.driver_disconnects(line[28:].split('[')[0].strip(), log_drivers, do_not_save_state)
+                self.driver_disconnects(line[28:].split('[')[0].strip(), init)
 
             # Lap completed
             # Result.OnLapCompleted. Cuts: 7
@@ -215,8 +236,9 @@ class Monitor():
                         or t_ms < self.state[laps][n][c]['time_ms']:
 
                             self.state[laps][n][c] = dict(time=t, time_ms=t_ms, cuts=cuts)
-                            self.save_and_archive_state(do_not_save_state)
-                            if update_laps: self.send_state_messages()
+                            if not init: 
+                                self.save_and_archive_state()
+                                self.send_state_messages()
 
                         # No need to keep looping through the history.
                         break
@@ -250,7 +272,7 @@ class Monitor():
                 if len(set(cars).intersection(self.state['cars'])) == 0 \
                 or track_directory != self.state['track_directory']     \
                 or track_layout    != self.state['track_layout']:
-                    self.new_venue(track_directory, track_layout, cars)
+                    self.new_venue(track_directory, track_layout, cars, init)
 
                 # Otherwise, load the new race_json to cover some changes in car stuff
                 else: self.update_state_with_race_json()
@@ -261,14 +283,15 @@ class Monitor():
             # Time stamp is one above the CPU number. Only cache it and wait for
             # venue change to reduce the number of log files
             elif line.find('Num CPU:') == 0:
-                self.timestamp_last = self.history[1].strip().replace(' ', '.')+'.'
+                self.timestamp_last = self.history[1].strip().replace(' ', '.').replace(':','.')
                 print('\nTIMESTAMP:', self.timestamp_last)
 
             # Attempt to catch a new log file; clear out onlines
             elif line.find('Assetto Corsa Dedicated Server') == 0:
                 self.state['online'] = dict()
-                self.send_state_messages()
-                self.save_and_archive_state()
+                if not init:
+                    self.send_state_messages()
+                    self.save_and_archive_state()
 
     def delete_online_messages(self):
         """
@@ -279,9 +302,16 @@ class Monitor():
             except: pass
             self.state['online'].pop(name)
 
-    def new_venue(self, track, layout, cars):
+    def new_venue(self, track, layout, cars, init):
         """
-        If the track has changed, archive the old state.json and start anew!
+        track (direcotry), layout (directory), cars (list of directories)
+
+        If the track or entire carset has changed (as triggered by a log file entry)
+         1. archive the old state.json
+         2. set the most recently seen timestamp to the timestamp (for the file)
+         3. clear out self.state, set defaults, update with track, layout, cars
+         4. incorporate the race.json or other information if possible
+         4. delete all messages if possible and send the new ones
         """
         print('new_venue()')
 
@@ -293,9 +323,6 @@ class Monitor():
 
         # Reset everything; new venue happens when the server resets, which boots people (hopefully)
         self.reset_state()
-
-        # Remove all online driver messages
-        self.delete_online_messages()
 
         # Stick the track directory in there
         print('  track ', self.state['track_directory'], '->', track)
@@ -309,11 +336,15 @@ class Monitor():
         # Update the state with the race.json if it exists (gives track and cars and carset info)
         self.update_state_with_race_json()
 
-        # Archive it
-        self.save_and_archive_state()
-
-        # Send the (empty) laps message
-        self.send_state_messages()
+        if not init:
+            # Archive it
+            self.save_and_archive_state()
+    
+            # Remove all online driver messages
+            self.delete_online_messages()
+            
+            # Send the venue inform message
+            self.send_state_messages()
 
     def save_and_archive_state(self, skip=False):
         """
@@ -355,7 +386,7 @@ class Monitor():
         f.write('\n'.join(paths))
         f.close()
 
-    def driver_connects(self, name, log_drivers, do_not_save_state):
+    def driver_connects(self, name, init):
         """
         Sends a message about the player joining and removes the
         last requested car if any.
@@ -365,28 +396,11 @@ class Monitor():
         self.state['online'][name] = dict(car=self.last_requested_car)
 
         # Send the message & save
-        if log_drivers:           self.send_state_messages()
-        if not do_not_save_state: self.save_and_archive_state()
+        if not init: 
+            self.send_state_messages()
+            self.save_and_archive_state()
 
-        # # OLD METHOD THAT SENT / REMOVED A MESSAGE FOR EACH DRIVER
-        # # Assemble the message
-        # message = name + ' is on ' + server_name + '!'
-
-        # # If we have a last requested car...
-        # if self.last_requested_car: message = message + '\n' + self.last_requested_car
-
-        # # Send the joined message if we're supposed to.
-        # if log_drivers and self.webhook_online:
-        #     try:    i = self.webhook_online.send(message, wait=True).id
-        #     except: i = None
-        # else: i = None
-        # self.state['online'][name] = dict(id=i, car=self.last_requested_car)
-        # self.save_and_archive_state(do_not_save_state)
-
-        # # Kill the last requested car
-        # self.last_requested_car = None
-
-    def driver_disconnects(self, name, log_drivers, do_not_save_state):
+    def driver_disconnects(self, name, init):
         """
         Sends a message about the player leaving.
         """
@@ -398,20 +412,9 @@ class Monitor():
         self.state['online'].pop(name)
 
         # Send the message & save
-        if log_drivers:           self.send_state_messages()
-        if not do_not_save_state: self.save_and_archive_state()
-
-        # OLD METHOD
-        # if name in self.state['online']:
-
-        #     # Delete the message by name
-        #     if self.webhook_online and self.state['online'][name]['id']:
-        #        try: self.webhook_online.delete_message(self.state['online'][name]['id'])
-        #        except: pass
-
-        #     # Remove it from the state
-        #     if name in self.state['online']: self.state['online'].pop(name)
-        #     self.save_and_archive_state(do_not_save_state)
+        if not init:
+            self.send_state_messages()
+            self.save_and_archive_state()
 
     def to_ms(self, s):
         """
@@ -422,8 +425,12 @@ class Monitor():
 
     def update_state_with_race_json(self):
         """
-        Assuming self.state exists, if path_race_json is not empty,
+        Assuming self.state exists with track_directory, track_layout, 
+        and cars (list of directories), if path_race_json is not empty, 
         load race.json, and update the server state based on this.
+
+        If not path_race_json or race.json does not exist, check for ui 
+        folders and use their information (they are also jsons).
         
         JACK: If path_race_json is empty, get what data we can from the
         possibly missing ui_car.json and ui_track.json. We'd have to
@@ -433,10 +440,10 @@ class Monitor():
 
         # Initialize the track info
         # Load the race.json
-        if path_race_json:
+        if os.path.exists(os.path.join(path_ac, 'race.json')):
 
             # Load the race.json data
-            self.race_json = json.load(open(path_race_json))
+            self.race_json = json.load(open(os.path.join(path_ac, 'race.json')))
             print('Loaded race.json:')
             pprint.pprint(self.race_json)
 
@@ -445,12 +452,8 @@ class Monitor():
             if self.race_json['track']['name'] != self.state['track_name'] \
             or 'carset' not in self.state:
 
-                # If we have an old message id, clear it
-                if self.state['laps_message_id']:
-                    #if webhook_laps:
-                    #    try: webhook_laps.delete_message(self.state['laps_message_id'])
-                    #    except: print('Could not delete track message id', self.state['laps_message_id'])
-                    self.state['laps_message_id'] = None
+                # If we have an old message id, clear it but don't bother deleting the post
+                if self.state['laps_message_id']: self.state['laps_message_id'] = None
 
                 # Reset the laps dictionary
                 self.state['laps'] = dict()
@@ -463,8 +466,14 @@ class Monitor():
                 # Dump modifications
                 self.save_and_archive_state()
 
-        # No race json, so we will use no fancy car names and not post laps
-        else: self.race_json = None
+            # We should have everything we need.
+            return
+
+        # If we're here, there is no race.json, so let's look for information
+        # in the ui_*.json files for the track and cars.
+
+        # Start by looking 
+
 
     def get_laps_string(self):
         """
@@ -538,7 +547,7 @@ class Monitor():
 
         # Get the list of driver best laps
         laps = self.get_laps_string()
-        if debug: print('Laps:\n'+laps)
+        if debug and laps: print('Laps:\n'+laps)
 
         ###################################
         # INFO MESSAGE WITH LAPS AND ONLINE
@@ -555,7 +564,7 @@ class Monitor():
         if track_name: body1 = body1 + track_name + '!]('+url_mods+')**'
 
         # Subheader
-        body1 = body1 + venue_subheader
+        body1 = body1 + '\n' + venue_subheader
 
         # Below the venue and above laps
         if laps: body1 = body1 + '\n\n**Laps:**\n' + laps
@@ -565,7 +574,7 @@ class Monitor():
         else:       body2 = ''
 
         # Send the main info message
-        self.state['laps_message_id'] = self.send_message(self.webhook_laps, body1, body2, '\n\n'+laps_footer, self.state['laps_message_id'])
+        self.state['laps_message_id'] = self.send_message(self.webhook_info, body1, body2, '\n\n'+laps_footer, self.state['laps_message_id'])
         if self.state['laps_message_id'] == None: print('DID NOT EDIT OR SEND LAPS MESSAGE')
 
 
