@@ -19,6 +19,7 @@ print(os.getcwd())
 server_name         = ''
 path_log            = ''
 path_race_json      = None
+path_carsets        = None
 url_webhook_online  = None
 url_webhook_laps    = None
 url_mods            = ''
@@ -423,6 +424,10 @@ class Monitor():
         """
         Assuming self.state exists, if path_race_json is not empty,
         load race.json, and update the server state based on this.
+        
+        JACK: If path_race_json is empty, get what data we can from the
+        possibly missing ui_car.json and ui_track.json. We'd have to
+        scrape the track and car folders from server_cfg.ini first.
         """
         print('\nupdate_state_with_race_json()')
 

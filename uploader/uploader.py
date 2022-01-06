@@ -251,6 +251,9 @@ class server():
                 os.makedirs(c, exist_ok=True)
                 shutil.copy(ui, os.path.join(c,'ui_car.json'))
 
+        # Copy over the carsets folder too.
+        shutil.copytree('carsets', os.path.join('uploads','carsets'))
+
         # Copy the nice cars list to the clipboard
         pyperclip.copy(self.get_nice_selected_cars_string())
         self.log('List copied to clipboard.')
@@ -478,14 +481,16 @@ class server():
 
         # Load it.
         f = open(os.path.join('carsets', self.combo_carsets.get_text()), 'r')
-        selected = eval(f.read())
+        selected = f.read().splitlines()
         f.close()
 
         # Update the list selection
         self.list_cars.clearSelection()
         for s in selected:
-            try:    self.list_cars.findItems(s, egg.pyqtgraph.QtCore.Qt.MatchExactly)[0].setSelected(True)
-            except: print('WARNING: Cars seem to be missing.')
+            s = s.strip()
+            if s != '':
+                try:    self.list_cars.findItems(s, egg.pyqtgraph.QtCore.Qt.MatchExactly)[0].setSelected(True)
+                except: self.log('WARNING: '+s+' not in list')
 
     def _button_save_clicked(self,e):
         """
@@ -510,7 +515,7 @@ class server():
 
         # Write the file
         f = open(os.path.join('carsets', name), 'w')
-        f.write(str(self.get_selected_cars()))
+        for car in self.get_selected_cars(): f.write(car+'\n')
         f.close()
 
     def _button_browse_pem_clicked(self, e):

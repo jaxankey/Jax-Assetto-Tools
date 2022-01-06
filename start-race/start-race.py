@@ -9,6 +9,13 @@
 # You should not need to edit this file.       #
 ################################################
 
+# The file race.json is used for the skins list and
+# to convert from nice car names on the reservation sheet 
+# to the car folder names.
+#
+# JACK: If the skins folders were created, this could all
+# be handled with ui_car.jsons
+
 import os, urllib.request, json, random, pprint
 
 # Change to the directory of this script
