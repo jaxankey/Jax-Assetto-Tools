@@ -524,7 +524,8 @@ class Monitor():
                 c = self.state['laps'][name][car]    
             
                 # Get a list of carsets to which this belongs
-                carsets = self.state['stesrac'][car]
+                if car in self.state['stesrac']: carsets = self.state['stesrac'][car]
+                else:                            carsets = ['Uncategorized']
                 
                 # for each of these carsets, do the sorting
                 for carset in carsets:
