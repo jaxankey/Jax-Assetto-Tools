@@ -34,7 +34,7 @@ laps_footer         = ''
 
 # Other
 web_archive_history = 0
-debug               = True
+debug               = False
 
 # Get the user values from the ini file
 if os.path.exists('monitor.ini.private'): p = 'monitor.ini.private'
