@@ -476,13 +476,7 @@ class Monitor():
                 # If this carset matches ours, remember this carset
                 if set(self.state['carsets'][name]) == set(self.state['cars']):
                     self.state['carset'] = name
-                    
-        # To ease the process of sorting later, also include the reverse version of
-        # carsets
-        
-        
-        
-        
+
         # Next load the nice names of all the cars for this venue
         self.state['carnames'] = dict()
         for car in self.state['cars']:
