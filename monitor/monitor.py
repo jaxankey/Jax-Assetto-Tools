@@ -550,7 +550,7 @@ class Monitor():
                 n+=1
                         
             # Append this to the master
-            s = s + '\n\n**'+carset+' laps:**\n' + '\n'.join(lines)
+            s = s + '\n\n**'+carset+' Laps:**\n' + '\n'.join(lines)
 
         return s        
 
