@@ -29,7 +29,6 @@ url_webhook_info    = None
 url_mods            = ''
 venue_header        = ''
 venue_subheader     = ''
-laps_header         = ''
 laps_footer         = ''
 
 # Other
