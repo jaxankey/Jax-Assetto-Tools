@@ -68,7 +68,7 @@ class Monitor():
         """
         Class for watching the AC log file and reacting to various events
         """
-        global url_webhook_online
+        global url_webhook_online, path_log
 
         # Discord webhook objects
         self.webhook_online  = None # List of webhooks
@@ -94,6 +94,11 @@ class Monitor():
             self.state.update(json.load(open(p)))
             print('\nFOUND state.json, loaded')
             if debug: pprint.pprint(self.state)
+
+        # If the path_log is a directory, take the latest file
+        if os.path.isdir(path_log):
+            logs = glob.glob(os.path.join(path_log,'*'))
+            path_log = max(logs, key=os.path.getctime)
 
         # Parse the existing log
         self.parse_lines(open(path_log).readlines(), True)
