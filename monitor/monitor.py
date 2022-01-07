@@ -8,8 +8,6 @@
 # See monitor.ini for configuration!                             #
 ##################################################################
 
-# JACK: load ui_... if no race.json, then work on groups
-
 import os, json, discord, shutil, pprint, glob, time
 
 # Change to the directory of this script
@@ -98,18 +96,15 @@ class Monitor():
             print('\nFOUND state.json, loaded')
             if debug: pprint.pprint(self.state)
 
-        # Dictionary to hold race.json information
-        self.race_json = None
-
-        # First run of update_state_with_race_json()
-        self.update_state_with_race_json()
-        print('\nLOADED STATE')
-        if debug: pprint.pprint(self.state)
-
         # Parse the existing log
         self.parse_lines(open(path_log).readlines(), True)
         print('\nAFTER INITIAL PARSE:')
         pprint.pprint(self.state)
+
+        # First run of load_json_data()
+        self.load_json_data()
+        print('\nLOADED STATE')
+        if debug: pprint.pprint(self.state)
 
         # Timestamp only gets updated when the track CHANGES, which will not happen
         # on the initial parse if we have a state.json from a previous run already.
@@ -142,8 +137,11 @@ class Monitor():
             archive_path      = None,   # Path to the archive of state.json
             laps              = dict(), # Dictionary by name of valid laps for this track / layout
             naughties         = dict(), # Dictionary by name of cut laps
-            carset            = None,   # carset name from race.json if present
+            carset            = None,   # carset if possible to determine
+            carsets           = dict(), # Dictionary of car lists by carset name for grouping laps
+            stesrac           = dict(), # Dictionary of carset name lists by car for grouping laps
             cars              = list(), # List of car directories
+            carnames          = dict(), # Dictionary converting car dirnames to fancy names for everything in the venue.
         )
 
     def parse_lines(self, lines, init=False):
@@ -169,12 +167,9 @@ class Monitor():
                 # Get the car directory
                 car = line[14:].replace('*','').strip()
 
-                # Reverse look-up the nice car name
-                if self.race_json and car in self.race_json['cars'].values():
-                    self.last_requested_car = list(self.race_json['cars'].keys())[list(self.race_json['cars'].values()).index(car)]
-                    print('  ->', repr(self.last_requested_car))
-                else:
-                    self.last_requested_car = car
+                # Use the raw name. Will be converted with look-up table for
+                # messages.
+                self.last_requested_car = car
 
             # Driver name comes toward the end of someone connecting
             # DRIVER: Driver Name []
@@ -262,7 +257,7 @@ class Monitor():
                             cars = s[1].split('%2C')
                             print('  Cars:', cars)
 
-                        # Track directory and layout
+                        # Track directory and layout, e.g. ks_barcelona-gp
                         elif s[0] == 'track':
                             tl = s[1].split('-')
                             track_directory = tl[0]
@@ -276,8 +271,8 @@ class Monitor():
                 or track_layout    != self.state['track_layout']:
                     self.new_venue(track_directory, track_layout, cars, init)
 
-                # Otherwise, load the new race_json to cover some changes in car stuff
-                else: self.update_state_with_race_json()
+                # Otherwise, load the json data for tracks and cars to cover some changes in car stuff
+                else: self.load_json_data()
 
                 # Regardless, update the cars
                 self.state['cars'] = cars
@@ -336,7 +331,7 @@ class Monitor():
         self.state['cars']            = cars
 
         # Update the state with the race.json if it exists (gives track and cars and carset info)
-        self.update_state_with_race_json()
+        self.load_json_data()
 
         if not init:
             # Archive it
@@ -363,7 +358,7 @@ class Monitor():
 
         # Store the archive path for this particular state.json
         if self.state['track_directory'] and self.timestamp:
-            self.state['archive_path'] = os.path.join(path_archive, self.timestamp + self.state['track_directory']+'.json')
+            self.state['archive_path'] = os.path.join(path_archive, self.timestamp +'.'+ self.state['track_directory']+'.json')
         else:
             self.state['archive_path'] = None
 
@@ -425,7 +420,7 @@ class Monitor():
         s = s.split(':')
         return int(s[0])*60000 + int(s[1])*1000 + int(s[2])
 
-    def update_state_with_race_json(self):
+    def load_json_data(self):
         """
         Assuming self.state exists with track_directory, track_layout, 
         and cars (list of directories), if path_race_json is not empty, 
@@ -438,45 +433,76 @@ class Monitor():
         possibly missing ui_car.json and ui_track.json. We'd have to
         scrape the track and car folders from server_cfg.ini first.
         """
-        print('\nupdate_state_with_race_json()')
-
-        # Initialize the track info
-        # Load the race.json
-        if os.path.exists(os.path.join(path_ac, 'race.json')):
-
-            # Load the race.json data
-            self.race_json = json.load(open(os.path.join(path_ac, 'race.json')))
-            print('Loaded race.json:')
-            pprint.pprint(self.race_json)
-
-            # If the track doesn't match the race.json,
-            # Reset everything! Initially state['track_name'] is None
-            if self.race_json['track']['name'] != self.state['track_name'] \
-            or 'carset' not in self.state:
-
-                # If we have an old message id, clear it but don't bother deleting the post
-                if self.state['laps_message_id']: self.state['laps_message_id'] = None
-
-                # Reset the laps dictionary
-                self.state['laps'] = dict()
-
-                # Update the track name, directory, and carset name
-                self.state['track_name']      = self.race_json['track']['name']
-                self.state['track_directory'] = self.race_json['track']['directory']
-                self.state['carset']          = self.race_json['carset']
-
-                # Dump modifications
-                self.save_and_archive_state()
-
-            # We should have everything we need.
-            return
+        print('\nload_json_data()')
 
         # If we're here, there is no race.json, so let's look for information
         # in the ui_*.json files for the track and cars.
 
-        # Start by looking 
+        # Start by looking for the track and layout
+        path_ui_track = os.path.join(path_ac, 'content', 'tracks', 
+            self.state['track_directory'], 'ui', 
+            self.state['track_layout'], 'ui_track.json')
+        
+        # If the track/layout/ui_track.json exists, load the track name!
+        if os.path.exists(path_ui_track): 
+            j = json.load(open(path_ui_track))
+            self.state['track_name'] = j['name']
+        
+        # Now load all the carsets if they exist
+        path_carsets = os.path.join(path_ac, 'carsets')
+        if os.path.exists(path_carsets):
+            
+            # Looks for and sort the carset paths
+            carset_paths = glob.glob(os.path.join(path_carsets, '*'))
+            carset_paths.sort()
 
-
+            # For each carset path, load the contents into a list
+            # for the dictionary self.state['carsets']
+            self.state['carsets'] = dict()
+            self.state['stesrac'] = dict()
+            for path in carset_paths:
+                
+                # Read the file
+                f = open(path); s = f.read().strip(); f.close()
+                
+                # Get the list of cars
+                name = os.path.split(path)[-1]
+                self.state['carsets'][name] = s.split('\n')
+                
+                # For each of these cars, append the carset name to the reverse-lookup
+                for car in self.state['carsets'][name]:
+                    if car not in self.state['stesrac']: self.state['stesrac'][car] = []
+                    self.state['stesrac'][car].append(name)
+                
+                # If this carset matches ours, remember this carset
+                if set(self.state['carsets'][name]) == set(self.state['cars']):
+                    self.state['carset'] = name
+                    
+        # To ease the process of sorting later, also include the reverse version of
+        # carsets
+        
+        
+        
+        
+        # Next load the nice names of all the cars for this venue
+        self.state['carnames'] = dict()
+        for car in self.state['cars']:
+            path_ui_car = os.path.join(path_ac,'content','cars',car,'ui','ui_car.json')
+            if os.path.exists(path_ui_car):
+                j = json.load(open(path_ui_car))
+                self.state['carnames'][car] = j['name']
+            
+        # Dump modifications
+        self.save_and_archive_state()
+            
+    def get_carname(self, car):
+        """
+        Returns the fancy car name if possible, or the car dir if not.
+        """
+        # Get the fancy carname if possible.
+        if car in self.state['carnames']: return self.state['carnames'][car]
+        return car
+        
     def get_laps_string(self):
         """
         Returns a string list of driver best laps for sending to discord.
@@ -485,39 +511,55 @@ class Monitor():
         # If there are no laps, return None so we know not to use them.
         if len(self.state['laps'].keys()) == 0: return None
 
-        # Scan through the state and collect the driver best laps.
-        laps = []
+        # Scan through the state and collect the driver best laps
+        # for each group
+        laps = dict() # will eventually be a dictionary like {carset:[(driver,(time,car)), (driver,(time,car))...]}
         if debug: print('DRIVER BESTS:')
         for name in self.state['laps']:
+            
+            # Dictionary by carset of all laps
+            driver_laps = dict()
+            
+            # For each person, we have to loop through all their car bests,
+            # then add these to the carset bests
+            for car in self.state['laps'][name]: # Each is a dictionary of {time, time_ms, cuts}
+                c = self.state['laps'][name][car]    
+            
+                # Get a list of carsets to which this belongs
+                carsets = self.state['stesrac'][car]
+                
+                # for each of these carsets, do the sorting
+                for carset in carsets:
+                    if carset not in driver_laps: driver_laps[carset] = []
+                    driver_laps[carset].append((c['time_ms'],(c['time'],name,car)))
+                
+            # Now loop over the driver_laps carsets, and get the best for each
+            for carset in driver_laps:
+                driver_laps[carset].sort(key=lambda x: x[0])
 
-            # Get the list of [(car, lap), ...]
-            carlaps = self.state['laps'][name].items()
-            if len(carlaps) == 0: continue
+                # Finally, add this best to the carset
+                if carset not in laps: laps[carset] = []
+                laps[carset].append(driver_laps[carset][0])
+ 
+        # Output string
+        s = ''
+ 
+        # Now sort all the group bests
+        for carset in laps: 
+            
+            # Sort by milliseconds
+            laps[carset].sort(key=lambda x: x[0])
+        
+            # Now loop over the entries and build a string
+            lines = []; n=1
+            for x in laps[carset]: 
+                lines.append('**'+str(n)+'.** '+x[1][0]+' '+x[1][1]+' ('+self.get_carname(x[1][2])+')')
+                n+=1
+                        
+            # Append this to the master
+            s = s + '\n\n**'+carset+' laps:**\n' + '\n'.join(lines)
 
-            # Sort the laps by car for each driver into ((nice_carname, time), (nice_carname, time), ...)
-            carlaps = sorted(carlaps, key=lambda carlap: self.to_ms(carlap[1]['time']))
-
-            # JACK: Loop from fastest down, and take the first car that exists in the state.
-            # race.json['cars'].keys() has the nice names. and race.json['cars'][nice_name] gives the directory name.
-            # race_json doesn't always exist, though, but state['cars'] is a list of directory names.
-            for carlap in carlaps:
-
-                # If the car with this time is part of the venue, store it and break the loop
-                if carlap[0] in self.state['cars'] \
-                or self.race_json and carlap[0] in self.race_json['cars']:
-                    laps.append((carlap[1], name, carlap[0]))
-                    if debug: print('  ', *laps[-1])
-                    break
-
-        # Sort the laps by time. Becomes [(name,(time,car)),(name,(time,car)),...]
-        laps = sorted(laps, key=lambda i: self.to_ms(i[0]['time']))
-
-        # get the text lines to assemble
-        lines = []
-        for n in range(len(laps)): lines.append('**'+str(n+1) + '.** ' + laps[n][0]['time'] + ' ' + laps[n][1] + ' ('+laps[n][2]+')')
-
-        # Return the list joined by newlines!
-        return '\n'.join(lines)
+        return s        
 
     def get_onlines_string(self):
         """
@@ -529,7 +571,7 @@ class Monitor():
         # If there are any online
         onlines = []; n=1
         for name in self.state['online']:
-            onlines.append('**'+str(n)+'.** '+name+' ('+self.state['online'][name]['car']+')')
+            onlines.append('**'+str(n)+'.** '+name+' ('+self.get_carname(self.state['online'][name]['car'])+')')
             n += 1
 
         # Return the list
@@ -549,7 +591,7 @@ class Monitor():
 
         # Get the list of driver best laps
         laps = self.get_laps_string()
-        if debug and laps: print('Laps:\n'+laps)
+        if debug and laps: print(laps)
 
         ###################################
         # INFO MESSAGE WITH LAPS AND ONLINE
@@ -569,7 +611,7 @@ class Monitor():
         body1 = body1 + '\n' + venue_subheader
 
         # Below the venue and above laps
-        if laps: body1 = body1 + '\n\n**Laps:**\n' + laps
+        if laps: body1 = body1 + laps
 
         # Separate body for who's online (laps get cut first)
         if onlines: body2 = '\n\n' + online_header + '\n' + onlines
