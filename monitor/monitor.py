@@ -556,9 +556,9 @@ class Monitor():
                 n+=1
                         
             # Append this to the master
-            s = s + '\n\n**'+carset+' Laps**\n' + '\n'.join(lines)
+            s = s + '\n\n**'+carset+'**\n' + '\n'.join(lines)
 
-        return s        
+        return s.strip()        
 
     def get_onlines_string(self):
         """
@@ -610,7 +610,7 @@ class Monitor():
         body1 = body1 + '\n' + venue_subheader
 
         # Below the venue and above laps
-        if laps: body1 = body1 + laps
+        if laps: body1 = body1 + '\n' + laps
 
         # Separate body for who's online (laps get cut first)
         if onlines: body2 = '\n\n' + online_header + '\n' + onlines
