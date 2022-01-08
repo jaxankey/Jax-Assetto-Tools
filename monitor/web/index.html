@@ -244,7 +244,7 @@ function update_table() {
 function get_carname(c) {
   
   // if the car dir is in tracks.carnames
-  for(var n in tracks) if(c in tracks[n].carnames) return tracks[n].carnames[c];
+  if(c in tracks[select_tracks.selectedIndex].carnames) return tracks[select_tracks.selectedIndex].carnames[c];
   
   // Fail.
   return c
