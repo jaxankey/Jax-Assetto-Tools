@@ -239,6 +239,19 @@ function update_table() {
   }
 }
 
+
+// Takes the car directory and returns the fancy name if possible
+function get_carname(c) {
+  
+  // if the car dir is in tracks.carnames
+  for(var n in tracks) if(c in tracks[n].carnames) return tracks[n].carnames[c];
+  
+  // Fail.
+  return c
+
+}
+
+
 // Returns a sorted list of best laps
 function get_laps(laps) {
   
@@ -252,13 +265,13 @@ function get_laps(laps) {
       
       // Find the car with the minimum time
       var c = Object.keys(laps[n]).reduce((a,b) => laps[n][a]['time_ms'] < laps[n][b]['time_ms'] ? a : b)
-      sorted.push({name:n, car:c, time:laps[n][c]['time'], t_ms:laps[n][c]['time_ms'], cuts:laps[n][c]['cuts']})
+      sorted.push({name:n, car:get_carname(c), time:laps[n][c]['time'], t_ms:laps[n][c]['time_ms'], cuts:laps[n][c]['cuts']})
     }
     
     // Otherwise add all the car bests.
     else for(var c in laps[n]) {
       console.log('    ', c, laps[n][c])
-      sorted.push({name:n, car:c, time:laps[n][c]['time'], t_ms:laps[n][c]['time_ms'], cuts:laps[n][c]['cuts']})
+      sorted.push({name:n, car:get_carname(c), time:laps[n][c]['time'], t_ms:laps[n][c]['time_ms'], cuts:laps[n][c]['cuts']})
     }
   }
   return sorted
