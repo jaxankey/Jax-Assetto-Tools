@@ -19,6 +19,10 @@
       border-radius: 0;
     }
 
+    b {
+      font-weight: bold;
+    }
+
     body {
       height: 100%;
       background-color: #222;
@@ -34,7 +38,7 @@
     select, td {
       padding: 0.5em;
       background: transparent;
-      border: 1px solid #FEE;
+      border: 1px solid #544;
       margin-top: 0.5em;
       margin-right: 0.5em;
     }
@@ -51,7 +55,7 @@
       border-collapse: collapse;
     }
     
-    tr:nth-child(odd) {background: #FF777733;}
+    tr:nth-child(odd) {background: #77555533;}
 
     td {
       background: transparent;
@@ -106,7 +110,13 @@ function sort_objects_by_key(objects, key, descending) {
 }
 
 // Retrieves a file's contents
-function get_data_from_url(url, handler) {
+function get_data_from_url(url, handler) { 
+
+  if(url == '') {
+    track_count--
+    return
+  }
+
   console.log('get_data_from_url', url, '...');
 
   // Default handler
@@ -133,7 +143,7 @@ function get_archive(raw) { console.log('get_archive()')
 
   // Every line is a track path
   for(var n in s) {
-   
+
     // Strip off web/
     path = s[n].slice(4)
 
@@ -147,6 +157,8 @@ function get_archive(raw) { console.log('get_archive()')
 
 // Parse the track json contents
 function parse_track_json(raw, url) {
+
+  console.log('parse_track_json()', url)
   
   // Parse the string into an object
   var data = JSON.parse(raw)
@@ -157,7 +169,7 @@ function parse_track_json(raw, url) {
 
   // Add it to the tracks dictionary
   tracks.push(data)
-  console.log('parse_track_json()', data);
+  console.log(data);
 
   // If we hit the track count, sort and initialize
   if(tracks.length >= track_count) initialize();
@@ -272,20 +284,26 @@ function update_table() { console.log('update_table()')
   table_laps.innerHTML = '';
 
   // Add the titles
+  var row =table_laps.insertRow()
+  var c_t = row.insertCell(0)
+  var c_n = row.insertCell(1)
+  var c_c = row.insertCell(2)
+  c_t.innerHTML = '<b>Time</b>'
+  c_n.innerHTML = '<b>Driver</b>'
+  c_c.innerHTML = '<b>Car</b>'  
 
   // Add the data
   for(var i in laps) {
     var row = table_laps.insertRow()
-    var c_i = row.insertCell(0)
-    var c_t = row.insertCell(1)
+    //var c_i = row.insertCell(0)
+    var c_t = row.insertCell(0)
+    var c_n = row.insertCell(1)
     var c_c = row.insertCell(2)
-    var c_n = row.insertCell(3)
+    //c_t.style.textAlign='right'
 
-    //c_i.style.textAlign='right'
-
-    c_i.innerText = parseInt(i)+1 + '.'
+    //c_i.innerText = parseInt(i)+1 + '.'
     c_t.innerText = laps[i]['time']
-    c_c.innerText = laps[i]['car']
+    c_c.innerText = tracks[select_tracks.selectedIndex].carnames[laps[i]['car']]
     c_n.innerText = laps[i]['name']
 
     if(1 == laps[i]['cuts']) c_t.innerText = c_t.innerText + ' (' + String(laps[i]['cuts']) + '\u00a0cut)'
