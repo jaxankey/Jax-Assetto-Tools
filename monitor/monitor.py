@@ -44,15 +44,15 @@ exec(open(p).read())
 def tail(f, start_from_end=False):
     """
     Function that tails the supplied file stream.
-    
+
     f is the file specifier such as is returned from the open() command
-    
+
     start_from_end will skip everything that exists thus far.
     """
 
     # Go to the end of the file
     if start_from_end: f.seek(0,2) 
-    
+
     # This goes on indefinitely
     while True:
         line = f.readline()

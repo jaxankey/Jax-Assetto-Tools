@@ -64,25 +64,28 @@
 <body>
 
 <div id='main'>
-<select id='select_tracks' onchange='update_table()'></select>
-<br><select id='select_mode'   onchange='update_table()'>
-  <option value='All Laps'>All Laps</option>
-  <option value='Best Per Driver'>Driver Best</option>
-</select><input type='checkbox' id='checkbox_naughties' onchange='update_table()'>&nbsp;Include&nbsp;Naughties</input>
+<select id='select_tracks' onchange='load_track()'></select>
+<br>
+<select id='select_carsets' onchange='update_table()'>
+  <option value='All Cars'>All Cars</option>
+</select>
+<input type='checkbox' id='checkbox_driver_bests' onchange='update_table()'>&nbsp;Bests</input>&nbsp;&nbsp;
+<input type='checkbox' id='checkbox_naughties'    onchange='update_table()'>&nbsp;Cuts</input>
 
 <table id='table_laps'></table>
 </div> 
 
-
 <script>
 
 // Globals. Yeah, whatever.
-var tracks             = []
-var track_count        = 0
-var select_track       = document.getElementById('select_tracks')
-var select_mode        = document.getElementById('select_mode')
-var table_laps         = document.getElementById('table_laps')
-var checkbox_naughties = document.getElementById('checkbox_naughties')
+var all_laps              = []
+var tracks                = []
+var track_count           = 0
+var select_tracks         = document.getElementById('select_tracks')
+var select_carsets        = document.getElementById('select_carsets')
+var table_laps            = document.getElementById('table_laps')
+var checkbox_driver_bests = document.getElementById('checkbox_driver_bests')
+var checkbox_naughties    = document.getElementById('checkbox_naughties')
 /**
  * In-place sorts the supplied list of objects by the specified key.
  * @param {list} objects 
@@ -171,7 +174,7 @@ function initialize() {
   for(var n in tracks) {
     var o = document.createElement('option')
     o.value = o.text = tracks[n]['timestamp'] +' '+ tracks[n]['track_name']
-    select_track.appendChild(o)
+    select_tracks.appendChild(o)
   }
 
   // Now load the current / last state.json
@@ -186,41 +189,92 @@ function choose_current_track(raw) {
   console.log('choose_current_track()', select_tracks.value)
 
   // Fill the table
-  update_table()
+  load_track()
+}
+
+// Returns a list of lap objects for sorting
+function get_lap_list(laps, carsets) {
+
+  var lap_list = [] 
+
+  // Add the relevant laps to the lap_list
+  for(var name in laps) for(var car in laps[name]) {
+
+    // Add the lap to the list
+    lap_list.push({
+      name   : name,
+      car    : car,
+      time_ms: laps[name][car]['time_ms'],
+      time   : laps[name][car]['time'],
+      cuts   : laps[name][car]['cuts'],
+      carsets: []
+     })
+
+     // Get the carsets that this car belongs to
+     var cs = []
+     for(var carset in carsets) 
+       if(carsets[carset].indexOf(car) >= 0) {
+         cs.push(carset)
+         lap_list[lap_list.length-1].carsets.push(carset)
+       }
+
+     // If the carset is not in the list yet, add it!
+     for(var c in cs)
+       if(select_indexOf(select_carsets, cs[c]) < 0) {
+         var o = document.createElement('option')
+         o.value = o.text = cs[c]
+         select_carsets.appendChild(o)
+       }
+  } 
+
+  return lap_list
+}
+
+// Returns true if the select object has the value
+function select_indexOf(select, value) {
+  for(var n in select.options) 
+    if(select.options[n].value == value) return parseInt(n)
+  return -1
 }
 
 // When someone selects a track
-function update_table() {
+function update_table() { console.log('update_table()')
 
-  // Get the track index. This should match that of the tracks list
-  var t = select_track.selectedIndex
-  console.log('update_table()', tracks[t])
+  // Loop over all the laps and create a trimmed lap list
+  laps = [] // By name.
+  for(var n in all_laps) { var l = all_laps[n]
 
-  // Get just the laps for easy coding
-  // Structure: tracks[t]['laps'][name][car] = {'time':'13:23:344', time_ms:1234567, 'cuts':0}
-  // Or       : tracks[t]['naughties']... for the same structure
-  var laps      = tracks[t]['laps']
-  var naughties = tracks[t]['naughties']
+    // Only add if there are no cuts or we're looking for cuts
+    if( (checkbox_naughties.checked || l.cuts == 0) 
+    // Also make sure it's in the selected carset     
+    && (select_carsets.selectedIndex == 0 || l.carsets.indexOf(select_carsets.value) >= 0))
+        laps.push(l)
+  }
 
-  // Get the good laps
-  // Structure: sorted = [{name:.., car:.., time:.., time_ms:..}, ...]
-  sorted = get_laps(laps)
-  
-  // If we're supposed to include naughties, do so
-  if(checkbox_naughties.checked) sorted = sorted.concat(get_laps(naughties))
+  // If we only want driver bests, trim that.
+  if(checkbox_driver_bests.checked) {
 
-  // Sort them by time
-  sort_objects_by_key(sorted, 't_ms')
-  console.log(sorted)
+    // Assemble a dictionary by name to easily overwrite bests
+    bests = {}
+    for(var n in laps)
+      if(bests[laps[n].name] == undefined || bests[laps[n].name] > laps[n].time_ms)
+        bests[laps[n].name] = laps[n]
+
+    // Now overwrite laps
+    laps.length=0
+    for(name in bests) laps.push(bests[name])
+  }
+
+  // sort it
+  sort_objects_by_key(laps, 'time_ms')
 
   // Now add this to the table!
   table_laps.innerHTML = '';
 
   // Add the titles
 
-
   // Add the data
-  for(var i in sorted) {
+  for(var i in laps) {
     var row = table_laps.insertRow()
     var c_i = row.insertCell(0)
     var c_t = row.insertCell(1)
@@ -230,15 +284,33 @@ function update_table() {
     //c_i.style.textAlign='right'
 
     c_i.innerText = parseInt(i)+1 + '.'
-    c_t.innerText = sorted[i]['time']
-    c_c.innerText = sorted[i]['car']
-    c_n.innerText = sorted[i]['name']
+    c_t.innerText = laps[i]['time']
+    c_c.innerText = laps[i]['car']
+    c_n.innerText = laps[i]['name']
 
-    if(1 == sorted[i]['cuts']) c_t.innerText = c_t.innerText + ' (' + String(sorted[i]['cuts']) + '\u00a0cut)'
-    else if(sorted[i]['cuts']) c_t.innerText = c_t.innerText + ' (' + String(sorted[i]['cuts']) + '\u00a0cuts)'
+    if(1 == laps[i]['cuts']) c_t.innerText = c_t.innerText + ' (' + String(laps[i]['cuts']) + '\u00a0cut)'
+    else if(laps[i]['cuts']) c_t.innerText = c_t.innerText + ' (' + String(laps[i]['cuts']) + '\u00a0cuts)'
   }
 }
 
+// When someone selects a different archive (track); load the data and update the table.
+function load_track() { console.log('load_track()', tracks[0].carsets)
+
+  // Get the currently selected track index
+  var track   = tracks[select_tracks.selectedIndex]
+  var carsets = track.carsets
+  var laps    = track.laps
+  var cuts    = track.naughties
+
+  // Clear out the current carsets
+  for(var n=1; n<select_carsets.options.length; n++) select_carsets.remove(n)
+
+  // Get a master list of lap objects with and without cuts
+  all_laps = get_lap_list(laps, carsets).concat(get_lap_list(cuts, carsets))
+
+  // Update the table
+  update_table();
+}
 
 // Takes the car directory and returns the fancy name if possible
 function get_carname(c) {
@@ -249,32 +321,6 @@ function get_carname(c) {
   // Fail.
   return c
 
-}
-
-
-// Returns a sorted list of best laps
-function get_laps(laps) {
-  
-  // Loop over the people and assemble a list of laps
-  var sorted = []
-  for(var n in laps) {
-    console.log('  ', n)
-
-    // If we're supposed to find the fastest car for this name
-    if(select_mode.selectedIndex == 1) {
-      
-      // Find the car with the minimum time
-      var c = Object.keys(laps[n]).reduce((a,b) => laps[n][a]['time_ms'] < laps[n][b]['time_ms'] ? a : b)
-      sorted.push({name:n, car:get_carname(c), time:laps[n][c]['time'], t_ms:laps[n][c]['time_ms'], cuts:laps[n][c]['cuts']})
-    }
-    
-    // Otherwise add all the car bests.
-    else for(var c in laps[n]) {
-      console.log('    ', c, laps[n][c])
-      sorted.push({name:n, car:get_carname(c), time:laps[n][c]['time'], t_ms:laps[n][c]['time_ms'], cuts:laps[n][c]['cuts']})
-    }
-  }
-  return sorted
 }
 
 
