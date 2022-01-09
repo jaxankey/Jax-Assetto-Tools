@@ -553,6 +553,7 @@ class Monitor():
             lines = []; n=1
             for x in laps[carset]: 
                 lines.append('**'+str(n)+'.** '+x[1][0]+' '+x[1][1]+' ('+self.get_carname(x[1][2])+')')
+                #lines.append('**'+x[1][0]+'** '+x[1][1]+' ('+self.get_carname(x[1][2])+')')
                 n+=1
                         
             # Append this to the master

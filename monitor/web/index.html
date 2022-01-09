@@ -55,7 +55,7 @@
       border-collapse: collapse;
     }
     
-    tr:nth-child(odd) {background: #77555533;}
+    tr:nth-child(odd) {background: #433;}
 
     td {
       background: transparent;
@@ -285,9 +285,11 @@ function update_table() { console.log('update_table()')
 
   // Add the titles
   var row =table_laps.insertRow()
-  var c_t = row.insertCell(0)
-  var c_n = row.insertCell(1)
-  var c_c = row.insertCell(2)
+  var c_r = row.insertCell(0)
+  var c_t = row.insertCell(1)
+  var c_n = row.insertCell(2)
+  var c_c = row.insertCell(3)
+  c_r.innerHTML = ''
   c_t.innerHTML = '<b>Time</b>'
   c_n.innerHTML = '<b>Driver</b>'
   c_c.innerHTML = '<b>Car</b>'  
@@ -295,13 +297,13 @@ function update_table() { console.log('update_table()')
   // Add the data
   for(var i in laps) {
     var row = table_laps.insertRow()
-    //var c_i = row.insertCell(0)
-    var c_t = row.insertCell(0)
-    var c_n = row.insertCell(1)
-    var c_c = row.insertCell(2)
+    var c_r = row.insertCell(0)
+    var c_t = row.insertCell(1)
+    var c_n = row.insertCell(2)
+    var c_c = row.insertCell(3)
     //c_t.style.textAlign='right'
 
-    //c_i.innerText = parseInt(i)+1 + '.'
+    c_r.innerHTML = '<b>' + String(parseInt(i)+1) + '.</b>'
     c_t.innerText = laps[i]['time']
     c_c.innerText = tracks[select_tracks.selectedIndex].carnames[laps[i]['car']]
     c_n.innerText = laps[i]['name']
