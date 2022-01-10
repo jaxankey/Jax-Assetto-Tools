@@ -323,9 +323,9 @@ function load_track() { console.log('load_track()', tracks[0].carsets)
   var cuts    = track.naughties
 
   // Clear out the current carsets
-  for(var n=1; n<select_carsets.options.length; n++) select_carsets.remove(n)
+  while(select_carsets.options.length>1) select_carsets.remove(select_carsets.options.length-1)
 
-  // Get a master list of lap objects with and without cuts
+  // Get a master list of lap objects with and without cuts; also populates the car list
   all_laps = get_lap_list(laps, carsets).concat(get_lap_list(cuts, carsets))
 
   // Update the table
