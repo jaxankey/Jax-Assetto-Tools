@@ -8,16 +8,24 @@
 # See monitor.ini for configuration!                             #
 ##################################################################
 
-import os, json, discord, shutil, pprint, glob, time
+import os, json, discord, shutil, pprint, glob, time, urllib
 
 # Change to the directory of this script
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
 # USER SETTINGS from monitor.ini or monitor.ini.private
 
-# Important paths!
-path_log            = ''
-path_ac             = None
+# Vanilla server monitor parses the acServer log.
+# This can be a directory of logs (it will choose the latest).
+path_log = ''
+
+# ACSM premium settings
+server_manager_premium_mode = True
+url_INFO        = None
+url_api_details = None
+
+# Path to assettocorsa for scrapping ...ui.json data.
+path_ac = None
 
 # Temporary post for who is online
 url_webhook_online  = None
@@ -95,15 +103,22 @@ class Monitor():
             print('\nFOUND state.json, loaded')
             if debug: pprint.pprint(self.state)
 
-        # If the path_log is a directory, take the latest file
-        if os.path.isdir(path_log):
-            logs = glob.glob(os.path.join(path_log,'*'))
-            path_log = max(logs, key=os.path.getctime)
-
-        # Parse the existing log
-        self.parse_lines(open(path_log).readlines(), True)
-        print('\nAFTER INITIAL PARSE:')
-        pprint.pprint(self.state)
+        # Load the latest data from the server
+        if server_manager_premium_mode:
+            self.premium_get_latest_data()
+            
+            return
+            
+        # Vanilla server initial load
+        else:
+            if os.path.isdir(path_log):
+                logs = glob.glob(os.path.join(path_log,'*'))
+                path_log = max(logs, key=os.path.getctime)
+    
+            # Parse the existing log
+            self.parse_lines(open(path_log).readlines(), True)
+            print('\nAFTER INITIAL PARSE:')
+            pprint.pprint(self.state)
 
         # First run of load_json_data()
         self.load_json_data()
@@ -124,6 +139,32 @@ class Monitor():
         if not debug:
             print('\nMONITORING FOR CHANGES...')
             self.parse_lines(tail(open(path_log), True))
+
+    def premium_get_latest_data(self):
+        """
+        Grabs all the data from INFO and 
+        """
+        
+        # If this is the first run, we should not send messages
+        # because there is more data to load first.
+        init = not hasattr(self, 'info')
+        if init: self.info = self.details = None
+
+        # Grab the data
+        try:    self.info = json.loads(urllib.request.urlopen(url_INFO, timeout=5).read())
+        except: print('ERROR: Could not open ' + url_INFO)
+        try:    self.details = json.loads(urllib.request.urlopen(url_api_details,  timeout=5).read())
+        except: print('ERROR: Could not open ' + url_api_details)
+        
+        # If we got some data, update stuff, but only if it changed
+        # and keep track of whether it changed!
+        something_changed = False
+        if self.details:
+            cars = self.details['players']['Cars']
+            for car in cars:
+                print(car['IsConnected'], car['DriverName'], car['Model'])
+            
+        
 
     def reset_state(self):
         """
@@ -179,7 +220,7 @@ class Monitor():
             # DRIVER: Driver Name []
             elif line.find('DRIVER:') == 0:
                 print('\n'+line.strip())
-                self.driver_connects(line[7:].split('[')[0].strip(), init)
+                self.driver_connects(line[7:].split('[')[0].strip(), self.last_requested_car, init)
 
             # Clean exit, driver disconnected:  Driver Name []
             elif line.find('Clean exit, driver disconnected') == 0:
@@ -387,14 +428,14 @@ class Monitor():
         f.write('\n'.join(paths))
         f.close()
 
-    def driver_connects(self, name, init):
+    def driver_connects(self, name, car, init):
         """
         Sends a message about the player joining and removes the
         last requested car if any.
         """
 
         # Update the online list
-        self.state['online'][name] = dict(car=self.last_requested_car)
+        self.state['online'][name] = dict(car=car)
 
         # Send the message & save
         if not init: 
