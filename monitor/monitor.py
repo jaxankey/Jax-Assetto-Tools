@@ -8,7 +8,7 @@
 # See monitor.ini for configuration!                             #
 ##################################################################
 
-import os, json, discord, shutil, pprint, glob, time, urllib
+import os, json, discord, shutil, pprint, glob, time, datetime, urllib
 
 # Change to the directory of this script
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
@@ -21,8 +21,9 @@ path_log = ''
 
 # ACSM premium settings
 server_manager_premium_mode = True
-url_INFO        = None
-url_api_details = None
+url_INFO          = None
+url_api_details   = None
+path_live_timings = None
 
 # Path to assettocorsa for scrapping ...ui.json data.
 path_ac = None
@@ -78,12 +79,14 @@ class Monitor():
         """
         global url_webhook_online, path_log
 
+        # jsons from premium server manager
+        self.details      = None
+        self.info         = None
+        self.live_timings = None
+
         # Discord webhook objects
         self.webhook_online  = None # List of webhooks
         self.webhook_info    = None
-
-        # Timestampe of the server log
-        self.timestamp = None
 
         # Create the webhook for who is online
         if url_webhook_online:
@@ -103,11 +106,18 @@ class Monitor():
             print('\nFOUND state.json, loaded')
             if debug: pprint.pprint(self.state)
 
-        # Load the latest data from the server
-        if server_manager_premium_mode:
+
+
+        # Premium mode initial load
+        if server_manager_premium_mode: 
+            
+            # Get all the latest data from the server
             self.premium_get_latest_data()
             
-            return
+            print('\nAFTER INITIAL PARSE:')
+            pprint.pprint(self.state)
+
+            
             
         # Vanilla server initial load
         else:
@@ -115,55 +125,96 @@ class Monitor():
                 logs = glob.glob(os.path.join(path_log,'*'))
                 path_log = max(logs, key=os.path.getctime)
     
-            # Parse the existing log
-            self.parse_lines(open(path_log).readlines(), True)
+            # Parse the existing log and incorporate ui data
+            self.vanilla_parse_lines(open(path_log).readlines(), True)
+            self.load_ui_data()
+            
             print('\nAFTER INITIAL PARSE:')
             pprint.pprint(self.state)
+            
+            # Send and save
+            self.send_state_messages()
+            self.save_and_archive_state()
+            
+            # Monitor the file, but don't bother if we're just debugging.
+            if not debug:
+                print('\nMONITORING FOR CHANGES...')
+                self.vanilla_parse_lines(tail(open(path_log), True))
+            
+        return
 
-        # First run of load_json_data()
-        self.load_json_data()
-        print('\nLOADED STATE')
-        if debug: pprint.pprint(self.state)
+    def __getitem__(self, key): return self.state[key]
 
-        # Timestamp only gets updated when the track CHANGES, which will not happen
-        # on the initial parse if we have a state.json from a previous run already.
-        self.timestamp = self.timestamp_last
-
-        # Send the initial laps (skipped above to avoid a flurry of posts when starting)
-        self.send_state_messages()
-
-        # Save and archive (also skipped to avoid a flurry of saves)
-        self.save_and_archive_state()
-
-        # Monitor the file, but don't bother if we're just debugging.
-        if not debug:
-            print('\nMONITORING FOR CHANGES...')
-            self.parse_lines(tail(open(path_log), True))
+        
 
     def premium_get_latest_data(self):
         """
-        Grabs all the data from INFO and 
+        Grabs all the latest event information from the server, and 
+        send / update messages if anything changed.
         """
+        print('\npremium_get_latest_data()')
         
-        # If this is the first run, we should not send messages
-        # because there is more data to load first.
-        init = not hasattr(self, 'info')
-        if init: self.info = self.details = None
-
-        # Grab the data
-        try:    self.info = json.loads(urllib.request.urlopen(url_INFO, timeout=5).read())
-        except: print('ERROR: Could not open ' + url_INFO)
+        # Flag for information that changed
+        laps_onlines_changed = False # laps or onlines for sending messages
+        venue_changed        = False # for making new venue
+        carset_fully_changed = False # for making new venue
+        
+        # Grab the data; extra careful for urls which can fail.
         try:    self.details = json.loads(urllib.request.urlopen(url_api_details,  timeout=5).read())
-        except: print('ERROR: Could not open ' + url_api_details)
-        
-        # If we got some data, update stuff, but only if it changed
-        # and keep track of whether it changed!
-        something_changed = False
+        except: print('ERROR: Could not open ' + url_api_details)        
+        if path_live_timings: self.live_timings = json.load(open(path_live_timings, 'r'))
+                
+        # Data from website.
         if self.details:
-            cars = self.details['players']['Cars']
-            for car in cars:
-                print(car['IsConnected'], car['DriverName'], car['Model'])
             
+            # UPDATE ONLINES
+            
+            # Convert the current state['online'] to a set of (name,car)
+            old = set()
+            for name in self.state['online']: old.add((name,self.state['online'][name]['car']))
+            print('  Old online:', old)
+            
+            # Loop over all the cars and create a set of (name,car) to compare
+            new = set()
+            for car in self.details['players']['Cars']:
+                if car['IsConnected']: new.add((car['DriverName'], car['Model']))
+            print('  New online:', new)
+            
+            # If they are not equal, update 
+            if new != old:
+                print('  Updating...')
+                self.state['online'] = dict()
+                for item in new: self.state['online'][item[0]] = dict(car=item[1])
+                laps_onlines_changed = True
+        
+            # UPDATE CARSET
+            
+            # Get the new carset list
+            cars = list(self.details['content']['cars'].keys())
+            carset_fully_changed = len(set(cars).intersection(self.state['cars'])) == 0
+            self.state['cars'] = cars
+            
+        # Data from live_timings.json
+        if self.live_timings:
+            
+            # UPDATE TRACK / LAYOUT
+            track  = self.live_timings['Track']
+            layout = self.live_timings['TrackLayout']
+            venue_changed = track != self.state['track'] or layout != self.state['layout']
+            self.state['track']  = track
+            self.state['layout'] = layout
+            
+        
+        
+        # Check if the venue has changed; if it has, this will reload the ui data
+        if venue_changed or carset_fully_changed: 
+            self.new_venue(self['track'], self['layout'], self['cars'])
+        
+        # If anything changed, we need to update the messages
+        if laps_onlines_changed or venue_changed or carset_fully_changed: 
+            self.send_state_messages()
+              
+                
         
 
     def reset_state(self):
@@ -171,12 +222,13 @@ class Monitor():
         Resets to state defaults (empty).
         """
         self.state = dict(
-            online            = dict(), # Dictionary of online user info, indexed by name = {id:123890, car:'carname'}
+            online            = dict(), # Dictionary of online user info, indexed by name = {car:'car_dir'}
             online_message_id = None,     # List of message ids for the "who is online" messages
 
+            timestamp         = None,   # Timestamp of the first observation of this venue.
             track_name        = None,   # Track / layout name
-            track_directory   = None,   # Directory name of the track
-            track_layout      = None,   # Layout name
+            track   = None,   # Directory name of the track
+            layout      = None,   # Layout name
             laps_message_id   = None,   # id of the discord message about laps to edit
 
             archive_path      = None,   # Path to the archive of state.json
@@ -189,7 +241,7 @@ class Monitor():
             carnames          = dict(), # Dictionary converting car dirnames to fancy names for everything in the venue.
         )
 
-    def parse_lines(self, lines, init=False):
+    def vanilla_parse_lines(self, lines, init=False):
         """
         Runs the "for line in lines" loop on either a open().readlines() (finite)
         or a sh.tail() call (infinite).
@@ -220,17 +272,17 @@ class Monitor():
             # DRIVER: Driver Name []
             elif line.find('DRIVER:') == 0:
                 print('\n'+line.strip())
-                self.driver_connects(line[7:].split('[')[0].strip(), self.last_requested_car, init)
+                self.vanilla_driver_connects(line[7:].split('[')[0].strip(), self.last_requested_car, init)
 
             # Clean exit, driver disconnected:  Driver Name []
             elif line.find('Clean exit, driver disconnected') == 0:
                 print('\n'+line.strip())
-                self.driver_disconnects(line[33:].split('[')[0].strip(), init)
+                self.vanilla_driver_disconnects(line[33:].split('[')[0].strip(), init)
 
             # Connection is now closed for Driver Name []
             elif line.find('Connection is now closed') == 0:
                 print('\n'+line.strip())
-                self.driver_disconnects(line[28:].split('[')[0].strip(), init)
+                self.vanilla_driver_disconnects(line[28:].split('[')[0].strip(), init)
 
             # Lap completed
             # Result.OnLapCompleted. Cuts: 7
@@ -305,28 +357,33 @@ class Monitor():
                         # Track directory and layout, e.g. ks_barcelona-gp
                         elif s[0] == 'track':
                             tl = s[1].split('-')
-                            track_directory = tl[0]
-                            if len(tl) > 1: track_layout = tl[1]
-                            else:           track_layout = None
-                            print('  Track:', track_directory, track_layout)
+                            track = tl[0]
+                            if len(tl) > 1: layout = tl[1]
+                            else:           layout = None
+                            print('  Track:', track, layout)
 
                 # If we have (entirely!) new cars or new track, initialize that.
                 if len(set(cars).intersection(self.state['cars'])) == 0 \
-                or track_directory != self.state['track_directory']     \
-                or track_layout    != self.state['track_layout']:
-                    self.new_venue(track_directory, track_layout, cars, init)
-
+                or track != self.state['track']     \
+                or layout    != self.state['layout']:
+                    self.new_venue(track, layout, cars)
+                    
+                    # If this isn't the initial parse, save, delete, and send.
+                    if not init:
+                        # Archive it
+                        self.save_and_archive_state()
+                
+                        # Remove all online driver messages
+                        self.delete_online_messages()
+                        
+                        # Send the venue inform message
+                        self.send_state_messages()
+                    
                 # Otherwise, load the json data for tracks and cars to cover some changes in car stuff
-                else: self.load_json_data()
+                else: self.load_ui_data()
 
                 # Regardless, update the cars
                 self.state['cars'] = cars
-
-            # Time stamp is one above the CPU number. Only cache it and wait for
-            # venue change to reduce the number of log files
-            elif line.find('Num CPU:') == 0:
-                self.timestamp_last = self.history[1].strip().replace(' ', '.').replace(':','.')
-                print('\nTIMESTAMP:', self.timestamp_last)
 
             # Attempt to catch a new log file; clear out onlines
             elif line.find('Assetto Corsa Dedicated Server') == 0:
@@ -334,6 +391,37 @@ class Monitor():
                 if not init:
                     self.send_state_messages()
                     self.save_and_archive_state()
+
+    def vanilla_driver_connects(self, name, car, init):
+        """
+        Sends a message about the player joining and removes the
+        last requested car if any.
+        """
+
+        # Update the online list
+        self.state['online'][name] = dict(car=car)
+
+        # Send the message & save
+        if not init: 
+            self.send_state_messages()
+            self.save_and_archive_state()
+
+    def vanilla_driver_disconnects(self, name, init):
+        """
+        Sends a message about the player leaving.
+        """
+
+        # Only do anything if the name is in the list
+        if not name in self.state['online']: return
+
+        # Pop it
+        self.state['online'].pop(name)
+
+        # Send the message & save
+        if not init:
+            self.send_state_messages()
+            self.save_and_archive_state()
+
 
     def delete_online_messages(self):
         """
@@ -344,49 +432,38 @@ class Monitor():
             except: pass
             self.state['online'].pop(name)
 
-    def new_venue(self, track, layout, cars, init):
+    def new_venue(self, track, layout, cars):
         """
         track (direcotry), layout (directory), cars (list of directories)
 
         If the track or entire carset has changed (as triggered by a log file entry)
-         1. archive the old state.json
-         2. set the most recently seen timestamp to the timestamp (for the file)
-         3. clear out self.state, set defaults, update with track, layout, cars
-         4. incorporate the race.json or other information if possible
-         4. delete all messages if possible and send the new ones
+         1. archive the old state.json using the existing timestamp
+         2. clear out self.state, set defaults, update with track, layout, cars
+         3. reset the timestamp for this venue
+         4. incorporate any ui json data
         """
-        print('new_venue()')
+        print('\nnew_venue()')
 
         # Dump the existing state and copy to the archive before we update the timestamp
         self.save_and_archive_state()
-
-        # Timestamp changes only for new track; use the most recently seen timestamp
-        self.timestamp = self.timestamp_last
 
         # Reset everything; new venue happens when the server resets, which boots people (hopefully)
         self.reset_state()
 
         # Stick the track directory in there
-        print('  track ', self.state['track_directory'], '->', track)
-        print('  layout', self.state['track_layout'],    '->', layout)
+        print('  track ', self.state['track'], '->', track)
+        print('  layout', self.state['layout'],    '->', layout)
         print('  cars  ', self.state['cars'],            '->', cars)
 
-        self.state['track_directory'] = track
-        self.state['track_layout']    = layout
+        self.state['track'] = track
+        self.state['layout']    = layout
         self.state['cars']            = cars
 
         # Update the state with the race.json if it exists (gives track and cars and carset info)
-        self.load_json_data()
-
-        if not init:
-            # Archive it
-            self.save_and_archive_state()
-    
-            # Remove all online driver messages
-            self.delete_online_messages()
-            
-            # Send the venue inform message
-            self.send_state_messages()
+        self.load_ui_data()
+        
+        # Timestamp changes only for new track; use the most recently seen timestamp
+        self.state['timestamp'] = time.strftime('%Y-%m-%d_%H.%M.%S', time.localtime())
 
     def save_and_archive_state(self, skip=False):
         """
@@ -402,8 +479,8 @@ class Monitor():
         if not os.path.exists(path_archive): os.mkdir(path_archive)
 
         # Store the archive path for this particular state.json
-        if self.state['track_directory'] and self.timestamp:
-            self.state['archive_path'] = os.path.join(path_archive, self.timestamp +'.'+ self.state['track_directory']+'.json')
+        if self.state['track'] and self.state['timestamp']:
+            self.state['archive_path'] = os.path.join(path_archive, self.state['timestamp'] +'.'+ self.state['track']+'.json')
         else:
             self.state['archive_path'] = None
 
@@ -428,36 +505,6 @@ class Monitor():
         f.write('\n'.join(paths))
         f.close()
 
-    def driver_connects(self, name, car, init):
-        """
-        Sends a message about the player joining and removes the
-        last requested car if any.
-        """
-
-        # Update the online list
-        self.state['online'][name] = dict(car=car)
-
-        # Send the message & save
-        if not init: 
-            self.send_state_messages()
-            self.save_and_archive_state()
-
-    def driver_disconnects(self, name, init):
-        """
-        Sends a message about the player leaving.
-        """
-
-        # Only do anything if the name is in the list
-        if not name in self.state['online']: return
-
-        # Pop it
-        self.state['online'].pop(name)
-
-        # Send the message & save
-        if not init:
-            self.send_state_messages()
-            self.save_and_archive_state()
-
     def to_ms(self, s):
         """
         Given string s (e.g., '47:21:123'), return an integer number of ms.
@@ -465,9 +512,9 @@ class Monitor():
         s = s.split(':')
         return int(s[0])*60000 + int(s[1])*1000 + int(s[2])
 
-    def load_json_data(self):
+    def load_ui_data(self):
         """
-        Assuming self.state exists with track_directory, track_layout, 
+        Assuming self.state exists with track, layout, 
         and cars (list of directories), if path_race_json is not empty, 
         load race.json, and update the server state based on this.
 
@@ -478,15 +525,15 @@ class Monitor():
         possibly missing ui_car.json and ui_track.json. We'd have to
         scrape the track and car folders from server_cfg.ini first.
         """
-        print('\nload_json_data()')
+        print('\nload_ui_data()')
 
         # If we're here, there is no race.json, so let's look for information
         # in the ui_*.json files for the track and cars.
 
         # Start by looking for the track and layout
         path_ui_track = os.path.join(path_ac, 'content', 'tracks', 
-            self.state['track_directory'], 'ui', 
-            self.state['track_layout'], 'ui_track.json')
+            self.state['track'], 'ui', 
+            self.state['layout'], 'ui_track.json')
         
         # If the track/layout/ui_track.json exists, load the track name!
         if os.path.exists(path_ui_track): 
@@ -548,7 +595,7 @@ class Monitor():
         """
 
         # If there are no laps, return None so we know not to use them.
-        if len(self.state['laps'].keys()) == 0: return None
+        if not self.state['laps'] or len(self.state['laps'].keys()) == 0: return None
 
         # Scan through the state and collect the driver best laps
         # for each group
@@ -645,7 +692,7 @@ class Monitor():
 
         # Track name
         track_name = self.state['track_name']
-        if not track_name: track_name = self.state['track_directory']
+        if not track_name: track_name = self.state['track']
         if track_name: body1 = body1 + track_name + '!]('+url_mods+')**'
 
         # Subheader
