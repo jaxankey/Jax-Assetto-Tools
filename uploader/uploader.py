@@ -31,11 +31,13 @@ class server():
         self.style_category = 'color:blue; font-size:14pt; font-weight:bold'
         self.style_fancybutton = 'background-color: blue; color: white; font-weight:bold'
 
+
+
         ######################
         # Build the GUI
 
         # Main window
-        self.window = egg.gui.Window('Assetto Corsa Uploader', autosettings_path='window')
+        self.window = egg.gui.Window('Assetto Corsa Uploader', size=(1200,700), autosettings_path='window')
 
         # Tabs
         self.tabs = self.window.add(egg.gui.TabArea(autosettings_path='tabs'))
@@ -45,6 +47,8 @@ class server():
         # Log
         self.text_log = self.window.add(egg.gui.TextLog())
         self.text_log.append_text('Welcome to AC Uploader!\n')
+
+
 
         #######################
         # SETTINGS
@@ -90,11 +94,34 @@ class server():
             tip='Remote path to assettocorsa folder (where acServer is located).', 
             autosettings_path='text_remote'), alignment=0)
 
+        ####### Settings for vanilla / steam server
         self.tab_settings.new_autorow()
-        self.label_restart = self.tab_settings.add(egg.gui.Label('Restart Command:'))
-        self.text_restart = self.tab_settings.add(egg.gui.TextBox('/home/username/restart-servers',
+        self.label_restart = self.tab_settings.add(egg.gui.Label('Restart Server Command:'))
+        self.text_restart = self.tab_settings.add(egg.gui.TextBox('/home/username/restart-server',
             tip='Remote path to a script that restarts the server.', 
             autosettings_path='text_restart'), alignment=0)
+
+
+        ####### Settings for server manager premium
+        self.tab_settings.new_autorow()
+        self.label_stop = self.tab_settings.add(egg.gui.Label('Stop Server Command:'))
+        self.text_stop = self.tab_settings.add(egg.gui.TextBox('/home/username/stop-server',
+            tip='Remote path to a script that stops the server prior to modifying / uploading.', 
+            autosettings_path='text_stop'), alignment=0)
+
+        self.tab_settings.new_autorow()
+        self.label_start = self.tab_settings.add(egg.gui.Label('Start Command:'))
+        self.text_start = self.tab_settings.add(egg.gui.TextBox('/home/username/start-servers',
+            tip='Remote path to a script that starts the server.', 
+            autosettings_path='text_start'), alignment=0)
+
+        self.tab_settings.new_autorow()
+        self.label_remote_championship = self.tab_settings.add(egg.gui.Label('Remote Championship JSON:'))
+        self.text_remote_championship = self.tab_settings.add(egg.gui.TextBox('/home/username/server-manager/json/championships/blah-blah-blah.json',
+            tip='Remote path to the championship json we wish to update. Requires json mode in\nserver-manager\'s config.yml.', 
+            autosettings_path='text_start'), alignment=0)
+
+
 
         self.tab_settings.set_row_stretch(20)
 
@@ -103,6 +130,8 @@ class server():
         self.text_url = self.tab_settings.add(egg.gui.TextBox('',
             tip='Website to open when uploading, for example a place to modify the car selection on the reservation sheet, or a place to upload files for everyone else.',
             autosettings_path='text_url'), alignment=0)
+
+
 
         #############################
         # UPLOADER
@@ -201,8 +230,17 @@ class server():
         Called when the server mode has changed. Just hides / shows the
         relevant settings.
         """
-        self.label_restart.hide()
-        self.text_restart.hide()
+        premium = self.combo_mode.get_index() == 1
+    
+        self.label_restart.show(premium)
+        self.text_restart .show(premium)
+        
+        self.label_stop .hide(premium)
+        self.text_stop  .hide(premium)
+        self.label_start.hide(premium)
+        self.text_start .hide(premium)
+        self.label_remote_championship.hide(premium)
+        self.text_remote_championship .hide(premium)
 
     def _button_upload_clicked(self,e):
         """
