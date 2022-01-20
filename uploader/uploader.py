@@ -10,12 +10,12 @@ print('WORKING DIRECTORY:')
 print(os.getcwd())
 
 # GUI class for configuring the server
-class server():
+class uploader():
     """
     GUI class for uploading content and restarting the assetto server.
     """
 
-    def __init__(self, blocking=True):
+    def __init__(self, blocking=False):
 
         ######################
         # Set the working directory to that of the script
@@ -191,23 +191,35 @@ class server():
         self.tab_uploader.add(egg.gui.Label('\nServer').set_style(self.style_category))
         self.tab_uploader.new_autorow()
 
-        self.grid2s = self.tab_uploader.add(egg.gui.GridLayout(margins=False), alignment=0).set_column_stretch(2)
+        self.grid2s = self.tab_uploader.add(egg.gui.GridLayout(margins=False), alignment=0)
         self.grid2s.add(egg.gui.Label('Max Pit Boxes:'))
         self.number_slots = self.grid2s.add(egg.gui.NumberBox(16,
             tip='Maximum number of pitboxes (will not exceed the track limit).', 
             bounds=(1,None), int=True, autosettings_path='number_slots'))
 
+        # Actions
+        self.checkbox_package = self.grid2s.add(egg.gui.CheckBox(
+            'Package', True, autosettings_path='checkbox_package', 
+            tip='Package up all the files for upload.'))
+        self.checkbox_upload  = self.grid2s.add(egg.gui.CheckBox(
+            'Upload', True, autosettings_path='checkbox_upload', 
+            tip='Upload to server and unpack.'))
+        self.checkbox_modify  = self.grid2s.add(egg.gui.CheckBox(
+            'Modify', True, autosettings_path='checkbox_modify', 
+            tip='Also modify the server files with the above configuration.'))
+        self.checkbox_restart = self.grid2s.add(egg.gui.CheckBox(
+            'Restart', True, autosettings_path='checkbox_restart', 
+            tip='Stop and restart the server after modifying its configuration.'))
+        self.checkbox_url = self.grid2s.add(egg.gui.CheckBox(
+            'Open URL', True, autosettings_path='checkbox_url', 
+            tip='Open the specified URL in your browser.'))
+        
         # upload button
-        self.button_upload = self.grid2s.add(egg.gui.Button('Upload and Restart Server!',
-            tip='Packages the required server data and (if not in test mode), uploads, restarts the server, and cleans up the files.', 
+        self.button_upload = self.grid2s.add(egg.gui.Button(
+            'Go!', tip='Packages the required server data, uploads, restarts the server, cleans up the local files.', 
             signal_clicked=self._button_upload_clicked), alignment=0)
         self.button_upload.set_style(self.style_fancybutton)
-        self.grid2s.set_column_stretch(2)
-
-        # Test mode
-        self.checkbox_test = self.grid2s.add(egg.gui.CheckBox('Test Mode', 
-            tip='If checked, only package the data; do not upload, restart the server, or clean up the files.',
-            autosettings_path='checkbox_test'))
+        self.grid2s.set_column_stretch(7)
 
         ###################
         # Load tracks and cars
@@ -409,30 +421,25 @@ class server():
             self.log('  Uploading uploads.7z...')
             c = 'scp -P '+port+' -i "' + pem + '" uploads.7z '+login+':"'+remote+'"'
             print(c)
-            if self.checkbox_test(): self.log('    (skipped in test mode)')
-            else:                    self.system(c)
+            self.system(c)
 
             # Remote extract
             self.log('  Extracting remote uploads.7z...')
             c = 'ssh -p '+port+' -i "'+pem+'" '+login+' 7z x -aoa steam/assetto/uploads.7z -o./steam/assetto/'
             print(c)
-            if self.checkbox_test(): self.log('    (skipped in test mode)')
-            else:                    self.system(c)
+            self.system(c)
 
         # Restart server
         self.log('  Restarting server...')
         print(c)
         if restart != '': 
             c = 'ssh -p '+port+' -i "'+pem+'" '+login+' '+restart
-            if self.checkbox_test(): self.log('    (skipped in test mode)')
-            else:                    self.system(c)
+            self.system(c)
 
         # # Clean up the mess
-        if self.checkbox_test(): self.log('  No cleanup in test mode.')
-        else:
-            self.log('  Cleaning up...')
-            if os.path.exists('uploads')   : shutil.rmtree('uploads')
-            if os.path.exists('uploads.7z'): os.remove('uploads.7z')
+        self.log('  Cleaning up...')
+        if os.path.exists('uploads')   : shutil.rmtree('uploads')
+        if os.path.exists('uploads.7z'): os.remove('uploads.7z')
 
         self.log('\nDone! Hopefully!')
 
@@ -806,4 +813,4 @@ class server():
 
 
 # Start the show!
-self = server()
+self = uploader()
