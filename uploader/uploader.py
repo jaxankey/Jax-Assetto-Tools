@@ -258,190 +258,216 @@ class uploader():
         """
         Uploads the current configuration to the server.
         """
-        self.log('\n------- UPLOADING TO SERVER --------')
+        self.log('\n------- GO TIME! --------')
 
         # Make sure it's clean
         if os.path.exists('uploads')   : shutil.rmtree('uploads')
         if os.path.exists('uploads.7z'): os.remove('uploads.7z')
 
-        # get the tracks and cars
-        track = self.combo_tracks.get_text() # Track directory
-        cars  = self.get_selected_cars()     # List of car directories
+        # Collect and package all the data
+        if self.checkbox_package():
+    
+            # get the tracks and cars
+            track = self.combo_tracks.get_text() # Track directory
+            cars  = self.get_selected_cars()     # List of car directories
+    
+            # Make sure we have at least one car
+            if len(cars) == 0:
+                self.log('No cars selected?')
+                return
+    
+            # Make sure we have a track
+            if track == '':
+                self.log('No track selected?')
+                return
+    
+            # Make base directory structure
+            temp_content = os.path.join('uploads', 'content')
+            temp_cars    = os.path.join('uploads', 'content', 'cars')
+            temp_tracks  = os.path.join('uploads', 'content', 'tracks')
+            os.makedirs(temp_content)
+            os.makedirs(temp_cars)
+            os.makedirs(temp_tracks)
+    
+            # Local assetto path
+            local = os.path.abspath(self.text_local.get_text())
 
-        # Make sure we have at least one car
-        if len(cars) == 0:
-            self.log('No cars selected?')
-            return
+            ####### COPY EVERYTHING TO TEMP DIRECTORY
 
-        # Make sure we have a track
-        if track == '':
-            self.log('No track selected?')
-            return
+            # Cars: we just need data dir and data.acd (if present)
+            self.log('Prepping cars:')
+            for car in cars:
+                self.log('  '+ self.cars[car])
+    
+                # data folder
+                d = os.path.join(local, 'content', 'cars', car, 'data')
+                if os.path.exists(d):
+                    c = os.path.abspath(os.path.join(temp_cars, car))
+                    os.makedirs(c, exist_ok=True)
+                    shutil.copytree(d, os.path.join(c,'data'))
+    
+                # data.acd
+                if os.path.exists(d+'.acd'):
+                    c = os.path.abspath(os.path.join(temp_cars, car))
+                    os.makedirs(c, exist_ok=True)
+                    shutil.copy(d+'.acd', os.path.join(c,'data.acd'))
+                    
+                # ui_car.json
+                ui = os.path.join(local, 'content', 'cars', car, 'ui', 'ui_car.json')
+                if os.path.exists(ui):
+                    c = os.path.abspath(os.path.join(temp_cars, car, 'ui'))
+                    os.makedirs(c, exist_ok=True)
+                    shutil.copy(ui, os.path.join(c,'ui_car.json'))
+    
+            # Copy over the carsets folder too.
+            shutil.copytree('carsets', os.path.join('uploads','carsets'))
 
-        # Make base directory structure
-        temp_content = os.path.join('uploads', 'content')
-        temp_cars    = os.path.join('uploads', 'content', 'cars')
-        temp_tracks  = os.path.join('uploads', 'content', 'tracks')
-        os.makedirs(temp_content)
-        os.makedirs(temp_cars)
-        os.makedirs(temp_tracks)
-
-        # Local assetto path
-        local = os.path.abspath(self.text_local.get_text())
-
-        #######################################################
-        # Copy all the files we need to a temporary directory
-
-        # Cars: we just need data dir and data.acd (if present)
-        self.log('\nPrepping cars:')
-        for car in cars:
-            self.log('  '+ self.cars[car])
-
-            # Look for and copy the data folder first
-            d = os.path.join(local, 'content', 'cars', car, 'data')
-            if os.path.exists(d):
-                c = os.path.abspath(os.path.join(temp_cars, car))
-                os.makedirs(c, exist_ok=True)
-                shutil.copytree(d, os.path.join(c,'data'))
-
-            # Look for and copy the data.acd file too.
-            if os.path.exists(d+'.acd'):
-                c = os.path.abspath(os.path.join(temp_cars, car))
-                os.makedirs(c, exist_ok=True)
-                shutil.copy(d+'.acd', os.path.join(c,'data.acd'))
-                
-            # Look for and copy the ui_car.json
-            ui = os.path.join(local, 'content', 'cars', car, 'ui', 'ui_car.json')
-            if os.path.exists(ui):
-                c = os.path.abspath(os.path.join(temp_cars, car, 'ui'))
-                os.makedirs(c, exist_ok=True)
-                shutil.copy(ui, os.path.join(c,'ui_car.json'))
-
-        # Copy over the carsets folder too.
-        shutil.copytree('carsets', os.path.join('uploads','carsets'))
-
-        # Copy the nice cars list to the clipboard
-        pyperclip.copy(self.get_nice_selected_cars_string())
-        self.log('List copied to clipboard.')
-        if self.text_url() != '':
-            self.log('Launching supplied URL...')
-            webbrowser.open(self.text_url())
-
-        # Track data
-        self.log('\nPrepping track:')
-        self.log('  '+track)
-        d = os.path.join(local, 'content', 'tracks', track)
-
-        # all .ini just to be safe (and more like the server)
-        for s in pathlib.Path(d).rglob('*.ini'):
-
-            # Get the relative path
-            r = os.path.join(*s.parts[s.parts.index(track)+1:])
-
-            # Destination
-            x = os.path.abspath(os.path.join(temp_tracks, track, r))
-
-            # Copy it over
-            os.makedirs(os.path.dirname(x), exist_ok=True)
-            shutil.copy(s, x)
-
-        # Also the ui_track.json for each layout (and root path)
-        rs = self.combo_layouts.get_all_items() + ['']
-        for r in rs:
-            s = os.path.join(d, 'ui', r, 'ui_track.json')        
-            if os.path.exists(s):
-                
+            # Track
+            self.log('Prepping track:')
+            self.log('  '+track)
+            d = os.path.join(local, 'content', 'tracks', track)
+    
+            # all .ini just to be safe (and more like the server)
+            for s in pathlib.Path(d).rglob('*.ini'):
+    
+                # Get the relative path
+                r = os.path.join(*s.parts[s.parts.index(track)+1:])
+    
                 # Destination
-                x = os.path.abspath(os.path.join(temp_tracks, track, 'ui', r, 'ui_track.json'))
-                
-                # Copy it.
+                x = os.path.abspath(os.path.join(temp_tracks, track, r))
+    
+                # Copy it over
                 os.makedirs(os.path.dirname(x), exist_ok=True)
                 shutil.copy(s, x)
+    
+            # Also the ui_track.json for each layout (and root path)
+            rs = self.combo_layouts.get_all_items() + ['']
+            for r in rs:
+                s = os.path.join(d, 'ui', r, 'ui_track.json')        
+                if os.path.exists(s):
+                    
+                    # Destination
+                    x = os.path.abspath(os.path.join(temp_tracks, track, 'ui', r, 'ui_track.json'))
+                    
+                    # Copy it.
+                    os.makedirs(os.path.dirname(x), exist_ok=True)
+                    shutil.copy(s, x)
 
+        # Package not checked
+        else: self.log('Skipping package')
 
         # Writes the server_cfg.ini files based on selection.
-        self.generate_cfg()
+        if self.checkbox_modify(): 
+            
+            # Generate the server_cfg.ini file
+            self.generate_cfg()
 
-        ####################################
-        # Info json file
-        self.log('\nPrepping race data:')
-        self.race_json = dict()
+            # Prep the race.json file, which is used to restart the server
+            # on race night.
+            self.log('Prepping race data:')
+            self.race_json = dict()
+    
+            # CARSET NAME
+            self.log ('  carset')
+            if self.combo_carsets() > 0: self.race_json['carset'] = self.combo_carsets.get_text()
+            else:                        self.race_json['carset'] = None
+    
+            # CARS DICTIONARY (Lookup by nice name)
+            self.log('  cars')
+            self.race_json['cars'] = dict()
+            for c in cars: self.race_json['cars'][self.cars[c]] = c
+            #json.dump(cars_dictionary, open(os.path.join('uploads', 'cars.txt'), 'w'))
+    
+            # SKINS
+            self.log('  skins')
+            self.race_json['skins'] = dict()
+            for c in cars: self.race_json['skins'][c] = self.skins[c]
+            #json.dump(skins, open(os.path.join('uploads', 'skins.txt'), 'w'))
+    
+            # TRACK
+            self.log('  track')
+            self.race_json['track'] = self.track
+            self.race_json['track']['directory'] = track.strip()
+    
+            # Dump
+            self.log('Dumping to race.json...')
+            json.dump(self.race_json, open(os.path.join('uploads', 'race.json'), 'w'), indent=2, sort_keys=True)
 
-        # CARSET NAME
-        self.log ('  carset')
-        if self.combo_carsets() > 0: self.race_json['carset'] = self.combo_carsets.get_text()
-        else:                        self.race_json['carset'] = None
+        # Modify not checked
+        else: self.log('Skipping server config')
 
-        # CARS DICTIONARY (Lookup by nice name)
-        self.log('  cars')
-        self.race_json['cars'] = dict()
-        for c in cars: self.race_json['cars'][self.cars[c]] = c
-        #json.dump(cars_dictionary, open(os.path.join('uploads', 'cars.txt'), 'w'))
+        # Finish the main assetto package (vanilla adds server cfg files)
+        if self.checkbox_package():
+            
+            # Compress the files we gathered (MUCH faster upload)
+            self.log('  Compressing to uploads.7z...')
+            os.chdir('uploads')
+            c = '7z a ../uploads.7z *'
+            if(os.system(c)): self.log('  UH OH!')
+            os.chdir('..')
 
-        # SKINS
-        self.log('  skins')
-        self.race_json['skins'] = dict()
-        for c in cars: self.race_json['skins'][c] = self.skins[c]
-        #json.dump(skins, open(os.path.join('uploads', 'skins.txt'), 'w'))
-
-        # TRACK
-        self.log('  track')
-        self.race_json['track'] = self.track
-        self.race_json['track']['directory'] = track.strip()
-
-        # Dump
-        self.log('Dumping to race.json...')
-        json.dump(self.race_json, open(os.path.join('uploads', 'race.json'), 'w'), indent=2, sort_keys=True)
 
         ####################################
         # SERVER STUFF
-        self.log('\nServer stuff:')
-
+        
         # Server info
         login   = self.text_login.get_text()
         port    = self.text_port .get_text()
         pem     = os.path.abspath(self.text_pem.get_text())
         remote  = self.text_remote.get_text()
-        restart = self.text_restart.get_text()
+        restart = self.text_restart.get_text() # For vanilla
+        stop    = self.text_stop.get_text()    # For acsm
+        start   = self.text_start.get_text()   # For acsm
 
-        # Compress the files we gathered (MUCH faster upload)
-        self.log('  Compressing to uploads.7z...')
-        os.chdir('uploads')
-        c = '7z a ../uploads.7z *'
-        if(os.system(c)): self.log('  UH OH!')
-        os.chdir('..')
+        # Upload the main assetto content
+        if self.checkbox_upload():
+            self.log('Uploading...')
+            
+            # Make sure we don't bonk the system with rm -rf
+            if not remote.lower().find('assetto') >= 0:
+                self.log('  Yeah, sorry, to avoid messing with something unintentionally, we enforce that your remote path have the word "assetto" in it.')
+                return
+    
+            # Upload the archive
+            else:
+                self.log('  Uploading uploads.7z...')
+                c = 'scp -P '+port+' -i "' + pem + '" uploads.7z '+login+':"'+remote+'"'
+                print(c)
+                self.system(c)
+    
+                # Remote extract
+                self.log('  Extracting remote uploads.7z...')
+                c = 'ssh -p '+port+' -i "'+pem+'" '+login+' 7z x -aoa steam/assetto/uploads.7z -o./steam/assetto/'
+                print(c)
+                self.system(c)
 
-        # Make sure we don't bonk the system with rm -rf
-        if not remote.lower().find('assetto') >= 0:
-            self.log('  Yeah, sorry, for safety reasons, we enforce that your remote path have the word "assetto" in it.')
-            return
+            # # Clean up the mess
+            self.log('  Cleaning up...')
+            if os.path.exists('uploads')   : shutil.rmtree('uploads')
+            if os.path.exists('uploads.7z'): os.remove('uploads.7z')
 
-        # Upload the archive
-        else:
-            self.log('  Uploading uploads.7z...')
-            c = 'scp -P '+port+' -i "' + pem + '" uploads.7z '+login+':"'+remote+'"'
-            print(c)
-            self.system(c)
-
-            # Remote extract
-            self.log('  Extracting remote uploads.7z...')
-            c = 'ssh -p '+port+' -i "'+pem+'" '+login+' 7z x -aoa steam/assetto/uploads.7z -o./steam/assetto/'
-            print(c)
-            self.system(c)
+        else: self.log('Skipping upload')
 
         # Restart server
-        self.log('  Restarting server...')
-        print(c)
-        if restart != '': 
-            c = 'ssh -p '+port+' -i "'+pem+'" '+login+' '+restart
-            self.system(c)
+        if self.checkbox_restart():
+            self.log('Restarting server...')
+            print(c)
+            if restart != '': 
+                c = 'ssh -p '+port+' -i "'+pem+'" '+login+' '+restart
+                self.system(c)
 
-        # # Clean up the mess
-        self.log('  Cleaning up...')
-        if os.path.exists('uploads')   : shutil.rmtree('uploads')
-        if os.path.exists('uploads.7z'): os.remove('uploads.7z')
+        else: self.log('Skipping server restart')
 
-        self.log('\nDone! Hopefully!')
+        # Copy the nice cars list to the clipboard
+        if self.checkbox_url():
+            pyperclip.copy(self.get_nice_selected_cars_string())
+            self.log('List copied to clipboard.')
+            if self.text_url() != '':
+                self.log('Launching supplied URL...')
+                webbrowser.open(self.text_url())
+        else: self.log('Skipping URL')
+
+        self.log('Done! Hopefully!')
 
     def log(self, *a):
         """
