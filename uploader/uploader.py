@@ -51,6 +51,11 @@ class server():
 
         # Server stuff
         self.tab_settings.new_autorow()
+        self.tab_settings.add(egg.gui.Label('Mode:'))
+        self.combo_mode = self.tab_settings.add(egg.gui.ComboBox(['Steam acServer', 'Server Manager'], 
+            autosettings_path='combo_mode', signal_changed=self._combo_mode_changed))
+ 
+        self.tab_settings.new_autorow()
         self.tab_settings.add(egg.gui.Label('Login:'))
         self.text_login = self.tab_settings.add(egg.gui.TextBox('username@ec2-or-whatever.compute.amazonaws.com', 
             tip='Your server\'s ssh username@ssh-web-address',
@@ -72,24 +77,24 @@ class server():
             signal_clicked=self._button_browse_pem_clicked))
 
         self.tab_settings.new_autorow()
-        self.tab_settings.add(egg.gui.Label('Remote Path:'))
-        self.text_remote = self.tab_settings.add(egg.gui.TextBox('/home/username/path/to/assettocorsa',
-            tip='Remote path to assettocorsa folder (where acServer is located).', 
-            autosettings_path='text_remote'), alignment=0)
-
-        self.tab_settings.new_autorow()
-        self.tab_settings.add(egg.gui.Label('Restart Command:'))
-        self.text_restart = self.tab_settings.add(egg.gui.TextBox('/home/username/restart-servers',
-            tip='Remote path to a script that restarts the server.', 
-            autosettings_path='text_restart'), alignment=0)
-
-        self.tab_settings.new_autorow()
-        self.tab_settings.add(egg.gui.Label('Local Path:'))
+        self.tab_settings.add(egg.gui.Label('Local Assetto Path:'))
         self.text_local          = self.tab_settings.add(egg.gui.TextBox('C:\\path\\to\\assettocorsa',
             tip='Local path to assettocorsa folder.', autosettings_path='text_local'), alignment=0)
         self.button_browse_local = self.tab_settings.add(egg.gui.Button('Browse',
             tip='Opens a dialog to let you find the local assettocorsa folder.',
             signal_clicked=self._button_browse_local_clicked))
+
+        self.tab_settings.new_autorow()
+        self.tab_settings.add(egg.gui.Label('Remote Assetto Path:'))
+        self.text_remote = self.tab_settings.add(egg.gui.TextBox('/home/username/path/to/assettocorsa',
+            tip='Remote path to assettocorsa folder (where acServer is located).', 
+            autosettings_path='text_remote'), alignment=0)
+
+        self.tab_settings.new_autorow()
+        self.label_restart = self.tab_settings.add(egg.gui.Label('Restart Command:'))
+        self.text_restart = self.tab_settings.add(egg.gui.TextBox('/home/username/restart-servers',
+            tip='Remote path to a script that restarts the server.', 
+            autosettings_path='text_restart'), alignment=0)
 
         self.tab_settings.set_row_stretch(20)
 
@@ -183,10 +188,21 @@ class server():
         # Do this after updating carsets to avoid issues
         self.combo_carsets.signal_changed.connect(self._combo_carsets_changed)
 
+        ###################
+        # Update gui
+        self._combo_mode_changed(None)
 
         ######################
         # Show it no more commands below this.
         self.window.show(blocking)
+
+    def _combo_mode_changed(self,e):
+        """
+        Called when the server mode has changed. Just hides / shows the
+        relevant settings.
+        """
+        self.label_restart.hide()
+        self.text_restart.hide()
 
     def _button_upload_clicked(self,e):
         """
