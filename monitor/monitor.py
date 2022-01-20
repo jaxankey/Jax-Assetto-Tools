@@ -35,7 +35,7 @@ online_footer       = ''
 
 # Persistent post for venue information
 url_webhook_info    = None
-url_mods            = ''
+url_event_info      = ''
 venue_header        = ''
 venue_subheader     = ''
 laps_footer         = ''
@@ -733,7 +733,7 @@ class Monitor():
         # Track name
         track_name = self.state['track_name']
         if not track_name: track_name = self.state['track']
-        if track_name: body1 = body1 + track_name + '!]('+url_mods+')**'
+        if track_name: body1 = body1 + track_name + '!]('+url_event_info+')**'
 
         # Subheader
         body1 = body1 + '\n' + venue_subheader
