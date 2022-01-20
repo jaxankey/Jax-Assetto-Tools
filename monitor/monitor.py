@@ -112,9 +112,6 @@ class Monitor():
         if server_manager_premium_mode: 
             print('Monitoring for updates...')
             
-            # Test run (comment out)
-            #self.premium_get_latest_data(); return
-            
             # Get all the latest data from the server
             while True:
                 self.premium_get_latest_data()
@@ -152,6 +149,9 @@ class Monitor():
         Grabs all the latest event information from the server, and 
         send / update messages if anything changed.
         """
+        
+        # If this is the first run, some things are none.
+        first_run = self.live_timings == None
         
         # Flag for information that changed
         laps_onlines_changed = False # laps or onlines for sending messages
@@ -250,7 +250,7 @@ class Monitor():
                    
         
         # If anything changed, we need to update the messages
-        if laps_onlines_changed or venue_changed or carset_fully_changed: 
+        if first_run or laps_onlines_changed or venue_changed or carset_fully_changed: 
             print('Something changed', laps_onlines_changed, venue_changed, carset_fully_changed, 'sending messages')
             self.send_state_messages()
               
