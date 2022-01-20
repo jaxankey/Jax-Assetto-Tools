@@ -1,9 +1,0 @@
-#!/bin/bash
-
-pkill acServer
-
-cd /home/ubuntu/steam/assetto
-./acServer &> /home/ubuntu/logs/acServer.log &
-
-sleep 5
-/home/ubuntu/Jax-Assetto-Tools/monitor/restart-monitor
