@@ -8,7 +8,7 @@
 # See monitor.ini for configuration!                             #
 ##################################################################
 
-import os, json, discord, shutil, pprint, glob, time, datetime, urllib
+import os, json, discord, shutil, pprint, glob, time, urllib
 
 # Change to the directory of this script
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
@@ -112,7 +112,7 @@ class Monitor():
         if server_manager_premium_mode: 
             print('Monitoring for updates...')
             
-            # Test run
+            # Test run (comment out)
             #self.premium_get_latest_data(); return
             
             # Get all the latest data from the server
@@ -217,7 +217,6 @@ class Monitor():
             # UPDATE BEST LAPS
             for guid in T['Drivers']:
                 name = T['Drivers'][guid]['CarInfo']['DriverName']
-                print(guid, name)
                 
                 # Make sure this name is in the state
                 if not name in self['laps']: 
@@ -563,16 +562,7 @@ class Monitor():
 
     def load_ui_data(self):
         """
-        Assuming self.state exists with track, layout, 
-        and cars (list of directories), if path_race_json is not empty, 
-        load race.json, and update the server state based on this.
-
-        If not path_race_json or race.json does not exist, check for ui 
-        folders and use their information (they are also jsons).
-        
-        JACK: If path_race_json is empty, get what data we can from the
-        possibly missing ui_car.json and ui_track.json. We'd have to
-        scrape the track and car folders from server_cfg.ini first.
+        Load car and track ui_*.json, and look for carsets
         """
         print('\nload_ui_data()')
 
@@ -582,7 +572,7 @@ class Monitor():
         # Start by looking for the track and layout
         path_ui_track = os.path.join(path_ac, 'content', 'tracks', 
             self.state['track'], 'ui', 
-            self.state['layout'], 'ui_track.json')
+            self.state['layout'],'ui_track.json')
         
         # If the track/layout/ui_track.json exists, load the track name!
         if os.path.exists(path_ui_track): 
@@ -591,6 +581,7 @@ class Monitor():
         
         # Now load all the carsets if they exist
         path_carsets = os.path.join(path_ac, 'carsets')
+        print('Checking', path_carsets)
         if os.path.exists(path_carsets):
             
             # Looks for and sort the carset paths
