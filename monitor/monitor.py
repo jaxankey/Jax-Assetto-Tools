@@ -111,7 +111,9 @@ class Monitor():
         # Premium mode
         if server_manager_premium_mode: 
             print('Monitoring for updates...')
-            self.premium_get_latest_data(); return
+            
+            # Test run
+            #self.premium_get_latest_data(); return
             
             # Get all the latest data from the server
             while True:
