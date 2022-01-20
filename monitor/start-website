@@ -2,4 +2,4 @@
 
 cd "$(dirname "$0")"
 mkdir -p ~/logs
-./website.py &>~/logs/ac-website.log &
+nice -n 10 ./website.py &>~/logs/ac-website.log &
