@@ -108,18 +108,19 @@ class Monitor():
 
 
 
-        # Premium mode initial load
+        # Premium mode
         if server_manager_premium_mode: 
+            print('Monitoring for updates...')
+            self.premium_get_latest_data(); return
             
             # Get all the latest data from the server
-            self.premium_get_latest_data()
-            
-            print('\nAFTER INITIAL PARSE:')
-            pprint.pprint(self.state)
-
+            while True:
+                self.premium_get_latest_data()
+                time.sleep(3)
             
             
-        # Vanilla server initial load
+            
+        # Vanilla server
         else:
             if os.path.isdir(path_log):
                 logs = glob.glob(os.path.join(path_log,'*'))
@@ -128,9 +129,6 @@ class Monitor():
             # Parse the existing log and incorporate ui data
             self.vanilla_parse_lines(open(path_log).readlines(), True)
             self.load_ui_data()
-            
-            print('\nAFTER INITIAL PARSE:')
-            pprint.pprint(self.state)
             
             # Send and save
             self.send_state_messages()
@@ -152,7 +150,6 @@ class Monitor():
         Grabs all the latest event information from the server, and 
         send / update messages if anything changed.
         """
-        print('\npremium_get_latest_data()')
         
         # Flag for information that changed
         laps_onlines_changed = False # laps or onlines for sending messages
@@ -172,17 +169,15 @@ class Monitor():
             # Convert the current state['online'] to a set of (name,car)
             old = set()
             for name in self.state['online']: old.add((name,self.state['online'][name]['car']))
-            print('  Old online:', old)
             
             # Loop over all the cars and create a set of (name,car) to compare
             new = set()
             for car in self.details['players']['Cars']:
                 if car['IsConnected']: new.add((car['DriverName'], car['Model']))
-            print('  New online:', new)
             
             # If they are not equal, update 
             if new != old:
-                print('  Updating...')
+                print('Updating onlines.')
                 self.state['online'] = dict()
                 for item in new: self.state['online'][item[0]] = dict(car=item[1])
                 laps_onlines_changed = True
@@ -193,9 +188,12 @@ class Monitor():
             cars = list(self.details['content']['cars'].keys())
             carset_fully_changed = len(set(cars).intersection(self.state['cars'])) == 0
             self.state['cars'] = cars
-            
+                
         # Data from live_timings.json
         if self.live_timings:
+            
+            # Shortcut
+            T = self.live_timings
             
             # UPDATE TRACK / LAYOUT
             track  = self.live_timings['Track']
@@ -203,15 +201,56 @@ class Monitor():
             venue_changed = track != self.state['track'] or layout != self.state['layout']
             self.state['track']  = track
             self.state['layout'] = layout
-            
         
-        
-        # Check if the venue has changed; if it has, this will reload the ui data
+        # Before doing laps, check if the venue has changed; if it has, 
+        # this will reload the ui data
         if venue_changed or carset_fully_changed: 
-            self.new_venue(self['track'], self['layout'], self['cars'])
+            if venue_changed: print('Venue changed.')
+            self.new_venue(self['track'], self['layout'], self['cars'])    
+
+        
+        # Okay, back to laps.
+        if self.live_timings:
+            
+            # UPDATE BEST LAPS
+            for guid in T['Drivers']:
+                name = T['Drivers'][guid]['CarInfo']['DriverName']
+                print(guid, name)
+                
+                # Make sure this name is in the state
+                if not name in self['laps']: 
+                    print('New driver lap:', name)
+                    self['laps'][name] = dict()
+                    laps_onlines_changed = True
+
+                for car in T['Drivers'][guid]['Cars']:
+                    
+                    # Get the current best in ms (it was nanoseconds LULZ)
+                    best = T['Drivers'][guid]['Cars'][car]['BestLap']*1e-6
+                    
+                    # self['laps'][name][car] = {'time': '12:32:032', 'time_ms':12345, 'cuts': 3}
+                    if best and (car not in self['laps'][name] \
+                    or best < self['laps'][name][car]['time_ms']):
+                            
+                        # Get the string time
+                        ts = self.from_ms(best)
+                        
+                        print('Lap:', name, car, ts)
+                        
+                        self['laps'][name][car] = dict(
+                            time    = ts, 
+                            time_ms = best,
+                            cuts    = 0)
+                        
+                        print(self['laps'][name][car])
+                            
+                        # Remember to update the messages
+                        laps_onlines_changed = True
+                   
         
         # If anything changed, we need to update the messages
         if laps_onlines_changed or venue_changed or carset_fully_changed: 
+            print('Something changed', laps_onlines_changed, venue_changed, carset_fully_changed, 'sending messages')
             self.send_state_messages()
               
                 
@@ -227,8 +266,8 @@ class Monitor():
 
             timestamp         = None,   # Timestamp of the first observation of this venue.
             track_name        = None,   # Track / layout name
-            track   = None,   # Directory name of the track
-            layout      = None,   # Layout name
+            track             = None,   # Directory name of the track
+            layout            = None,   # Layout name
             laps_message_id   = None,   # id of the discord message about laps to edit
 
             archive_path      = None,   # Path to the archive of state.json
@@ -285,7 +324,7 @@ class Monitor():
                 self.vanilla_driver_disconnects(line[28:].split('[')[0].strip(), init)
 
             # Lap completed
-            # Result.OnLapCompleted. Cuts: 7
+            # Result.OnLapCompleted. Cuts: 7 ---
             elif line.find('Result.OnLapCompleted') == 0:
                 print('\n'+line.strip())
 
@@ -504,6 +543,14 @@ class Monitor():
         f = open(path_archive+'.txt', 'w')
         f.write('\n'.join(paths))
         f.close()
+
+    def from_ms(self, t):
+        """
+        Converts milliseconds to a nice string.
+        """
+        m = int(t/60000)
+        s = (t-m*60000)*0.001
+        return '%d:%.3f' % (m,s)
 
     def to_ms(self, s):
         """
