@@ -226,9 +226,6 @@ class uploader():
         # Update gui
         self._combo_mode_changed(None)
 
-        # Load the default track
-        self._combo_tracks_changed(True)
-
         ######################
         # Show it no more commands below this.
         self.window.show(blocking)
@@ -244,6 +241,7 @@ class uploader():
         Called when the server mode has changed. Just hides / shows the
         relevant settings.
         """
+        print('Mode changed')
         premium = self.combo_mode.get_index() == 1
         self.label_remote_championship.hide(premium)
         self.text_remote_championship .hide(premium)
@@ -434,6 +432,8 @@ class uploader():
         return s
 
     def _combo_tracks_changed(self,e):
+        print('Track changed')
+        
         track = self.combo_tracks.get_text()
         if track == '': return
 
@@ -450,6 +450,7 @@ class uploader():
         self._combo_layouts_changed(True)
 
     def _combo_layouts_changed(self,e):
+        print('Layout changed')
         # Paths
         local  = self.text_local()
         track  = self.combo_tracks.get_text()
