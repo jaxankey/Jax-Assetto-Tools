@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-import glob, codecs, os, shutil, pathlib, random, json, pyperclip, webbrowser
+import glob, codecs, os, shutil, random, json, pyperclip, webbrowser
 import spinmob.egg as egg
 egg.gui.egg_settings_path = os.path.join(egg.settings.path_home, 'ac_server_uploader')
 
@@ -16,6 +16,9 @@ class uploader():
     """
 
     def __init__(self, blocking=False):
+
+        # For troubleshooting.
+        self.timer_exceptions = egg.gui.TimerExceptions()        
 
         ######################
         # Set the working directory to that of the script
@@ -102,7 +105,7 @@ class uploader():
             autosettings_path='text_stop'), alignment=0)
 
         self.tab_settings.new_autorow()
-        self.label_start = self.tab_settings.add(egg.gui.Label('Start Command:'))
+        self.label_start = self.tab_settings.add(egg.gui.Label('Start Server Command:'))
         self.text_start = self.tab_settings.add(egg.gui.TextBox('/home/username/start-servers',
             tip='Remote path to a script that starts the server.', 
             autosettings_path='text_start'), alignment=0)
@@ -111,9 +114,7 @@ class uploader():
         self.label_remote_championship = self.tab_settings.add(egg.gui.Label('Remote Championship JSON:'))
         self.text_remote_championship = self.tab_settings.add(egg.gui.TextBox('/home/username/server-manager/json/championships/blah-blah-blah.json',
             tip='Remote path to the championship json we wish to update. Requires json mode in\nserver-manager\'s config.yml.', 
-            autosettings_path='text_start'), alignment=0)
-
-
+            autosettings_path='text_remote_championship'), alignment=0)
 
         self.tab_settings.set_row_stretch(20)
 
@@ -176,7 +177,7 @@ class uploader():
         # Car list
         self.list_cars = self.grid2c.add(egg.pyqtgraph.QtGui.QListWidget(), alignment=0, column_span=3)
         self.list_cars.setSelectionMode(egg.pyqtgraph.QtGui.QAbstractItemView.ExtendedSelection)
-        #self.list_cars.itemSelectionChanged.connect(self._list_cars_changed)
+        self.list_cars.itemSelectionChanged.connect(self._list_cars_changed)
 
         # Server stuff
         self.tab_uploader.new_autorow()
@@ -190,17 +191,17 @@ class uploader():
             bounds=(1,None), int=True, autosettings_path='number_slots'))
 
         # Actions
+        self.checkbox_modify  = self.grid2s.add(egg.gui.CheckBox(
+            'Generate Config Files', True, autosettings_path='checkbox_modify', 
+            tip='Also modify the server files with the above configuration.'))
         self.checkbox_package = self.grid2s.add(egg.gui.CheckBox(
-            'Package', True, autosettings_path='checkbox_package', 
+            'Package Content', True, autosettings_path='checkbox_package', 
             tip='Package up all the files for upload.'))
         self.checkbox_upload  = self.grid2s.add(egg.gui.CheckBox(
             'Upload', True, autosettings_path='checkbox_upload', 
             tip='Upload to server and unpack.'))
-        self.checkbox_modify  = self.grid2s.add(egg.gui.CheckBox(
-            'Modify', True, autosettings_path='checkbox_modify', 
-            tip='Also modify the server files with the above configuration.'))
         self.checkbox_restart = self.grid2s.add(egg.gui.CheckBox(
-            'Restart', True, autosettings_path='checkbox_restart', 
+            'Restart Server', True, autosettings_path='checkbox_restart', 
             tip='Stop and restart the server after modifying its configuration.'))
         self.checkbox_url = self.grid2s.add(egg.gui.CheckBox(
             'Open URL', True, autosettings_path='checkbox_url', 
@@ -229,6 +230,12 @@ class uploader():
         # Show it no more commands below this.
         self.window.show(blocking)
 
+    def _list_cars_changed(self, e=None):
+        """
+        Just set the carset combo when anything changes.
+        """
+        self.combo_carsets(0)
+
     def _combo_mode_changed(self,e):
         """
         Called when the server mode has changed. Just hides / shows the
@@ -248,6 +255,12 @@ class uploader():
         if os.path.exists('uploads')   : shutil.rmtree('uploads')
         if os.path.exists('uploads.7z'): os.remove('uploads.7z')
 
+        # Generate the appropriate config files
+        if self.checkbox_modify(): 
+            if self.combo_mode() == 0: self.generate_acserver_cfg()
+            else:                      self.generate_acsm_cfg()
+        else: self.log('Skipping server config')
+
         # Collect and package all the data
         if self.checkbox_package():
     
@@ -265,10 +278,7 @@ class uploader():
                 self.log('No track selected?')
                 return
     
-            # Local assetto path
-            local = os.path.abspath(self.text_local.get_text())
-
-            ####### COPY EVERYTHING TO TEMP DIRECTORY
+            # COPY EVERYTHING TO TEMP DIRECTORY
 
             # Cars: we just need data dir and data.acd (if present)
             self.log('Collecting cars')
@@ -276,115 +286,19 @@ class uploader():
                 self.log('  '+ self.cars[car])
                 self.collect_assetto_files(os.path.join('cars',car))
     
-                # # data folder
-                # d = os.path.join(local, 'content', 'cars', car, 'data')
-                # if os.path.exists(d):
-                #     c = os.path.abspath(os.path.join(temp_cars, car))
-                #     os.makedirs(c, exist_ok=True)
-                #     shutil.copytree(d, os.path.join(c,'data'))
-    
-                # # data.acd
-                # if os.path.exists(d+'.acd'):
-                #     c = os.path.abspath(os.path.join(temp_cars, car))
-                #     os.makedirs(c, exist_ok=True)
-                #     shutil.copy(d+'.acd', os.path.join(c,'data.acd'))
-                    
-                # # ui_car.json
-                # ui = os.path.join(local, 'content', 'cars', car, 'ui', 'ui_car.json')
-                # if os.path.exists(ui):
-                #     c = os.path.abspath(os.path.join(temp_cars, car, 'ui'))
-                #     os.makedirs(c, exist_ok=True)
-                #     shutil.copy(ui, os.path.join(c,'ui_car.json'))
-    
             # Copy over the carsets folder too.
             shutil.copytree('carsets', os.path.join('uploads','carsets'))
 
             # Track
             self.log('Collecting track')
             self.log('  '+track)
-            d = os.path.join(local, 'content', 'tracks', track)
-    
-            # all .ini just to be safe (and more like the server)
-            for s in pathlib.Path(d).rglob('*.ini'):
-    
-                # Get the relative path
-                r = os.path.join(*s.parts[s.parts.index(track)+1:])
-    
-                # Destination
-                x = os.path.abspath(os.path.join(temp_tracks, track, r))
-    
-                # Copy it over
-                os.makedirs(os.path.dirname(x), exist_ok=True)
-                shutil.copy(s, x)
-    
-            # Also the ui_track.json for each layout (and root path)
-            rs = self.combo_layouts.get_all_items() + ['']
-            for r in rs:
-                s = os.path.join(d, 'ui', r, 'ui_track.json')        
-                if os.path.exists(s):
-                    
-                    # Destination
-                    x = os.path.abspath(os.path.join(temp_tracks, track, 'ui', r, 'ui_track.json'))
-                    
-                    # Copy it.
-                    os.makedirs(os.path.dirname(x), exist_ok=True)
-                    shutil.copy(s, x)
+            self.collect_assetto_files(os.path.join('tracks', track))
 
         # Package not checked
         else: self.log('Skipping package')
 
-        # Writes the server_cfg.ini files based on selection.
-        if self.checkbox_modify(): 
-            
-            # Generate the server_cfg.ini file
-            self.generate_cfg()
 
-            # Prep the race.json file, which is used to restart the server
-            # on race night.
-            self.log('Prepping race data:')
-            self.race_json = dict()
-    
-            # CARSET NAME
-            self.log ('  carset')
-            if self.combo_carsets() > 0: self.race_json['carset'] = self.combo_carsets.get_text()
-            else:                        self.race_json['carset'] = None
-    
-            # CARS DICTIONARY (Lookup by nice name)
-            self.log('  cars')
-            self.race_json['cars'] = dict()
-            for c in cars: self.race_json['cars'][self.cars[c]] = c
-            #json.dump(cars_dictionary, open(os.path.join('uploads', 'cars.txt'), 'w'))
-    
-            # SKINS
-            self.log('  skins')
-            self.race_json['skins'] = dict()
-            for c in cars: self.race_json['skins'][c] = self.skins[c]
-            #json.dump(skins, open(os.path.join('uploads', 'skins.txt'), 'w'))
-    
-            # TRACK
-            self.log('  track')
-            self.race_json['track'] = self.track
-            self.race_json['track']['directory'] = track.strip()
-    
-            # Dump
-            self.log('Dumping to race.json')
-            json.dump(self.race_json, open(os.path.join('uploads', 'race.json'), 'w'), indent=2, sort_keys=True)
-
-        # Modify not checked
-        else: self.log('Skipping server config')
-
-        # Finish the main assetto package (vanilla adds server cfg files)
-        if self.checkbox_package():
-            
-            # Compress the files we gathered (MUCH faster upload)
-            self.log('Compressing uploads.7z')
-            os.chdir('uploads')
-            c = '7z a ../uploads.7z *'
-            if(os.system(c)): self.log('  UH OH!')
-            os.chdir('..')
-
-        else: self.log('Skipping package compression')
-
+        
         ####################################
         # SERVER STUFF
         
@@ -398,15 +312,22 @@ class uploader():
 
         # Upload the main assetto content
         if self.checkbox_upload():
-            self.log('Uploading...')
-            
+            self.log('Uploading content...')
+    
             # Make sure we don't bonk the system with rm -rf
             if not remote.lower().find('assetto') >= 0:
-                self.log('  Yeah, sorry, to avoid messing with something unintentionally, we enforce that your remote path have the word "assetto" in it.')
+                self.log('Yeah, sorry, to avoid messing with something unintentionally, we enforce that your remote path have the word "assetto" in it.')
                 return
     
-            # Upload the archive
-            else:
+            # If we have uploads to compress
+            if os.path.exists('uploads'):
+                # Compress the files we gathered (MUCH faster upload)
+                self.log('  Compressing uploads.7z')
+                os.chdir('uploads')
+                c = '7z a ../uploads.7z *'
+                if(os.system(c)): self.log('  UH OH!')
+                os.chdir('..')
+            
                 self.log('  Uploading uploads.7z...')
                 c = 'scp -P '+port+' -i "' + pem + '" uploads.7z '+login+':"'+remote+'"'
                 print(c)
@@ -418,27 +339,28 @@ class uploader():
                 print(c)
                 self.system(c)
 
-            # # Clean up the mess
-            self.log('  Cleaning up')
-            if os.path.exists('uploads')   : shutil.rmtree('uploads')
-            if os.path.exists('uploads.7z'): os.remove('uploads.7z')
+                self.log('Cleaning up')                
+                shutil.rmtree('uploads')
+                if os.path.exists('uploads.7z'): os.remove('uploads.7z')
 
         else: self.log('Skipping upload')
 
         # Restart server
-        if self.checkbox_restart():
+        if self.checkbox_restart() and stop != '' and start != '':
             self.log('Restarting server...')
-            if stop != '': 
-                c = 'ssh -p '+port+' -i "'+pem+'" '+login+' "'+stop+' && '+start+'"' 
-                print(c)
-                self.system(c)
+            
+            # Vanilla gets just cycled; we'll try this for premium, too
+            c = 'ssh -p '+port+' -i "'+pem+'" '+login+' "'+stop+' && '+start+'"' 
+            print(c)
+            self.system(c)
 
         # No restart
         else: self.log('Skipping server restart')
 
         # Copy the nice cars list to the clipboard
-        pyperclip.copy(self.get_nice_selected_cars_string())
-        self.log('List copied to clipboard')
+        if self.combo_mode() == 0:
+            pyperclip.copy(self.get_nice_selected_cars_string())
+            self.log('List copied to clipboard')
             
         # Forward to the supplied URL
         if self.checkbox_url() and self.text_url() != '':
@@ -455,16 +377,25 @@ class uploader():
         Copies all the required files from the supplied content folder. 
         source_folder should be something like 'tracks/imola' or 'cars/ks_meow'
         """
+        source_folder = os.path.join(self.text_local(),'content',source_folder)
         
         # File extensions we should copy over. ACSM needs a few extra heavies.
         filetypes = ['ini', 'lut', 'rto', 'acd', 'json']
         if self.combo_mode.get_index() == 1:
             filetypes = filetypes + ['ai', 'bin', 'jpg', 'png']
         
-        # Walk through the directory
-        for p in glob.glob(sourc'*.txt')
-            print(p)
-            
+        # Walk through the directory picking up the key files
+        print('collecting', source_folder)
+        for root, dirs, files in os.walk(source_folder):
+            for file in files:
+                if os.path.splitext(file)[-1][1:] in filetypes:
+                    source      = os.path.join(root,file)
+                    destination = os.path.join('uploads', source[len(self.text_local())+1:])
+                    
+                    # Copy it over, making dirs first
+                    os.makedirs(os.path.dirname(destination), exist_ok=True)
+                    try: shutil.copy(source, destination, follow_symlinks=True)
+                    except Exception as e: print(e)
     
             
 
@@ -570,6 +501,9 @@ class uploader():
         selected = f.read().splitlines()
         f.close()
 
+        # Remember the carset
+        i = self.combo_carsets()
+
         # Update the list selection
         self.list_cars.clearSelection()
         for s in selected:
@@ -577,7 +511,10 @@ class uploader():
             if s != '':
                 try:    self.list_cars.findItems(s, egg.pyqtgraph.QtCore.Qt.MatchExactly)[0].setSelected(True)
                 except: self.log('\nWARNING: '+s+' not in list')
-
+        
+        # Restore the carset
+        self.combo_carsets.set_index(i, True)
+        
     def _button_save_clicked(self,e):
         """
         Save the carset.
@@ -672,30 +609,110 @@ class uploader():
         s = s + 'RESTRICTOR=0'
         return s
 
-    def generate_cfg(self):
+    def generate_acsm_cfg(self):
         """
-        Writes the entry_list.ini based on self.get_selected_cars().
+        Downloads the specified championship json, modifies it, but does not 
+        re-upload.
         """
+        self.log('Generating acsm config')
+        
+        # Server info
+        login   = self.text_login.get_text()
+        port    = self.text_port .get_text()
+        pem     = os.path.abspath(self.text_pem.get_text())
+
+        # Load the championship from the server        
+        self.log('  Downloading championship.json...')
+        c = 'scp -P '+port+' -i "' + pem +'" '+ login+':"'+self.text_remote_championship()+'" championship.json'
+        print(c)
+        self.system(c)
+        with open('championship.json','r') as f: c = self.championship = json.load(f)
+
+        # Name
+        c['Name'] = self.combo_carsets.get_text()+' at '+self.track['name']
+        
+        # Reset the signup form
+        c['SignUpForm']['Responses'] = []
+        
+        # One car class for simplicity
+        x = c['Classes'][0]
+        x['Name'] = self.combo_carsets.get_text() 
+        x['Entrants'] = dict()
+        c['Events'][0]['EntryList'] = dict()
+    
+        # Fill the pitboxes / slots
+        N = self.number_slots()
+        if 'pitboxes' not in self.track: self.track['pitboxes'] = 0
+        N = min(N, int(self.track['pitboxes']))
+        for n in range(N):
+            x['Entrants']['CAR_'+str(n+1)] = {
+                "InternalUUID": "%08d-0000-0000-0000-000000000000" % (n+1),
+                "PitBox": n,
+                "Name": "",
+                "Team": "",
+                "GUID": "",
+                "Model": "any_car_model",
+                "Skin": "random_skin",
+                "ClassID": "00000000-0000-0000-0000-000000000000",
+                "Ballast": 0,
+                "SpectatorMode": 0,
+                "Restrictor": 0,
+                "FixedSetup": "",
+                "ConnectAsSpectator": False,
+                "IsPlaceHolder": False}
+            c['Events'][0]['EntryList']['CAR_'+str(n)] = dict(x['Entrants']['CAR_'+str(n+1)])
+     
+        # Update the cars
+        x['AvailableCars'] = self.get_selected_cars()
+        
+        # One event for simplicity
+        e = c['Events'][0]
+        
+        # Again with the cars
+        e['RaceSetup']['Cars']  = ';'.join(self.get_selected_cars())
+        e['RaceSetup']['Track'] = self.combo_tracks.get_text()
+        e['RaceSetup']['LegalTyres'] = "V;H;M;S;ST;SM;SV" # JACK: UNPACK AND SCRAPE DATA.ACD? GROSS!!
+        
+        # Write the new file.
+        self.log('  Updating championship.json')
+        with open('championship.json','w') as f: json.dump(self.championship, f, indent=2)
+
+        # Upload it
+        self.log('  Uploading championship.json...')
+        c = 'scp -P '+port+' -i "' + pem +'" championship.json '+ login+':"'+self.text_remote_championship()+'"'
+        print(c)
+        self.system(c)
+        with open('championship.json','r') as f: c = self.championship = json.load(f)
+
+
+    def generate_acserver_cfg(self):
+        """
+        Writes the entry_list.ini and server_cfg.ini, and race.json for 
+        the vanilla / steam acServer.
+        """
+        self.log('Generating acServer config')
 
         # Get the selected car directories
         cars = self.get_selected_cars()
         if len(cars)==0:
-            self.log('OOPS: generate_cfg() with no cars selected!')
+            self.log('OOPS: generate_acserver_cfg() with no cars selected!')
             return
 
         # Get the selected track directory
         track = self.combo_tracks.get_text()
         if track == '':
-            self.log('OOPS: generate_cfg() with no track selected!')
+            self.log('OOPS: generate_acserver_cfg() with no track selected!')
 
         #########################
         # entry_list.ini
-        self.log('\nGenerating config files...')
+        self.log('  entry_list.ini')
+        
         # now fill the slots
         entries = []
         m = 0 # car index
         N = self.number_slots()
-        if self.track['pitboxes']: N = min(N, int(self.track['pitboxes']))
+        if 'pitboxes' not in self.track: self.track['pitboxes'] = 0
+        N = min(N, int(self.track['pitboxes']))
         for n in range(0, N):
 
             # Get the next car dir
@@ -750,6 +767,38 @@ class uploader():
         f = open(os.path.join(cfg, 'server_cfg.ini'), 'w');
         f.writelines(ls);
         f.close()
+
+        # Prep the race.json file, which is used to restart the server
+        # on race night.
+        self.log('Prepping race data:')
+        self.race_json = dict()
+
+        # CARSET NAME
+        self.log ('  carset')
+        if self.combo_carsets() > 0: self.race_json['carset'] = self.combo_carsets.get_text()
+        else:                        self.race_json['carset'] = None
+
+        # CARS DICTIONARY (Lookup by nice name)
+        self.log('  cars')
+        self.race_json['cars'] = dict()
+        for c in cars: self.race_json['cars'][self.cars[c]] = c
+        #json.dump(cars_dictionary, open(os.path.join('uploads', 'cars.txt'), 'w'))
+
+        # SKINS
+        self.log('  skins')
+        self.race_json['skins'] = dict()
+        for c in cars: self.race_json['skins'][c] = self.skins[c]
+        #json.dump(skins, open(os.path.join('uploads', 'skins.txt'), 'w'))
+
+        # TRACK
+        self.log('  track')
+        self.race_json['track'] = self.track
+        self.race_json['track']['directory'] = track.strip()
+
+        # Dump
+        self.log('Dumping to race.json')
+        json.dump(self.race_json, open(os.path.join('uploads', 'race.json'), 'w'), indent=2, sort_keys=True)
+
 
 
     def get_selected_cars(self):
