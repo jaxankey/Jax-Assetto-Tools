@@ -94,14 +94,6 @@ class uploader():
             tip='Remote path to assettocorsa folder (where acServer is located).', 
             autosettings_path='text_remote'), alignment=0)
 
-        ####### Settings for vanilla / steam server
-        self.tab_settings.new_autorow()
-        self.label_restart = self.tab_settings.add(egg.gui.Label('Restart Server Command:'))
-        self.text_restart = self.tab_settings.add(egg.gui.TextBox('/home/username/restart-server',
-            tip='Remote path to a script that restarts the server.', 
-            autosettings_path='text_restart'), alignment=0)
-
-
         ####### Settings for server manager premium
         self.tab_settings.new_autorow()
         self.label_stop = self.tab_settings.add(egg.gui.Label('Stop Server Command:'))
@@ -243,14 +235,6 @@ class uploader():
         relevant settings.
         """
         premium = self.combo_mode.get_index() == 1
-    
-        self.label_restart.show(premium)
-        self.text_restart .show(premium)
-        
-        self.label_stop .hide(premium)
-        self.text_stop  .hide(premium)
-        self.label_start.hide(premium)
-        self.text_start .hide(premium)
         self.label_remote_championship.hide(premium)
         self.text_remote_championship .hide(premium)
 
@@ -281,49 +265,42 @@ class uploader():
                 self.log('No track selected?')
                 return
     
-            # Make base directory structure
-            temp_content = os.path.join('uploads', 'content')
-            temp_cars    = os.path.join('uploads', 'content', 'cars')
-            temp_tracks  = os.path.join('uploads', 'content', 'tracks')
-            os.makedirs(temp_content)
-            os.makedirs(temp_cars)
-            os.makedirs(temp_tracks)
-    
             # Local assetto path
             local = os.path.abspath(self.text_local.get_text())
 
             ####### COPY EVERYTHING TO TEMP DIRECTORY
 
             # Cars: we just need data dir and data.acd (if present)
-            self.log('Prepping cars:')
+            self.log('Collecting cars')
             for car in cars:
                 self.log('  '+ self.cars[car])
+                self.collect_assetto_files(os.path.join('cars',car))
     
-                # data folder
-                d = os.path.join(local, 'content', 'cars', car, 'data')
-                if os.path.exists(d):
-                    c = os.path.abspath(os.path.join(temp_cars, car))
-                    os.makedirs(c, exist_ok=True)
-                    shutil.copytree(d, os.path.join(c,'data'))
+                # # data folder
+                # d = os.path.join(local, 'content', 'cars', car, 'data')
+                # if os.path.exists(d):
+                #     c = os.path.abspath(os.path.join(temp_cars, car))
+                #     os.makedirs(c, exist_ok=True)
+                #     shutil.copytree(d, os.path.join(c,'data'))
     
-                # data.acd
-                if os.path.exists(d+'.acd'):
-                    c = os.path.abspath(os.path.join(temp_cars, car))
-                    os.makedirs(c, exist_ok=True)
-                    shutil.copy(d+'.acd', os.path.join(c,'data.acd'))
+                # # data.acd
+                # if os.path.exists(d+'.acd'):
+                #     c = os.path.abspath(os.path.join(temp_cars, car))
+                #     os.makedirs(c, exist_ok=True)
+                #     shutil.copy(d+'.acd', os.path.join(c,'data.acd'))
                     
-                # ui_car.json
-                ui = os.path.join(local, 'content', 'cars', car, 'ui', 'ui_car.json')
-                if os.path.exists(ui):
-                    c = os.path.abspath(os.path.join(temp_cars, car, 'ui'))
-                    os.makedirs(c, exist_ok=True)
-                    shutil.copy(ui, os.path.join(c,'ui_car.json'))
+                # # ui_car.json
+                # ui = os.path.join(local, 'content', 'cars', car, 'ui', 'ui_car.json')
+                # if os.path.exists(ui):
+                #     c = os.path.abspath(os.path.join(temp_cars, car, 'ui'))
+                #     os.makedirs(c, exist_ok=True)
+                #     shutil.copy(ui, os.path.join(c,'ui_car.json'))
     
             # Copy over the carsets folder too.
             shutil.copytree('carsets', os.path.join('uploads','carsets'))
 
             # Track
-            self.log('Prepping track:')
+            self.log('Collecting track')
             self.log('  '+track)
             d = os.path.join(local, 'content', 'tracks', track)
     
@@ -390,7 +367,7 @@ class uploader():
             self.race_json['track']['directory'] = track.strip()
     
             # Dump
-            self.log('Dumping to race.json...')
+            self.log('Dumping to race.json')
             json.dump(self.race_json, open(os.path.join('uploads', 'race.json'), 'w'), indent=2, sort_keys=True)
 
         # Modify not checked
@@ -400,12 +377,13 @@ class uploader():
         if self.checkbox_package():
             
             # Compress the files we gathered (MUCH faster upload)
-            self.log('  Compressing to uploads.7z...')
+            self.log('Compressing uploads.7z')
             os.chdir('uploads')
             c = '7z a ../uploads.7z *'
             if(os.system(c)): self.log('  UH OH!')
             os.chdir('..')
 
+        else: self.log('Skipping package compression')
 
         ####################################
         # SERVER STUFF
@@ -415,7 +393,6 @@ class uploader():
         port    = self.text_port .get_text()
         pem     = os.path.abspath(self.text_pem.get_text())
         remote  = self.text_remote.get_text()
-        restart = self.text_restart.get_text() # For vanilla
         stop    = self.text_stop.get_text()    # For acsm
         start   = self.text_start.get_text()   # For acsm
 
@@ -442,7 +419,7 @@ class uploader():
                 self.system(c)
 
             # # Clean up the mess
-            self.log('  Cleaning up...')
+            self.log('  Cleaning up')
             if os.path.exists('uploads')   : shutil.rmtree('uploads')
             if os.path.exists('uploads.7z'): os.remove('uploads.7z')
 
@@ -451,23 +428,45 @@ class uploader():
         # Restart server
         if self.checkbox_restart():
             self.log('Restarting server...')
-            print(c)
-            if restart != '': 
-                c = 'ssh -p '+port+' -i "'+pem+'" '+login+' '+restart
+            if stop != '': 
+                c = 'ssh -p '+port+' -i "'+pem+'" '+login+' "'+stop+' && '+start+'"' 
+                print(c)
                 self.system(c)
 
+        # No restart
         else: self.log('Skipping server restart')
 
         # Copy the nice cars list to the clipboard
-        if self.checkbox_url():
-            pyperclip.copy(self.get_nice_selected_cars_string())
-            self.log('List copied to clipboard.')
-            if self.text_url() != '':
-                self.log('Launching supplied URL...')
-                webbrowser.open(self.text_url())
+        pyperclip.copy(self.get_nice_selected_cars_string())
+        self.log('List copied to clipboard')
+            
+        # Forward to the supplied URL
+        if self.checkbox_url() and self.text_url() != '':
+            self.log('Opening supplied URL...')
+            webbrowser.open(self.text_url())
+    
+        # No URL popup
         else: self.log('Skipping URL')
 
         self.log('Done! Hopefully!')
+
+    def collect_assetto_files(self, source_folder):
+        """
+        Copies all the required files from the supplied content folder. 
+        source_folder should be something like 'tracks/imola' or 'cars/ks_meow'
+        """
+        
+        # File extensions we should copy over. ACSM needs a few extra heavies.
+        filetypes = ['ini', 'lut', 'rto', 'acd', 'json']
+        if self.combo_mode.get_index() == 1:
+            filetypes = filetypes + ['ai', 'bin', 'jpg', 'png']
+        
+        # Walk through the directory
+        for p in glob.glob(sourc'*.txt')
+            print(p)
+            
+    
+            
 
     def log(self, *a):
         """
@@ -577,7 +576,7 @@ class uploader():
             s = s.strip()
             if s != '':
                 try:    self.list_cars.findItems(s, egg.pyqtgraph.QtCore.Qt.MatchExactly)[0].setSelected(True)
-                except: self.log('WARNING: '+s+' not in list')
+                except: self.log('\nWARNING: '+s+' not in list')
 
     def _button_save_clicked(self,e):
         """
