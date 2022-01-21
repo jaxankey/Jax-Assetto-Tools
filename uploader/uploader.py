@@ -218,13 +218,16 @@ class uploader():
         # Load tracks and cars
         self.button_refresh.click()
         self.update_carsets()
-
+        
         # Do this after updating carsets to avoid issues
         self.combo_carsets.signal_changed.connect(self._combo_carsets_changed)
 
         ###################
         # Update gui
         self._combo_mode_changed(None)
+
+        # Load the default track
+        self._combo_tracks_changed(True)
 
         ######################
         # Show it no more commands below this.
@@ -259,7 +262,7 @@ class uploader():
         if self.checkbox_modify(): 
             if self.combo_mode() == 0: self.generate_acserver_cfg()
             else:                      self.generate_acsm_cfg()
-        else: self.log('Skipping server config')
+        else: self.log('*Skipping server config')
 
         # Collect and package all the data
         if self.checkbox_package():
@@ -295,7 +298,7 @@ class uploader():
             self.collect_assetto_files(os.path.join('tracks', track))
 
         # Package not checked
-        else: self.log('Skipping package')
+        else: self.log('*Skipping package')
 
 
         
@@ -343,7 +346,7 @@ class uploader():
                 shutil.rmtree('uploads')
                 if os.path.exists('uploads.7z'): os.remove('uploads.7z')
 
-        else: self.log('Skipping upload')
+        else: self.log('*Skipping upload')
 
         # Restart server
         if self.checkbox_restart() and stop != '' and start != '':
@@ -355,7 +358,7 @@ class uploader():
             self.system(c)
 
         # No restart
-        else: self.log('Skipping server restart')
+        else: self.log('*Skipping server restart')
 
         # Copy the nice cars list to the clipboard
         if self.combo_mode() == 0:
@@ -368,7 +371,7 @@ class uploader():
             webbrowser.open(self.text_url())
     
         # No URL popup
-        else: self.log('Skipping URL')
+        else: self.log('*Skipping URL')
 
         self.log('Done! Hopefully!')
 
@@ -442,6 +445,9 @@ class uploader():
         for path in paths:
             layout = os.path.split(path)[-1].replace('models_','').replace('.ini','')
             self.combo_layouts.add_item(layout)
+        
+        # Get the initial data!
+        self._combo_layouts_changed(True)
 
     def _combo_layouts_changed(self,e):
         # Paths
