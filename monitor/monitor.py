@@ -101,11 +101,16 @@ class Monitor():
 
         # Load an existing state.json if it's there to get last settings
         p = os.path.join('web','state.json')
-        if os.path.exists(p):
-            self.state.update(json.load(open(p, 'r', encoding="utf8")))
-            print('\nFOUND state.json, loaded')
-            if debug: pprint.pprint(self.state)
-
+        
+        # Handle corrupt state
+        try:
+            if os.path.exists(p):
+                self.state.update(json.load(open(p, 'r', encoding="utf8")))
+                print('\nFOUND state.json, loaded')
+                if debug: pprint.pprint(self.state)
+        except:
+            print('\n\n-------------\nError: corrupt state.json; deleting')
+            os.remove(p)
 
 
         # Premium mode
