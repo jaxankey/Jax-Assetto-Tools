@@ -313,6 +313,16 @@ class uploader():
 
         # Upload the main assetto content
         if self.checkbox_upload():
+            
+            # Stop server
+            if self.checkbox_restart() and stop != '':
+                self.log('Stopping server...')
+                c = 'ssh -p '+port+' -i "'+pem+'" '+login+' "'+stop+'"' 
+                print(c)
+                self.system(c)
+            else: self.log('*Skipping server stop')
+
+            # Start the upload process
             self.log('Uploading content...')
     
             # Make sure we don't bonk the system with rm -rf
@@ -343,20 +353,25 @@ class uploader():
                 self.log('Cleaning up')                
                 shutil.rmtree('uploads')
                 if os.path.exists('uploads.7z'): os.remove('uploads.7z')
-
-        else: self.log('*Skipping upload')
-
-        # Restart server
-        if self.checkbox_restart() and stop != '' and start != '':
-            self.log('Restarting server...')
             
-            # Vanilla gets just cycled; we'll try this for premium, too
-            c = 'ssh -p '+port+' -i "'+pem+'" '+login+' "'+stop+' && '+start+'"' 
-            print(c)
-            self.system(c)
+            # If we made a championship.json
+            if self.checkbox_modify() and self.combo_mode()==1 and os.path.exists('championship.json'):
+                # Upload it
+                self.log('  Uploading championship.json...')
+                c = 'scp -P '+port+' -i "' + pem +'" championship.json '+ login+':"'+self.text_remote_championship()+'"'
+                print(c)
+                self.system(c)
+                
+            # Start server
+            if self.checkbox_restart() and start != '':
+                self.log('Stopping server...')
+                c = 'ssh -p '+port+' -i "'+pem+'" '+login+' "'+start+'"' 
+                print(c)
+                self.system(c)
+            else: self.log('*Skipping server start')
 
-        # No restart
-        else: self.log('*Skipping server restart')
+        # No upload
+        else: self.log('*Skipping upload')
 
         # Copy the nice cars list to the clipboard
         if self.combo_mode() == 0:
@@ -684,12 +699,6 @@ class uploader():
         self.log('  Updating championship.json')
         with open('championship.json','w') as f: json.dump(self.championship, f, indent=2)
 
-        # Upload it
-        self.log('  Uploading championship.json...')
-        c = 'scp -P '+port+' -i "' + pem +'" championship.json '+ login+':"'+self.text_remote_championship()+'"'
-        print(c)
-        self.system(c)
-        with open('championship.json','r') as f: c = self.championship = json.load(f)
 
 
     def generate_acserver_cfg(self):
