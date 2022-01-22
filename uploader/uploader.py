@@ -15,7 +15,7 @@ class uploader():
     GUI class for uploading content and restarting the assetto server.
     """
 
-    def __init__(self, blocking=False):
+    def __init__(self, blocking=True):
 
         # For troubleshooting.
         self.timer_exceptions = egg.gui.TimerExceptions()        
@@ -111,6 +111,12 @@ class uploader():
             autosettings_path='text_start'), alignment=0)
 
         self.tab_settings.new_autorow()
+        self.label_monitor = self.tab_settings.add(egg.gui.Label('Restart Monitor Command:'))
+        self.text_monitor = self.tab_settings.add(egg.gui.TextBox('/home/username/restart-monitor',
+            tip='Remote path to a script that restarts the monitor.', 
+            autosettings_path='text_monitor'), alignment=0)
+
+        self.tab_settings.new_autorow()
         self.label_remote_championship = self.tab_settings.add(egg.gui.Label('Remote Championship JSON:'))
         self.text_remote_championship = self.tab_settings.add(egg.gui.TextBox('/home/username/server-manager/json/championships/blah-blah-blah.json',
             tip='Remote path to the championship json we wish to update. Requires json mode in\nserver-manager\'s config.yml.', 
@@ -192,19 +198,22 @@ class uploader():
 
         # Actions
         self.checkbox_modify  = self.grid2s.add(egg.gui.CheckBox(
-            'Generate Config Files', True, autosettings_path='checkbox_modify', 
-            tip='Also modify the server files with the above configuration.'))
+            'Server Config', autosettings_path='checkbox_modify', 
+            tip='Modify the server files with the above configuration.'))
         self.checkbox_package = self.grid2s.add(egg.gui.CheckBox(
-            'Package Content', True, autosettings_path='checkbox_package', 
+            'Package Content', autosettings_path='checkbox_package', 
             tip='Package up all the files for upload.'))
         self.checkbox_upload  = self.grid2s.add(egg.gui.CheckBox(
-            'Upload', True, autosettings_path='checkbox_upload', 
+            'Upload', autosettings_path='checkbox_upload', 
             tip='Upload to server and unpack.'))
         self.checkbox_restart = self.grid2s.add(egg.gui.CheckBox(
-            'Restart Server', True, autosettings_path='checkbox_restart', 
-            tip='Stop and restart the server after modifying its configuration.'))
+            'Restart Server', autosettings_path='checkbox_restart', 
+            tip='Stop and restart the server after upload.'))
+        self.checkbox_monitor = self.grid2s.add(egg.gui.CheckBox(
+            'Restart Monitor', autosettings_path='checkbox_monitor', 
+            tip='Restart the monitor after upload.'))
         self.checkbox_url = self.grid2s.add(egg.gui.CheckBox(
-            'Open URL', True, autosettings_path='checkbox_url', 
+            'Open URL', autosettings_path='checkbox_url', 
             tip='Open the specified URL in your browser.'))
         
         # upload button
@@ -310,6 +319,7 @@ class uploader():
         remote  = self.text_remote.get_text()
         stop    = self.text_stop.get_text()    # For acsm
         start   = self.text_start.get_text()   # For acsm
+        monitor = self.text_monitor.get_text() 
 
         # Upload the main assetto content
         if self.checkbox_upload():
@@ -346,11 +356,11 @@ class uploader():
     
                 # Remote extract
                 self.log('  Extracting remote uploads.7z...')
-                c = 'ssh -p '+port+' -i "'+pem+'" '+login+' 7z x -aoa steam/assetto/uploads.7z -o./steam/assetto/'
+                c = 'ssh -p '+port+' -i "'+pem+'" '+login+' 7z x -aoa ' + remote + '/uploads.7z' + ' -o' + remote
                 print(c)
                 self.system(c)
 
-                self.log('Cleaning up')                
+                self.log('  Cleaning up')                
                 shutil.rmtree('uploads')
                 if os.path.exists('uploads.7z'): os.remove('uploads.7z')
             
@@ -364,11 +374,20 @@ class uploader():
                 
             # Start server
             if self.checkbox_restart() and start != '':
-                self.log('Stopping server...')
+                self.log('Starting server...')
                 c = 'ssh -p '+port+' -i "'+pem+'" '+login+' "'+start+'"' 
                 print(c)
                 self.system(c)
             else: self.log('*Skipping server start')
+
+            # Start server
+            if self.checkbox_monitor() and monitor != '':
+                self.log('Restarting monitor...')
+                c = 'ssh -p '+port+' -i "'+pem+'" '+login+' "'+monitor+'"' 
+                print(c)
+                self.system(c)
+            else: self.log('*Skipping monitor restart')
+
 
         # No upload
         else: self.log('*Skipping upload')
@@ -477,7 +496,7 @@ class uploader():
         if not os.path.exists(p): return
 
         # Load it and get the pit number
-        self.track = json.load(open(p, 'r'))
+        self.track = json.load(open(p, 'r', encoding="utf8"))
         self.label_pitboxes('('+self.track['pitboxes']+' pit boxes)')
 
     def _combo_carsets_changed(self,e): self.button_load.click()
@@ -507,6 +526,9 @@ class uploader():
         # remove it
         os.remove(os.path.join('carsets', self.combo_carsets.get_text()))
 
+        # Select the zeroth
+        self.combo_carsets(0)
+
         # Rebuild
         self.update_carsets()
 
@@ -514,12 +536,17 @@ class uploader():
         """
         Load the selected carset.
         """
+        print('Load carset button clicked')
 
         # Special case: first element in combo box is new carset
         if self.combo_carsets.get_index() == 0: return
 
+        # Get teh path associated with this
+        path = os.path.join('carsets', self.combo_carsets.get_text())
+        if not os.path.exists(path) or os.path.isdir(path): return
+        
         # Load it.
-        f = open(os.path.join('carsets', self.combo_carsets.get_text()), 'r')
+        f = open(path, 'r', encoding="utf8")
         selected = f.read().splitlines()
         f.close()
 
@@ -549,8 +576,6 @@ class uploader():
             
             # Add it to the combo and select it
             self.combo_carsets.add_item(name)
-            self.combo_carsets.set_text(name)
-
 
         # Otherwise use what's there.
         else: name = self.combo_carsets.get_text()
@@ -559,9 +584,13 @@ class uploader():
         name = name.strip()
 
         # Write the file
-        f = open(os.path.join('carsets', name), 'w')
+        f = open(os.path.join('carsets', name), 'w', encoding="utf8")
         for car in self.get_selected_cars(): f.write(car+'\n')
         f.close()
+        
+        # Make sure it's selected.
+        self.combo_carsets.set_text(name)
+
 
     def _button_browse_pem_clicked(self, e):
         """
@@ -648,7 +677,7 @@ class uploader():
         c = 'scp -P '+port+' -i "' + pem +'" '+ login+':"'+self.text_remote_championship()+'" championship.json'
         print(c)
         self.system(c)
-        with open('championship.json','r') as f: c = self.championship = json.load(f)
+        with open('championship.json','r', encoding="utf8") as f: c = self.championship = json.load(f)
 
         # Name
         c['Name'] = self.combo_carsets.get_text()+' at '+self.track['name']
@@ -697,7 +726,7 @@ class uploader():
         
         # Write the new file.
         self.log('  Updating championship.json')
-        with open('championship.json','w') as f: json.dump(self.championship, f, indent=2)
+        with open('championship.json','w', encoding="utf8") as f: json.dump(self.championship, f, indent=2)
 
 
 
@@ -753,7 +782,7 @@ class uploader():
         os.makedirs(cfg, exist_ok=True)
 
         self.log('  entry_list.ini')
-        f = open(os.path.join(cfg, 'entry_list.ini'), 'w')
+        f = open(os.path.join(cfg, 'entry_list.ini'), 'w', encoding="utf8")
         f.write(s)
         f.close()
 
@@ -761,7 +790,7 @@ class uploader():
         # server_cfg.ini
 
         # We have to add the selected cars and track to server_cfg.ini before uploading
-        f = open(self.get_server_cfg_source(), 'r'); ls = f.readlines(); f.close()
+        f = open(self.get_server_cfg_source(), 'r', encoding="utf8"); ls = f.readlines(); f.close()
         for n in range(len(ls)):
 
             # Get the key for this line
@@ -780,7 +809,7 @@ class uploader():
             elif key == 'MAX_CLIENTS': ls[n] = 'MAX_CLIENTS='+str(N)+'\n'
 
         self.log('  server_cfg.ini ('+str(N)+' pit boxes)')
-        f = open(os.path.join(cfg, 'server_cfg.ini'), 'w');
+        f = open(os.path.join(cfg, 'server_cfg.ini'), 'w', encoding="utf8");
         f.writelines(ls);
         f.close()
 
@@ -813,7 +842,7 @@ class uploader():
 
         # Dump
         self.log('Dumping to race.json')
-        json.dump(self.race_json, open(os.path.join('uploads', 'race.json'), 'w'), indent=2, sort_keys=True)
+        json.dump(self.race_json, open(os.path.join('uploads', 'race.json'), 'w', encoding="utf8"), indent=2, sort_keys=True)
 
 
 
