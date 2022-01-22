@@ -535,7 +535,7 @@ class Monitor():
 
         # Dump the state
         p = os.path.join('web', 'state.json')
-        with open(p, 'w', encoding="utf8") as f: json.dump(f, self.state, indent=2)
+        with open(p, 'w', encoding="utf8") as f: json.dump(self.state, f, indent=2)
 
         # Copy to the archive based on track name if it exists.
         if self.state['archive_path']: shutil.copy(p, self.state['archive_path'])
