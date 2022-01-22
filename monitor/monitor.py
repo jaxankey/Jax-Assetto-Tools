@@ -47,7 +47,7 @@ debug               = False
 # Get the user values from the ini file
 if os.path.exists('monitor.ini.private'): p = 'monitor.ini.private'
 else                                    : p = 'monitor.ini'
-exec(open(p).read())
+exec(open(p, 'r', encoding="utf8").read())
 
 # Tail function that starts from the top.
 def tail(f, start_from_end=False):
@@ -102,7 +102,7 @@ class Monitor():
         # Load an existing state.json if it's there to get last settings
         p = os.path.join('web','state.json')
         if os.path.exists(p):
-            self.state.update(json.load(open(p)))
+            self.state.update(json.load(open(p, 'r', encoding="utf8")))
             print('\nFOUND state.json, loaded')
             if debug: pprint.pprint(self.state)
 
@@ -126,7 +126,7 @@ class Monitor():
                 path_log = max(logs, key=os.path.getctime)
     
             # Parse the existing log and incorporate ui data
-            self.vanilla_parse_lines(open(path_log).readlines(), True)
+            self.vanilla_parse_lines(open(path_log, 'r', encoding="utf8").readlines(), True)
             self.load_ui_data()
             
             # Send and save
@@ -136,7 +136,7 @@ class Monitor():
             # Monitor the file, but don't bother if we're just debugging.
             if not debug:
                 print('\nMONITORING FOR CHANGES...')
-                self.vanilla_parse_lines(tail(open(path_log), True))
+                self.vanilla_parse_lines(tail(open(path_log, 'r', encoding="utf8"), True))
             
         return
 
@@ -161,7 +161,14 @@ class Monitor():
         # Grab the data; extra careful for urls which can fail.
         try:    self.details = json.loads(urllib.request.urlopen(url_api_details,  timeout=5).read())
         except: print('ERROR: Could not open ' + url_api_details)        
-        if path_live_timings: self.live_timings = json.load(open(path_live_timings, 'r'))
+        if path_live_timings: 
+            
+            try:
+                with open(path_live_timings, 'r', encoding="utf8") as f:
+                    self.live_timings = json.load(f)
+
+            except Exception as e: 
+                print('\n\n----------\nERROR: path_live_timings exception:',e)
                 
         # Data from website.
         if self.details:
@@ -528,7 +535,7 @@ class Monitor():
 
         # Dump the state
         p = os.path.join('web', 'state.json')
-        json.dump(self.state, open(p,'w'), indent=2)
+        with open(p, 'w', encoding="utf8") as f: json.dump(f, self.state, indent=2)
 
         # Copy to the archive based on track name if it exists.
         if self.state['archive_path']: shutil.copy(p, self.state['archive_path'])
@@ -541,7 +548,7 @@ class Monitor():
         if web_archive_history: paths = paths[0:web_archive_history]
 
         print('  ARCHIVES:\n   ', '\n    '.join(paths))
-        f = open(path_archive+'.txt', 'w')
+        f = open(path_archive+'.txt', 'w', encoding="utf8")
         f.write('\n'.join(paths))
         f.close()
 
@@ -576,7 +583,7 @@ class Monitor():
         
         # If the track/layout/ui_track.json exists, load the track name!
         if os.path.exists(path_ui_track): 
-            j = json.load(open(path_ui_track))
+            with open(path_ui_track, 'r', encoding="utf8") as f: j = json.load(f)
             self.state['track_name'] = j['name']
         
         # Now load all the carsets if they exist
@@ -595,7 +602,7 @@ class Monitor():
             for path in carset_paths:
                 
                 # Read the file
-                f = open(path); s = f.read().strip(); f.close()
+                f = open(path, 'r', encoding="utf8"); s = f.read().strip(); f.close()
                 
                 # Get the list of cars
                 name = os.path.split(path)[-1]
@@ -615,7 +622,7 @@ class Monitor():
         for car in self.state['cars']:
             path_ui_car = os.path.join(path_ac,'content','cars',car,'ui','ui_car.json')
             if os.path.exists(path_ui_car):
-                j = json.load(open(path_ui_car))
+                j = json.load(open(path_ui_car, 'r', encoding="utf8"))
                 self.state['carnames'][car] = j['name']
             
         # Dump modifications
