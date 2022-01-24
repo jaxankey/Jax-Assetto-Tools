@@ -1,4 +1,4 @@
 #!/bin/bash
 
 cd /home/ubuntu/ACSM
-./server-manager &
+./server-manager &> ~/logs/server-manager.log &

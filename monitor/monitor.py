@@ -101,7 +101,7 @@ class Monitor():
 
         # Load an existing state.json if it's there to get last settings
         p = os.path.join('web','state.json')
-        
+
         # Handle corrupt state
         try:
             if os.path.exists(p):
@@ -154,41 +154,41 @@ class Monitor():
         Grabs all the latest event information from the server, and 
         send / update messages if anything changed.
         """
-        
+
         # If this is the first run, some things are none.
         first_run = self.live_timings == None
-        
+
         # Flag for information that changed
         laps_onlines_changed = False # laps or onlines for sending messages
         venue_changed        = False # for making new venue
         carset_fully_changed = False # for making new venue
-        
+
         # Grab the data; extra careful for urls which can fail.
         try:    self.details = json.loads(urllib.request.urlopen(url_api_details,  timeout=5).read())
         except: print('ERROR: Could not open ' + url_api_details)        
-        if path_live_timings: 
-            
+        if path_live_timings:
+
             try:
                 with open(path_live_timings, 'r', encoding="utf8") as f:
                     self.live_timings = json.load(f)
 
-            except Exception as e: 
+            except Exception as e:
                 print('\n\n----------\nERROR: path_live_timings exception:',e)
-                
+
         # Data from website.
         if self.details:
-            
+
             # UPDATE ONLINES
-            
+
             # Convert the current state['online'] to a set of (name,car)
             old = set()
             for name in self.state['online']: old.add((name,self.state['online'][name]['car']))
-            
+
             # Loop over all the cars and create a set of (name,car) to compare
             new = set()
             for car in self.details['players']['Cars']:
                 if car['IsConnected']: new.add((car['DriverName'], car['Model']))
-            
+
             # If they are not equal, update 
             if new != old:
                 print('Updating onlines.')
@@ -205,10 +205,7 @@ class Monitor():
                 
         # Data from live_timings.json
         if self.live_timings:
-            
-            # Shortcut
-            T = self.live_timings
-            
+
             # UPDATE TRACK / LAYOUT
             track  = self.live_timings['Track']
             layout = self.live_timings['TrackLayout']
@@ -221,14 +218,14 @@ class Monitor():
         if venue_changed or carset_fully_changed: 
             if venue_changed: print('Venue changed.')
             self.new_venue(self['track'], self['layout'], self['cars'])    
-
+        
         
         # Okay, back to laps.
         if self.live_timings:
             
             # UPDATE BEST LAPS
-            for guid in T['Drivers']:
-                name = T['Drivers'][guid]['CarInfo']['DriverName']
+            for guid in self.live_timings['Drivers']:
+                name = self.live_timings['Drivers'][guid]['CarInfo']['DriverName']
                 
                 # Make sure this name is in the state
                 if not name in self['laps']: 
@@ -236,10 +233,10 @@ class Monitor():
                     self['laps'][name] = dict()
                     laps_onlines_changed = True
 
-                for car in T['Drivers'][guid]['Cars']:
+                for car in self.live_timings['Drivers'][guid]['Cars']:
                     
                     # Get the current best in ms (it was nanoseconds LULZ)
-                    best = T['Drivers'][guid]['Cars'][car]['BestLap']*1e-6
+                    best = self.live_timings['Drivers'][guid]['Cars'][car]['BestLap']*1e-6
                     
                     # self['laps'][name][car] = {'time': '12:32:032', 'time_ms':12345, 'cuts': 3}
                     if best and (car not in self['laps'][name] \
@@ -503,17 +500,17 @@ class Monitor():
         self.reset_state()
 
         # Stick the track directory in there
-        print('  track ', self.state['track'], '->', track)
-        print('  layout', self.state['layout'],    '->', layout)
-        print('  cars  ', self.state['cars'],            '->', cars)
+        print('  track ', self.state['track'],  '->', track)
+        print('  layout', self.state['layout'], '->', layout)
+        print('  cars  ', self.state['cars'],   '->', cars)
 
-        self.state['track'] = track
-        self.state['layout']    = layout
-        self.state['cars']            = cars
+        self.state['track']  = track
+        self.state['layout'] = layout
+        self.state['cars']   = cars
 
         # Update the state with the race.json if it exists (gives track and cars and carset info)
         self.load_ui_data()
-        
+
         # Timestamp changes only for new track; use the most recently seen timestamp
         self.state['timestamp'] = time.strftime('%Y-%m-%d_%H.%M.%S', time.localtime())
 
@@ -627,8 +624,12 @@ class Monitor():
         for car in self.state['cars']:
             path_ui_car = os.path.join(path_ac,'content','cars',car,'ui','ui_car.json')
             if os.path.exists(path_ui_car):
-                j = json.load(open(path_ui_car, 'r', encoding="utf8"))
-                self.state['carnames'][car] = j['name']
+                try:
+                    j = json.load(open(path_ui_car, 'r', encoding="utf8"))
+                    self.state['carnames'][car] = j['name']
+                except:
+                    print('ERROR: loading', path_ui_car)
+                    self.state['carnames'][car] = car
             
         # Dump modifications
         self.save_and_archive_state()
