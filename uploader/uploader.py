@@ -722,6 +722,7 @@ class uploader():
         # Again with the cars
         e['RaceSetup']['Cars']  = ';'.join(self.get_selected_cars())
         e['RaceSetup']['Track'] = self.combo_tracks.get_text()
+        e['RaceSetup']['TrackLayout'] = self.combo_layouts.get_text()
         e['RaceSetup']['LegalTyres'] = "V;H;M;S;ST;SM;SV" # JACK: UNPACK AND SCRAPE DATA.ACD? GROSS!!
         
         # Write the new file.
