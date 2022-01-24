@@ -198,20 +198,24 @@ class uploader():
 
         # Actions
         self.checkbox_modify  = self.grid2s.add(egg.gui.CheckBox(
-            'Server Config', autosettings_path='checkbox_modify', 
+            'Config', autosettings_path='checkbox_modify', 
             tip='Modify the server files with the above configuration.'))
         self.checkbox_package = self.grid2s.add(egg.gui.CheckBox(
-            'Package Content', autosettings_path='checkbox_package', 
-            tip='Package up all the files for upload.'))
+            'Content', autosettings_path='checkbox_package', 
+            tip='Package up all the local files for upload.'))
         self.checkbox_upload  = self.grid2s.add(egg.gui.CheckBox(
             'Upload', autosettings_path='checkbox_upload', 
             tip='Upload to server and unpack.'))
+        self.checkbox_clean = self.grid2s.add(egg.gui.CheckBox(
+            'Clean Server', autosettings_path='checkbox_clean', 
+            signal_changed=self._checkbox_clean_changed,
+            tip='During upload, remove all old content (cars and tracks) from the server.'))
         self.checkbox_restart = self.grid2s.add(egg.gui.CheckBox(
             'Restart Server', autosettings_path='checkbox_restart', 
-            tip='Stop and restart the server after upload.'))
+            tip='Stop the server before upload and restart after upload.'))
         self.checkbox_monitor = self.grid2s.add(egg.gui.CheckBox(
             'Restart Monitor', autosettings_path='checkbox_monitor', 
-            tip='Restart the monitor after upload.'))
+            tip='Restart the monitor after upload and server restart.'))
         self.checkbox_url = self.grid2s.add(egg.gui.CheckBox(
             'Open URL', autosettings_path='checkbox_url', 
             tip='Open the specified URL in your browser.'))
@@ -239,6 +243,22 @@ class uploader():
         # Show it no more commands below this.
         self.window.show(blocking)
 
+    def _checkbox_clean_changed(self, e=None):
+        """
+        Warn the user about this.
+        """
+        if self.checkbox_clean():
+            msg = egg.pyqtgraph.QtGui.QMessageBox()
+            msg.setIcon(egg.pyqtgraph.QtGui.QMessageBox.Information)
+            msg.setText("WARNING: After uploading, this step will remotely "+
+                        "delete all content from the following folders:")
+            msg.setInformativeText(
+                self.text_remote.get_text()+'/content/cars/\n'+
+                self.text_remote.get_text()+'/content/tracks/')
+            msg.setWindowTitle("HAY!")
+            msg.setStandardButtons(egg.pyqtgraph.QtGui.QMessageBox.Ok)
+            msg.exec_()
+        
     def _list_cars_changed(self, e=None):
         """
         Just set the carset combo when anything changes.
@@ -353,6 +373,13 @@ class uploader():
                 c = 'scp -P '+port+' -i "' + pem + '" uploads.7z '+login+':"'+remote+'"'
                 print(c)
                 self.system(c)
+    
+                # If we're cleaning...
+                if self.checkbox_clean():
+                    self.log('  Cleaning out old content...')
+                    c = 'ssh -p '+port+' -i "'+pem+'" '+login+' rm -rf ' + remote + '/content/cars/* ' + remote + '/content/tracks/*'
+                    print(c)
+                    self.system(c)
     
                 # Remote extract
                 self.log('  Extracting remote uploads.7z...')
