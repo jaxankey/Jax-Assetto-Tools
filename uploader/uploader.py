@@ -9,6 +9,7 @@ os.chdir(os.path.dirname(os.path.abspath(__file__)))
 print('WORKING DIRECTORY:')
 print(os.getcwd())
 
+
 # GUI class for configuring the server
 class uploader():
     """
@@ -523,7 +524,7 @@ class uploader():
         if not os.path.exists(p): return
 
         # Load it and get the pit number
-        self.track = json.load(open(p, 'r', encoding="utf8"))
+        self.track = load_json(p)
         self.label_pitboxes('('+self.track['pitboxes']+' pit boxes)')
 
     def _combo_carsets_changed(self,e): self.button_load.click()

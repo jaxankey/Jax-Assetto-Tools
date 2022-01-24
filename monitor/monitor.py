@@ -68,7 +68,19 @@ def tail(f, start_from_end=False):
         if line: yield line
         else:    time.sleep(1.0)
 
-
+# Function for loading a json at the specified path
+def load_json(path):
+    """
+    Load the supplied path with all the safety measures and encoding etc.
+    """
+    try:
+        f = open(path, 'r', encoding='utf8')
+        j = json.load(f, strict=False)
+        f.close()
+        return j
+    except Exception as e:
+        print('ERROR: Could not load', path)
+        print(e)
 
 # Class for monitoring ac log file and reacting to different events
 class Monitor():
@@ -105,7 +117,7 @@ class Monitor():
         # Handle corrupt state
         try:
             if os.path.exists(p):
-                self.state.update(json.load(open(p, 'r', encoding="utf8")))
+                self.state.update(load_json(p))
                 print('\nFOUND state.json, loaded')
                 if debug: pprint.pprint(self.state)
         except:
@@ -164,17 +176,11 @@ class Monitor():
         carset_fully_changed = False # for making new venue
 
         # Grab the data; extra careful for urls which can fail.
-        try:    self.details = json.loads(urllib.request.urlopen(url_api_details,  timeout=5).read())
+        try:    self.details = json.loads(urllib.request.urlopen(url_api_details,  timeout=5).read(), strict=False)
         except: print('ERROR: Could not open ' + url_api_details)        
         if path_live_timings:
-
-            try:
-                with open(path_live_timings, 'r', encoding="utf8") as f:
-                    self.live_timings = json.load(f)
-
-            except Exception as e:
-                print('\n\n----------\nERROR: path_live_timings exception:',e)
-
+            self.live_timings = load_json(path_live_timings)
+            
         # Data from website.
         if self.details:
 
@@ -585,8 +591,8 @@ class Monitor():
         
         # If the track/layout/ui_track.json exists, load the track name!
         if os.path.exists(path_ui_track): 
-            with open(path_ui_track, 'r', encoding="utf8") as f: j = json.load(f)
-            self.state['track_name'] = j['name']
+            j = load_json(path_ui_track)
+            if j: self.state['track_name'] = j['name']
         
         # Now load all the carsets if they exist
         path_carsets = os.path.join(path_ac, 'carsets')
@@ -625,7 +631,7 @@ class Monitor():
             path_ui_car = os.path.join(path_ac,'content','cars',car,'ui','ui_car.json')
             if os.path.exists(path_ui_car):
                 try:
-                    j = json.load(open(path_ui_car, 'r', encoding="utf8"))
+                    j = load_json(path_ui_car)
                     self.state['carnames'][car] = j['name']
                 except:
                     print('ERROR: loading', path_ui_car)
