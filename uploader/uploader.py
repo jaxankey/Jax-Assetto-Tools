@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-import glob, codecs, os, shutil, random, json, pyperclip, webbrowser, stat
+import glob, codecs, os, shutil, random, json, pyperclip, webbrowser, stat, pprint
 import spinmob.egg as egg
 egg.gui.egg_settings_path = os.path.join(egg.settings.path_home, 'ac_server_uploader')
 
@@ -282,6 +282,20 @@ class uploader():
         # Show it no more commands below this.
         self.window.show(blocking)
 
+    def save_gui(self):
+        """
+        Saves the GUI config that isn't auto-saved already.
+        """
+        gui = dict(
+            combo_tracks  = self.combo_tracks.get_text(),
+            combo_layouts = self.combo_layouts.get_text(),
+            combo_carsets = self.combo_carsets.get_text(),
+            list_cars     = self.get_selected_cars()
+        )
+        print('Saving GUI:')
+        pprint.pprint(gui)
+        json.dump(gui, open('gui.json', 'w'), indent=2)
+
     def _checkbox_clean_changed(self, e=None):
         """
         Warn the user about this.
@@ -303,6 +317,7 @@ class uploader():
         Just set the carset combo when anything changes.
         """
         self.combo_carsets(0)
+        self.save_gui()
 
     def _combo_mode_changed(self,e):
         """
@@ -558,6 +573,8 @@ class uploader():
         
         # Get the initial data!
         self._combo_layouts_changed(True)
+        
+        self.save_gui()
 
     def _combo_layouts_changed(self,e):
         print('Layout changed')
@@ -574,8 +591,12 @@ class uploader():
         # Load it and get the pit number
         self.track = load_json(p)
         self.label_pitboxes('('+self.track['pitboxes']+' pit boxes)')
+        
+        self.save_gui()
 
-    def _combo_carsets_changed(self,e): self.button_load.click()
+    def _combo_carsets_changed(self,e): 
+        self.button_load.click()
+        self.save_gui()
 
     def upload_file(self, path):
         """
@@ -625,8 +646,8 @@ class uploader():
         selected = f.read().splitlines()
         f.close()
 
-        # Remember the carset
-        i = self.combo_carsets()
+        # Disconnect the update signal until the end
+        self.list_cars.itemSelectionChanged.disconnect()
 
         # Update the list selection
         self.list_cars.clearSelection()
@@ -636,8 +657,10 @@ class uploader():
                 try:    self.list_cars.findItems(s, egg.pyqtgraph.QtCore.Qt.MatchExactly)[0].setSelected(True)
                 except: self.log('\nWARNING: '+s+' not in list')
         
-        # Restore the carset
-        self.combo_carsets.set_index(i, True)
+        # Reconnect
+        self.list_cars.itemSelectionChanged.connect(self._list_cars_changed)
+                
+        self.save_gui()
         
     def _button_save_clicked(self,e):
         """
@@ -673,13 +696,6 @@ class uploader():
         """
         path = egg.dialogs.load('Show me the *.pem file, Johnny Practicehole', default_directory='assetto_pem')
         if(path): self.text_pem(path)
-
-    # def _button_browse_zip_clicked(self, e):
-    #     """
-    #     Pop up the directory selector.
-    #     """
-    #     path = egg.dialogs.load('Find the 7-zip executable, Prof. Tryhard', default_directory='7zip')
-    #     if(path): self.text_zip(path)
 
     def _button_browse_local_clicked(self, e):
         """
