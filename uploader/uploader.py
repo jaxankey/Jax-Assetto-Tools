@@ -15,10 +15,11 @@ def load_json(path):
     Load the supplied path with all the safety measures and encoding etc.
     """
     try:
-        f = open(path, 'r', encoding='utf8')
-        j = json.load(f, strict=False)
-        f.close()
-        return j
+        if os.path.exists(path):
+            f = open(path, 'r', encoding='utf8')
+            j = json.load(f, strict=False)
+            f.close()
+            return j
     except Exception as e:
         print('ERROR: Could not load', path)
         print(e)
@@ -295,6 +296,25 @@ class uploader():
         print('Saving GUI:')
         pprint.pprint(gui)
         json.dump(gui, open('gui.json', 'w'), indent=2)
+
+    def load_gui(self):
+        """
+        Loads gui.json to fill in the config that is not auto-saved already.
+        """
+        gui = load_json('gui.json')
+        if not gui: return
+
+        # Combos
+        try:    self.combo_tracks.set_text(gui['combo_tracks'], block_signals=True)
+        except: pass
+        try:    self.combo_layouts.set_text(gui['combo_layouts'], block_signals=True)
+        except: pass
+        try:    self.combo_carsets.set_text(gui['combo_carsets'], block_signals=True)
+        except: pass
+    
+        # List items
+        self.set_list_cars_selection(gui['list_cars'])
+        
 
     def _checkbox_clean_changed(self, e=None):
         """
@@ -628,6 +648,25 @@ class uploader():
         # Rebuild
         self.update_carsets()
 
+    def set_list_cars_selection(self, selected):
+        """
+        Selects the specified list of cars.
+        """
+        # Disconnect the update signal until the end
+        self.list_cars.itemSelectionChanged.disconnect()
+
+        # Update the list selection
+        self.list_cars.clearSelection()
+        for s in selected:
+            s = s.strip()
+            if s != '':
+                try:    self.list_cars.findItems(s, egg.pyqtgraph.QtCore.Qt.MatchExactly)[0].setSelected(True)
+                except: self.log('\nWARNING: '+s+' not in list')
+        
+        # Reconnect
+        self.list_cars.itemSelectionChanged.connect(self._list_cars_changed)
+                
+
     def _button_load_clicked(self,e):
         """
         Load the selected carset.
@@ -646,20 +685,8 @@ class uploader():
         selected = f.read().splitlines()
         f.close()
 
-        # Disconnect the update signal until the end
-        self.list_cars.itemSelectionChanged.disconnect()
-
-        # Update the list selection
-        self.list_cars.clearSelection()
-        for s in selected:
-            s = s.strip()
-            if s != '':
-                try:    self.list_cars.findItems(s, egg.pyqtgraph.QtCore.Qt.MatchExactly)[0].setSelected(True)
-                except: self.log('\nWARNING: '+s+' not in list')
+        self.set_list_cars_selection(selected)
         
-        # Reconnect
-        self.list_cars.itemSelectionChanged.connect(self._list_cars_changed)
-                
         self.save_gui()
         
     def _button_save_clicked(self,e):
@@ -726,8 +753,12 @@ class uploader():
         # Search for cars
         self.update_cars()
 
+        # Load the combo boxes etc to the last state
+        self.load_gui()
+
         # Reload the carset
         self.button_load.click()
+        
 
     def get_server_cfg_source(self):
         """
