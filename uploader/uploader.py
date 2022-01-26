@@ -323,7 +323,7 @@ class uploader():
         # Pre-command
         if self.text_precommand().strip() != '':
             self.log('Running pre-command')
-            if os.system(self.text_precommand()): return
+            if self.system(self.text_precommand()): return
 
         # Make sure it's clean
         if os.path.exists('uploads'): rmtree('uploads')
@@ -392,8 +392,8 @@ class uploader():
             if self.checkbox_restart() and stop != '':
                 self.log('Stopping server...')
                 c = 'ssh -p '+port+' -i "'+pem+'" '+login+' "'+stop+'"' 
-                print(c)
-                self.system(c)
+                if self.system(c): return
+                
             else: self.log('*Skipping server stop')
 
             # Start the upload process
@@ -410,26 +410,25 @@ class uploader():
                 self.log('  Compressing uploads.7z')
                 os.chdir('uploads')
                 c = '7z a ../uploads.7z *'
-                if(os.system(c)): self.log('  UH OH!')
+                if self.system(c): 
+                    os.chdir('..')
+                    return
                 os.chdir('..')
             
                 self.log('  Uploading uploads.7z...')
                 c = 'scp -P '+port+' -i "' + pem + '" uploads.7z '+login+':"'+remote+'"'
-                print(c)
-                self.system(c)
+                if self.system(c): return
     
                 # If we're cleaning...
                 if self.checkbox_clean():
                     self.log('  Cleaning out old content...')
                     c = 'ssh -p '+port+' -i "'+pem+'" '+login+' rm -rf ' + remote + '/content/cars/* ' + remote + '/content/tracks/*'
-                    print(c)
-                    self.system(c)
+                    if self.system(c): return
     
                 # Remote extract
                 self.log('  Extracting remote uploads.7z...')
                 c = 'ssh -p '+port+' -i "'+pem+'" '+login+' 7z x -aoa ' + remote + '/uploads.7z' + ' -o' + remote
-                print(c)
-                self.system(c)
+                if self.system(c): return
 
                 self.log('  Cleaning up')                
                 rmtree('uploads')
@@ -440,23 +439,20 @@ class uploader():
                 # Upload it
                 self.log('  Uploading championship.json...')
                 c = 'scp -P '+port+' -i "' + pem +'" championship.json '+ login+':"'+self.text_remote_championship()+'"'
-                print(c)
-                self.system(c)
+                if self.system(c): return
                 
             # Start server
             if self.checkbox_restart() and start != '':
                 self.log('Starting server...')
                 c = 'ssh -p '+port+' -i "'+pem+'" '+login+' "'+start+'"' 
-                print(c)
-                self.system(c)
+                if self.system(c): return
             else: self.log('*Skipping server start')
 
             # Start server
             if self.checkbox_monitor() and monitor != '':
                 self.log('Restarting monitor...')
                 c = 'ssh -p '+port+' -i "'+pem+'" '+login+' "'+monitor+'"' 
-                print(c)
-                self.system(c)
+                if self.system(c): return
             else: self.log('*Skipping monitor restart')
 
 
@@ -479,7 +475,7 @@ class uploader():
         # Post-command
         if self.text_postcommand().strip() != '':
             self.log('Running post-command')
-            os.system(self.text_postcommand())
+            if self.system(self.text_postcommand()): return
 
         self.log('Done! Hopefully!')
 
@@ -523,8 +519,12 @@ class uploader():
         """
         Runs a system command and logs it.
         """
+        print(command)
         r = os.system(command)
-        if r!=0: self.log('  UH OH! See console!')
+        if r!=0: 
+            self.log('  UH OH! See console!')
+            return r
+        return 0
 
     def get_nice_selected_cars_string(self):
         """
@@ -589,8 +589,7 @@ class uploader():
 
         # Upload path
         c = 'scp -P '+port+' -i "' + pem + '" "'+path+'" '+login+':"'+remote+'"'
-        print(c)
-        self.system(c)
+        return self.system(c)
 
     def _button_delete_clicked(self,e):
         """
@@ -751,9 +750,8 @@ class uploader():
         # Load the championship from the server        
         self.log('  Downloading championship.json...')
         c = 'scp -P '+port+' -i "' + pem +'" '+ login+':"'+self.text_remote_championship()+'" championship.json'
-        print(c)
         self.system(c)
-        with open('championship.json','r', encoding="utf8") as f: c = self.championship = json.load(f)
+        c = self.championship = load_json('championship.json')
 
         # Name
         c['Name'] = self.combo_carsets.get_text()+' at '+self.track['name']
