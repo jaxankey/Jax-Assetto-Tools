@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-import glob, codecs, os, shutil, random, json, pyperclip, webbrowser
+import glob, codecs, os, shutil, random, json, pyperclip, webbrowser, stat
 import spinmob.egg as egg
 egg.gui.egg_settings_path = os.path.join(egg.settings.path_home, 'ac_server_uploader')
 
@@ -9,6 +9,32 @@ os.chdir(os.path.dirname(os.path.abspath(__file__)))
 print('WORKING DIRECTORY:')
 print(os.getcwd())
 
+# Function for loading a json at the specified path
+def load_json(path):
+    """
+    Load the supplied path with all the safety measures and encoding etc.
+    """
+    try:
+        f = open(path, 'r', encoding='utf8')
+        j = json.load(f, strict=False)
+        f.close()
+        return j
+    except Exception as e:
+        print('ERROR: Could not load', path)
+        print(e)
+
+def rmtree(top):
+    """
+    Implemented to take care of chmodding
+    """
+    for root, dirs, files in os.walk(top, topdown=False):
+        for name in files:
+            filename = os.path.join(root, name)
+            os.chmod(filename, stat.S_IWUSR)
+            os.remove(filename)
+        for name in dirs:
+            os.rmdir(os.path.join(root, name))
+    os.rmdir(top)
 
 # GUI class for configuring the server
 class uploader():
@@ -130,6 +156,18 @@ class uploader():
         self.text_url = self.tab_settings.add(egg.gui.TextBox('',
             tip='Website to open when uploading, for example a place to modify the car selection on the reservation sheet, or a place to upload files for everyone else.',
             autosettings_path='text_url'), alignment=0)
+
+        self.tab_settings.new_autorow()
+        self.tab_settings.add(egg.gui.Label('Pre-Command:'))
+        self.text_precommand = self.tab_settings.add(egg.gui.TextBox('',
+            tip='Command to run before everything begins.',
+            autosettings_path='text_precommand'), alignment=0)
+
+        self.tab_settings.new_autorow()
+        self.tab_settings.add(egg.gui.Label('Post-Command:'))
+        self.text_postcommand = self.tab_settings.add(egg.gui.TextBox('',
+            tip='Command to run after everything is done.',
+            autosettings_path='text_postcommand'), alignment=0)
 
 
 
@@ -282,8 +320,13 @@ class uploader():
         """
         self.log('\n------- GO TIME! --------')
 
+        # Pre-command
+        if self.text_precommand().strip() != '':
+            self.log('Running pre-command')
+            if os.system(self.text_precommand()): return
+
         # Make sure it's clean
-        if os.path.exists('uploads')   : shutil.rmtree('uploads')
+        if os.path.exists('uploads'): rmtree('uploads')
         if os.path.exists('uploads.7z'): os.remove('uploads.7z')
 
         # Generate the appropriate config files
@@ -389,7 +432,7 @@ class uploader():
                 self.system(c)
 
                 self.log('  Cleaning up')                
-                shutil.rmtree('uploads')
+                rmtree('uploads')
                 if os.path.exists('uploads.7z'): os.remove('uploads.7z')
             
             # If we made a championship.json
@@ -432,6 +475,11 @@ class uploader():
     
         # No URL popup
         else: self.log('*Skipping URL')
+
+        # Post-command
+        if self.text_postcommand().strip() != '':
+            self.log('Running post-command')
+            os.system(self.text_postcommand())
 
         self.log('Done! Hopefully!')
 
