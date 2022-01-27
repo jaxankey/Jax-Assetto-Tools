@@ -358,6 +358,14 @@ class uploader():
         """
         Uploads the current configuration to the server.
         """
+        if self.checkbox_modify():
+            msg = egg.pyqtgraph.QtGui.QMessageBox()
+            msg.setIcon(egg.pyqtgraph.QtGui.QMessageBox.Information)
+            msg.setText("WARNING: Checking 'Config' will overwrite the championship, deleting the signup list.")
+            msg.setWindowTitle("HAY!")
+            msg.setStandardButtons(egg.pyqtgraph.QtGui.QMessageBox.Ok | egg.pyqtgraph.QtGui.QMessageBox.Cancel)
+            if msg.exec_() == egg.pyqtgraph.QtGui.QMessageBox.Cancel: return
+        
         self.log('\n------- GO TIME! --------')
 
         # Pre-command
@@ -372,7 +380,8 @@ class uploader():
         # Generate the appropriate config files
         if self.checkbox_modify(): 
             if self.combo_mode() == 0: self.generate_acserver_cfg()
-            else:                      self.generate_acsm_cfg()
+            else:                      
+                if self.generate_acsm_cfg(): return
         else: self.log('*Skipping server config')
 
         # Collect and package all the data
@@ -428,21 +437,13 @@ class uploader():
         # Upload the main assetto content
         if self.checkbox_upload():
             
-            # Stop server
-            if self.checkbox_restart() and stop != '':
-                self.log('Stopping server...')
-                c = 'ssh -p '+port+' -i "'+pem+'" '+login+' "'+stop+'"' 
-                if self.system(c): return
-                
-            else: self.log('*Skipping server stop')
-
-            # Start the upload process
-            self.log('Uploading content...')
-    
             # Make sure we don't bonk the system with rm -rf
             if not remote.lower().find('assetto') >= 0:
                 self.log('Yeah, sorry, to avoid messing with something unintentionally, we enforce that your remote path have the word "assetto" in it.')
                 return
+    
+            # Start the upload process
+            self.log('Uploading content...')
     
             # If we have uploads to compress
             if os.path.exists('uploads'):
@@ -465,6 +466,16 @@ class uploader():
                     c = 'ssh -p '+port+' -i "'+pem+'" '+login+' rm -rf ' + remote + '/content/cars/* ' + remote + '/content/tracks/*'
                     if self.system(c): return
     
+            # Stop server
+            if self.checkbox_restart() and stop != '':
+                self.log('Stopping server...')
+                c = 'ssh -p '+port+' -i "'+pem+'" '+login+' "'+stop+'"' 
+                if self.system(c): return
+            else: self.log('*Skipping server stop')
+                
+            # Back to the upload process
+            if os.path.exists('uploads'):
+                
                 # Remote extract
                 self.log('  Extracting remote uploads.7z...')
                 c = 'ssh -p '+port+' -i "'+pem+'" '+login+' 7z x -aoa ' + remote + '/uploads.7z' + ' -o' + remote
@@ -494,7 +505,6 @@ class uploader():
                 c = 'ssh -p '+port+' -i "'+pem+'" '+login+' "'+monitor+'"' 
                 if self.system(c): return
             else: self.log('*Skipping monitor restart')
-
 
         # No upload
         else: self.log('*Skipping upload')
@@ -796,25 +806,35 @@ class uploader():
         # Load the championship from the server        
         self.log('  Downloading championship.json...')
         c = 'scp -P '+port+' -i "' + pem +'" '+ login+':"'+self.text_remote_championship()+'" championship.json'
-        self.system(c)
+        if self.system(c): return True
         c = self.championship = load_json('championship.json')
 
+        # Whether the venue has changed
+        new_venue = False
+
         # Name
-        c['Name'] = self.combo_carsets.get_text()+' at '+self.track['name']
-        
-        # Reset the signup form
-        c['SignUpForm']['Responses'] = []
+        new_name = self.combo_carsets.get_text()+' at '+self.track['name']
+        # if c['Name'] != new_name: 
+        #     print('Venue:', c['Name'], '->', new_name)
+        #     new_venue = True
+        c['Name'] = new_name
         
         # One car class for simplicity
         x = c['Classes'][0]
-        x['Name'] = self.combo_carsets.get_text() 
+        carset = self.combo_carsets.get_text()
+        if x['Name'] != carset: 
+            print('VENUE Carset:', x['Name'], '->', carset)
+            new_venue = True
+        x['Name'] = carset
         x['Entrants'] = dict()
         c['Events'][0]['EntryList'] = dict()
     
-        # Fill the pitboxes / slots
+        # Find the number of pitboxes
         N = self.number_slots()
         if 'pitboxes' not in self.track: self.track['pitboxes'] = 0
         N = min(N, int(self.track['pitboxes']))
+        
+        # Now fill the pitboxes
         for n in range(N):
             x['Entrants']['CAR_'+str(n+1)] = {
                 "InternalUUID": "%08d-0000-0000-0000-000000000000" % (n+1),
@@ -833,23 +853,36 @@ class uploader():
                 "IsPlaceHolder": False}
             c['Events'][0]['EntryList']['CAR_'+str(n)] = dict(x['Entrants']['CAR_'+str(n+1)])
      
-        # Update the cars
-        x['AvailableCars'] = self.get_selected_cars()
+        # Update the cars list, noting if it's completely changed (no overlap)
+        selected_cars = self.get_selected_cars()
+        if len(set(x['AvailableCars']).intersection(set(selected_cars))) == 0: 
+            print('VENUE Cars:', x['AvailableCars'], '->', selected_cars)
+            new_venue = True
+        x['AvailableCars'] = selected_cars
         
         # One event for simplicity
         e = c['Events'][0]
         
-        # Again with the cars
+        # Other race setup
         e['RaceSetup']['Cars']  = ';'.join(self.get_selected_cars())
-        e['RaceSetup']['Track'] = self.combo_tracks.get_text()
-        e['RaceSetup']['TrackLayout'] = self.combo_layouts.get_text()
+        track  = self.combo_tracks.get_text()
+        layout = self.combo_layouts.get_text()
+        if e['RaceSetup']['Track']       != track \
+        or e['RaceSetup']['TrackLayout'] != layout: 
+            print('VENUE Track or Layout change.')
+            new_venue = True
+        e['RaceSetup']['Track'] = track
+        e['RaceSetup']['TrackLayout'] = layout
         e['RaceSetup']['LegalTyres'] = "V;H;M;S;ST;SM;SV" # JACK: UNPACK AND SCRAPE DATA.ACD? GROSS!!
+        
+        # Reset the signup form, but only if the venue has changed.
+        if new_venue: 
+            self.log('New venue detected, clearing signup.')
+            c['SignUpForm']['Responses'] = []
         
         # Write the new file.
         self.log('  Updating championship.json')
         with open('championship.json','w', encoding="utf8") as f: json.dump(self.championship, f, indent=2)
-
-
 
     def generate_acserver_cfg(self):
         """
