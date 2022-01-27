@@ -299,19 +299,16 @@ class uploader():
             combo_carsets = self.combo_carsets.get_text(),
             list_cars     = self.get_selected_cars()
         )
-        print('\nSaving GUI:')
-        pprint.pprint(gui)
+        print('save_gui')
         json.dump(gui, open('gui.json', 'w'), indent=2)
 
     def load_gui(self):
         """
         Loads gui.json to fill in the config that is not auto-saved already.
         """
-        print('\nLoading GUI')
+        print('load_gui')
         gui = load_json('gui.json')
         if not gui: return
-
-        pprint.pprint(gui)
 
         # Combos
         try:    self.combo_tracks.set_text(gui['combo_tracks'])
@@ -323,8 +320,7 @@ class uploader():
         
         # List items
         self.set_list_cars_selection(gui['list_cars'])
-        print('Loaded.')
-
+        
     def _checkbox_clean_changed(self, e=None):
         """
         Warn the user about this.
