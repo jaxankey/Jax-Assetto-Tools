@@ -48,6 +48,9 @@ class uploader():
         # For troubleshooting.
         self.timer_exceptions = egg.gui.TimerExceptions()        
 
+        # Flag for whether we're in the init phase
+        self._init = True
+
         ######################
         # Set the working directory to that of the script
         a = os.path.abspath(__file__)
@@ -270,7 +273,6 @@ class uploader():
         ###################
         # Load tracks and cars
         self.button_refresh.click()
-        self.update_carsets()
         
         # Do this after updating carsets to avoid issues
         self.combo_carsets.signal_changed.connect(self._combo_carsets_changed)
@@ -278,6 +280,8 @@ class uploader():
         ###################
         # Update gui
         self._combo_mode_changed(None)
+
+        self._init = False
 
         ######################
         # Show it no more commands below this.
@@ -287,13 +291,15 @@ class uploader():
         """
         Saves the GUI config that isn't auto-saved already.
         """
+        if self._init: return
+        
         gui = dict(
             combo_tracks  = self.combo_tracks.get_text(),
             combo_layouts = self.combo_layouts.get_text(),
             combo_carsets = self.combo_carsets.get_text(),
             list_cars     = self.get_selected_cars()
         )
-        print('Saving GUI:')
+        print('\nSaving GUI:')
         pprint.pprint(gui)
         json.dump(gui, open('gui.json', 'w'), indent=2)
 
@@ -301,20 +307,23 @@ class uploader():
         """
         Loads gui.json to fill in the config that is not auto-saved already.
         """
+        print('\nLoading GUI')
         gui = load_json('gui.json')
         if not gui: return
 
+        pprint.pprint(gui)
+
         # Combos
-        try:    self.combo_tracks.set_text(gui['combo_tracks'], block_signals=True)
-        except: pass
+        try:    self.combo_tracks.set_text(gui['combo_tracks'])
+        except Exception as e: print('combo_tracks', e)
         try:    self.combo_layouts.set_text(gui['combo_layouts'], block_signals=True)
-        except: pass
-        try:    self.combo_carsets.set_text(gui['combo_carsets'], block_signals=True)
-        except: pass
-    
+        except Exception as e: print('combo_layouts', e)
+        try:    self.combo_carsets.set_text(gui['combo_carsets'])
+        except Exception as e: print('combo_carsets', e)
+        
         # List items
         self.set_list_cars_selection(gui['list_cars'])
-        
+        print('Loaded.')
 
     def _checkbox_clean_changed(self, e=None):
         """
@@ -577,7 +586,7 @@ class uploader():
         return s
 
     def _combo_tracks_changed(self,e):
-        print('Track changed')
+        print('_combo_tracks_changed')
         
         track = self.combo_tracks.get_text()
         if track == '': return
@@ -597,7 +606,7 @@ class uploader():
         self.save_gui()
 
     def _combo_layouts_changed(self,e):
-        print('Layout changed')
+        print('_combo_layouts_changed')
         # Paths
         local  = self.text_local()
         track  = self.combo_tracks.get_text()
@@ -615,6 +624,7 @@ class uploader():
         self.save_gui()
 
     def _combo_carsets_changed(self,e): 
+        print('_combo_carsets_changed')
         self.button_load.click()
         self.save_gui()
 
@@ -737,18 +747,11 @@ class uploader():
         """
         Refresh cars and tracks
         """
-        # Remember the track
-        track  = self.combo_tracks.get_text()
-        layout = self.combo_layouts.get_text()
-
+        # Load the carsets list
+        self.update_carsets()
+        
         # Search for tracks
         self.update_tracks()
-
-        # Try to reset the track by name
-        try:
-            self.combo_tracks.set_text(track)
-            self.combo_layouts.set_text(layout)
-        except: pass
 
         # Search for cars
         self.update_cars()
@@ -993,6 +996,8 @@ class uploader():
         """
         Searches through the current assetto directory for all cars, skins, etc.
         """
+        print('update_cars')
+        
         # Clear out the list
         self.list_cars.clear()
 
@@ -1040,6 +1045,7 @@ class uploader():
         """
         Searches through the assetto directory for all the track folders
         """
+        print('update_tracks')
         # Clear existing
         self.combo_tracks.clear()
 
