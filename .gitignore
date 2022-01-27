@@ -5,4 +5,5 @@ git-*
 archive.txt
 uploads
 uploads.7z
+*.backup
 

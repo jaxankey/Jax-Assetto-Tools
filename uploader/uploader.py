@@ -240,6 +240,9 @@ class uploader():
             bounds=(1,None), int=True, autosettings_path='number_slots'))
 
         # Actions
+        self.checkbox_pre  = self.grid2s.add(egg.gui.CheckBox(
+            'Pre', autosettings_path='checkbox_pre', 
+            tip='Run the pre-command before everything starts.'))
         self.checkbox_modify  = self.grid2s.add(egg.gui.CheckBox(
             'Config', autosettings_path='checkbox_modify', 
             tip='Modify the server files with the above configuration.'))
@@ -262,6 +265,9 @@ class uploader():
         self.checkbox_url = self.grid2s.add(egg.gui.CheckBox(
             'Open URL', autosettings_path='checkbox_url', 
             tip='Open the specified URL in your browser.'))
+        self.checkbox_post  = self.grid2s.add(egg.gui.CheckBox(
+            'Post', autosettings_path='checkbox_post', 
+            tip='Run the post-command after everything is done.'))
         
         # upload button
         self.button_upload = self.grid2s.add(egg.gui.Button(
@@ -358,18 +364,18 @@ class uploader():
         """
         Uploads the current configuration to the server.
         """
-        if self.checkbox_modify():
-            msg = egg.pyqtgraph.QtGui.QMessageBox()
-            msg.setIcon(egg.pyqtgraph.QtGui.QMessageBox.Information)
-            msg.setText("WARNING: Checking 'Config' will overwrite the championship, deleting the signup list.")
-            msg.setWindowTitle("HAY!")
-            msg.setStandardButtons(egg.pyqtgraph.QtGui.QMessageBox.Ok | egg.pyqtgraph.QtGui.QMessageBox.Cancel)
-            if msg.exec_() == egg.pyqtgraph.QtGui.QMessageBox.Cancel: return
+        # if self.checkbox_modify():
+        #     msg = egg.pyqtgraph.QtGui.QMessageBox()
+        #     msg.setIcon(egg.pyqtgraph.QtGui.QMessageBox.Information)
+        #     msg.setText("WARNING: Checking 'Config' will overwrite the championship, deleting the signup list.")
+        #     msg.setWindowTitle("HAY!")
+        #     msg.setStandardButtons(egg.pyqtgraph.QtGui.QMessageBox.Ok | egg.pyqtgraph.QtGui.QMessageBox.Cancel)
+        #     if msg.exec_() == egg.pyqtgraph.QtGui.QMessageBox.Cancel: return
         
         self.log('\n------- GO TIME! --------')
 
         # Pre-command
-        if self.text_precommand().strip() != '':
+        if self.checkbox_pre() and self.text_precommand().strip() != '':
             self.log('Running pre-command')
             if self.system(self.text_precommand()): return
 
@@ -523,7 +529,7 @@ class uploader():
         else: self.log('*Skipping URL')
 
         # Post-command
-        if self.text_postcommand().strip() != '':
+        if self.checkbox_post() and self.text_postcommand().strip() != '':
             self.log('Running post-command')
             if self.system(self.text_postcommand()): return
 
@@ -826,33 +832,7 @@ class uploader():
             print('VENUE Carset:', x['Name'], '->', carset)
             new_venue = True
         x['Name'] = carset
-        x['Entrants'] = dict()
-        c['Events'][0]['EntryList'] = dict()
-    
-        # Find the number of pitboxes
-        N = self.number_slots()
-        if 'pitboxes' not in self.track: self.track['pitboxes'] = 0
-        N = min(N, int(self.track['pitboxes']))
         
-        # Now fill the pitboxes
-        for n in range(N):
-            x['Entrants']['CAR_'+str(n+1)] = {
-                "InternalUUID": "%08d-0000-0000-0000-000000000000" % (n+1),
-                "PitBox": n,
-                "Name": "",
-                "Team": "",
-                "GUID": "",
-                "Model": "any_car_model",
-                "Skin": "random_skin",
-                "ClassID": "00000000-0000-0000-0000-000000000000",
-                "Ballast": 0,
-                "SpectatorMode": 0,
-                "Restrictor": 0,
-                "FixedSetup": "",
-                "ConnectAsSpectator": False,
-                "IsPlaceHolder": False}
-            c['Events'][0]['EntryList']['CAR_'+str(n)] = dict(x['Entrants']['CAR_'+str(n+1)])
-     
         # Update the cars list, noting if it's completely changed (no overlap)
         selected_cars = self.get_selected_cars()
         if len(set(x['AvailableCars']).intersection(set(selected_cars))) == 0: 
@@ -879,6 +859,53 @@ class uploader():
         if new_venue: 
             self.log('New venue detected, clearing signup.')
             c['SignUpForm']['Responses'] = []
+        
+        # Now that we know if there are still responses, 
+        # We can fill up the Entrants and EntryList
+        x['Entrants'] = dict()
+        c['Events'][0]['EntryList'] = dict()
+    
+        # Find the number of pitboxes
+        N = self.number_slots()
+        if 'pitboxes' not in self.track: self.track['pitboxes'] = 0
+        N = min(N, int(self.track['pitboxes']))
+        
+        # Now fill the pitboxes
+        # JACK: Classes,Entrants must have an entry for everyone in
+        #       the SignupForm Responses
+        R = c['SignUpForm']['Responses']
+        for n in range(N):
+            x['Entrants']['CAR_'+str(n+1)] = {
+                "InternalUUID": "%08d-0000-0000-0000-000000000000" % (n+1),
+                "PitBox": n,
+                "Name": "",
+                "Team": "",
+                "GUID": "",
+                "Model": "any_car_model",
+                "Skin": "random_skin",
+                "ClassID": "00000000-0000-0000-0000-000000000000",
+                "Ballast": 0,
+                "SpectatorMode": 0,
+                "Restrictor": 0,
+                "FixedSetup": "",
+                "ConnectAsSpectator": False,
+                "IsPlaceHolder": False}
+            c['Events'][0]['EntryList']['CAR_'+str(n)] = dict(x['Entrants']['CAR_'+str(n+1)])
+     
+            # Manually cycle the cars (default server behavior is annoying)
+            c['Events'][0]['EntryList']['CAR_'+str(n)].update({
+                'Model' : selected_cars[n%len(selected_cars)], })
+     
+            # If we have a response in the sign-up form, modify the entrants
+            if n < len(R):
+                x['Entrants']['CAR_'+str(n+1)].update({
+                    'Name' : R[n]['Name'],
+                    'GUID' : R[n]['GUID'],
+                    'Team' : R[n]['Team'],
+                    'Model': R[n]['Car'],
+                    'Skin' : R[n]['Skin'], })
+                
+        
         
         # Write the new file.
         self.log('  Updating championship.json')
