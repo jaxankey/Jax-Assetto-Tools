@@ -43,7 +43,7 @@ class uploader():
     GUI class for uploading content and restarting the assetto server.
     """
 
-    def __init__(self, blocking=True):
+    def __init__(self, show=True, blocking=True):
 
         # For troubleshooting.
         self.timer_exceptions = egg.gui.TimerExceptions()        
@@ -73,13 +73,15 @@ class uploader():
         # Main window
         self.window = egg.gui.Window('Assetto Corsa Uploader', size=(1200,700), autosettings_path='window')
 
+        self.window.set_column_stretch(1)
+
         # Tabs
         self.tabs = self.window.add(egg.gui.TabArea(autosettings_path='tabs'))
         self.tab_settings = self.tabs.add('Settings')
         self.tab_uploader = self.tabs.add('Uploader')
 
         # Log
-        self.text_log = self.window.add(egg.gui.TextLog())
+        self.text_log = self.window.add(egg.gui.TextLog(), alignment=0)
         self.text_log.append_text('Welcome to AC Uploader!\n')
 
 
@@ -237,7 +239,7 @@ class uploader():
         self.grid2s.add(egg.gui.Label('Max Pit Boxes:'))
         self.number_slots = self.grid2s.add(egg.gui.NumberBox(16,
             tip='Maximum number of pitboxes (will not exceed the track limit).', 
-            bounds=(1,None), int=True, autosettings_path='number_slots'))
+            bounds=(1,None), int=True, autosettings_path='number_slots')).set_width(42)
 
         # Actions
         self.checkbox_pre  = self.grid2s.add(egg.gui.CheckBox(
@@ -270,12 +272,17 @@ class uploader():
             tip='Run the post-command after everything is done.'))
         
         # upload button
-        self.button_upload = self.grid2s.add(egg.gui.Button(
+        self.grid2s.new_autorow()
+        self.grid_go = self.grid2s.add(egg.gui.GridLayout(False), alignment=0, column_span=11)
+        self.button_upload = self.grid_go.add(egg.gui.Button(
             'Go!', tip='Packages the required server data, uploads, restarts the server, cleans up the local files.', 
             signal_clicked=self._button_upload_clicked), alignment=0)
         self.button_upload.set_style(self.style_fancybutton)
-        self.grid2s.set_column_stretch(7)
-
+        self.button_upload = self.grid_go.add(egg.gui.Button(
+            'Skins only!', tip='Skips Config, Clean Server, Restart Server, Restart Monitor, and only collects skins during Content.', 
+            signal_clicked=self._button_skins_clicked), alignment=0)
+        self.button_upload.set_style(self.style_fancybutton)
+        
         ###################
         # Load tracks and cars
         self.button_refresh.click()
@@ -291,7 +298,7 @@ class uploader():
 
         ######################
         # Show it no more commands below this.
-        self.window.show(blocking)
+        if show: self.window.show(blocking)
 
     def save_gui(self):
         """
@@ -360,17 +367,17 @@ class uploader():
         self.label_remote_championship.hide(premium)
         self.text_remote_championship .hide(premium)
 
-    def _button_upload_clicked(self,e):
+
+    def _button_skins_clicked(self,e):
+        """
+        Just calls the usual upload with skins_only=True.
+        """
+        self.update_skins()
+
+    def _button_upload_clicked(self,e,skins_only=False):
         """
         Uploads the current configuration to the server.
         """
-        # if self.checkbox_modify():
-        #     msg = egg.pyqtgraph.QtGui.QMessageBox()
-        #     msg.setIcon(egg.pyqtgraph.QtGui.QMessageBox.Information)
-        #     msg.setText("WARNING: Checking 'Config' will overwrite the championship, deleting the signup list.")
-        #     msg.setWindowTitle("HAY!")
-        #     msg.setStandardButtons(egg.pyqtgraph.QtGui.QMessageBox.Ok | egg.pyqtgraph.QtGui.QMessageBox.Cancel)
-        #     if msg.exec_() == egg.pyqtgraph.QtGui.QMessageBox.Cancel: return
         
         self.log('\n------- GO TIME! --------')
 
@@ -379,12 +386,8 @@ class uploader():
             self.log('Running pre-command')
             if self.system(self.text_precommand()): return
 
-        # Make sure it's clean
-        if os.path.exists('uploads'): rmtree('uploads')
-        if os.path.exists('uploads.7z'): os.remove('uploads.7z')
-
         # Generate the appropriate config files
-        if self.checkbox_modify(): 
+        if self.checkbox_modify() and not skins_only: 
             if self.combo_mode() == 0: self.generate_acserver_cfg()
             else:                      
                 if self.generate_acsm_cfg(): return
@@ -392,37 +395,10 @@ class uploader():
 
         # Collect and package all the data
         if self.checkbox_package():
-    
-            # get the tracks and cars
-            track = self.combo_tracks.get_text() # Track directory
-            cars  = self.get_selected_cars()     # List of car directories
-    
-            # Make sure we have at least one car
-            if len(cars) == 0:
-                self.log('No cars selected?')
-                return
-    
-            # Make sure we have a track
-            if track == '':
-                self.log('No track selected?')
-                return
-    
-            # COPY EVERYTHING TO TEMP DIRECTORY
-
-            # Cars: we just need data dir and data.acd (if present)
-            self.log('Collecting cars')
-            for car in cars:
-                self.log('  '+ self.cars[car])
-                self.collect_assetto_files(os.path.join('cars',car))
-    
-            # Copy over the carsets folder too.
-            shutil.copytree('carsets', os.path.join('uploads','carsets'))
-
-            # Track
-            self.log('Collecting track')
-            self.log('  '+track)
-            self.collect_assetto_files(os.path.join('tracks', track))
-
+            
+            # Package the content
+            self.package_content(skins_only)
+            
         # Package not checked
         else: self.log('*Skipping package')
 
@@ -435,7 +411,6 @@ class uploader():
         login   = self.text_login.get_text()
         port    = self.text_port .get_text()
         pem     = os.path.abspath(self.text_pem.get_text())
-        remote  = self.text_remote.get_text()
         stop    = self.text_stop.get_text()    # For acsm
         start   = self.text_start.get_text()   # For acsm
         monitor = self.text_monitor.get_text() 
@@ -443,70 +418,36 @@ class uploader():
         # Upload the main assetto content
         if self.checkbox_upload():
             
-            # Make sure we don't bonk the system with rm -rf
-            if not remote.lower().find('assetto') >= 0:
-                self.log('Yeah, sorry, to avoid messing with something unintentionally, we enforce that your remote path have the word "assetto" in it.')
-                return
-    
-            # Start the upload process
-            self.log('Uploading content...')
-    
-            # If we have uploads to compress
-            if os.path.exists('uploads'):
-                # Compress the files we gathered (MUCH faster upload)
-                self.log('  Compressing uploads.7z')
-                os.chdir('uploads')
-                c = '7z a ../uploads.7z *'
-                if self.system(c): 
-                    os.chdir('..')
-                    return
-                os.chdir('..')
-            
-                self.log('  Uploading uploads.7z...')
-                c = 'scp -P '+port+' -i "' + pem + '" uploads.7z '+login+':"'+remote+'"'
-                if self.system(c): return
-    
-                # If we're cleaning...
-                if self.checkbox_clean():
-                    self.log('  Cleaning out old content...')
-                    c = 'ssh -p '+port+' -i "'+pem+'" '+login+' rm -rf ' + remote + '/content/cars/* ' + remote + '/content/tracks/*'
-                    if self.system(c): return
+            # Upload the 7z, and clean remote files
+            self.upload_content(skins_only)
     
             # Stop server
-            if self.checkbox_restart() and stop != '':
+            if self.checkbox_restart() and stop != '' and not skins_only:
                 self.log('Stopping server...')
                 c = 'ssh -p '+port+' -i "'+pem+'" '+login+' "'+stop+'"' 
                 if self.system(c): return
             else: self.log('*Skipping server stop')
                 
-            # Back to the upload process
-            if os.path.exists('uploads'):
-                
-                # Remote extract
-                self.log('  Extracting remote uploads.7z...')
-                c = 'ssh -p '+port+' -i "'+pem+'" '+login+' 7z x -aoa ' + remote + '/uploads.7z' + ' -o' + remote
-                if self.system(c): return
-
-                self.log('  Cleaning up')                
-                rmtree('uploads')
-                if os.path.exists('uploads.7z'): os.remove('uploads.7z')
+            # Remote unzip the upload
+            self.unpack_uploaded_content(skins_only)
             
             # If we made a championship.json
-            if self.checkbox_modify() and self.combo_mode()==1 and os.path.exists('championship.json'):
+            if self.checkbox_modify() and self.combo_mode()==1 \
+            and os.path.exists('championship.json') and not skins_only:
                 # Upload it
                 self.log('  Uploading championship.json...')
                 c = 'scp -P '+port+' -i "' + pem +'" championship.json '+ login+':"'+self.text_remote_championship()+'"'
                 if self.system(c): return
                 
             # Start server
-            if self.checkbox_restart() and start != '':
+            if self.checkbox_restart() and start != '' and not skins_only:
                 self.log('Starting server...')
                 c = 'ssh -p '+port+' -i "'+pem+'" '+login+' "'+start+'"' 
                 if self.system(c): return
             else: self.log('*Skipping server start')
 
             # Start server
-            if self.checkbox_monitor() and monitor != '':
+            if self.checkbox_monitor() and monitor != '' and not skins_only:
                 self.log('Restarting monitor...')
                 c = 'ssh -p '+port+' -i "'+pem+'" '+login+' "'+monitor+'"' 
                 if self.system(c): return
@@ -524,24 +465,149 @@ class uploader():
         if self.checkbox_url() and self.text_url() != '':
             self.log('Opening supplied URL...')
             webbrowser.open(self.text_url())
-    
-        # No URL popup
         else: self.log('*Skipping URL')
 
         # Post-command
         if self.checkbox_post() and self.text_postcommand().strip() != '':
             self.log('Running post-command')
             if self.system(self.text_postcommand()): return
-
         self.log('Done! Hopefully!')
 
-    def collect_assetto_files(self, source_folder):
+    def update_skins(self):
+        """
+        Runs the pre-script (presumably copies latest skins into local assetto),
+        even if unchecked, provided it exists, then packages and uploads just 
+        the selected car skins, then runs post, even if unchecked, provided it exists.
+        """
+        # Pre-command
+        if self.text_precommand().strip() != '':
+            self.log('Running pre-command')
+            if self.system(self.text_precommand()): return
+
+        self.log('\n------- UPDATING SKINS -------')
+        self.package_content(True)
+        self.upload_content(True)
+        self.unpack_uploaded_content(True)
+        
+        # Post-command
+        if self.text_postcommand().strip() != '':
+            self.log('Running post-command')
+            if self.system(self.text_postcommand()): return
+        self.log('Done! Hopefully!')
+
+    def package_content(self, skins_only=False):
+        """
+        Packages all the content. Or just the skins.
+        """
+        # Make sure it's clean
+        if os.path.exists('uploads'): rmtree('uploads')
+        if os.path.exists('uploads.7z'): os.remove('uploads.7z')
+
+        # get the tracks and cars
+        track = self.combo_tracks.get_text() # Track directory
+        cars  = self.get_selected_cars()     # List of car directories
+
+        # Make sure we have at least one car
+        if len(cars) == 0:
+            self.log('No cars selected?')
+            return
+
+        # Make sure we have a track
+        if track == '' and not skins_only:
+            self.log('No track selected?')
+            return
+
+        # COPY EVERYTHING TO TEMP DIRECTORY
+
+        # Cars: we just need data dir and data.acd (if present)
+        if skins_only: self.log('Collecting skins')
+        else:          self.log('Collecting cars')
+        for car in cars:
+            self.log('  '+ self.cars[car])
+            self.collect_assetto_files(os.path.join('cars',car), skins_only)
+
+        # Copy over the carsets folder too.
+        if not skins_only: shutil.copytree('carsets', os.path.join('uploads','carsets'))
+
+        # Track
+        if not skins_only: 
+            self.log('Collecting track')
+            self.log('  '+track)
+            self.collect_assetto_files(os.path.join('tracks', track))
+
+    def upload_content(self, skins_only=False):
+        """
+        Uploads uploads.7z and unpacks it remotely.
+        """
+        # Server info
+        login   = self.text_login.get_text()
+        port    = self.text_port .get_text()
+        pem     = os.path.abspath(self.text_pem.get_text())
+        remote  = self.text_remote.get_text()
+        
+        # Make sure we don't bonk the system with rm -rf
+        if not remote.lower().find('assetto') >= 0:
+            self.log('Yeah, sorry, to avoid messing with something unintentionally, we enforce that your remote path have the word "assetto" in it.')
+            return
+
+        # Start the upload process
+        self.log('Uploading content...')
+
+        # If we have uploads to compress
+        if os.path.exists('uploads'):
+            
+            # Compress the files we gathered (MUCH faster upload)
+            self.log('  Compressing uploads.7z')
+            os.chdir('uploads')
+            c = '7z a ../uploads.7z *'
+            if self.system(c): 
+                os.chdir('..')
+                return
+            os.chdir('..')
+        
+            self.log('  Uploading uploads.7z...')
+            c = 'scp -P '+port+' -i "' + pem + '" uploads.7z '+login+':"'+remote+'"'
+            if self.system(c): return
+
+            # If we're cleaning remote files... Note skins only prevents this
+            # regardless of the checkbox state.
+            if self.checkbox_clean() and not skins_only:
+                self.log('  Cleaning out old content...')
+                c = 'ssh -p '+port+' -i "'+pem+'" '+login+' rm -rf ' + remote + '/content/cars/* ' + remote + '/content/tracks/*'
+                if self.system(c): return
+
+    def unpack_uploaded_content(self, skins_only=False):
+        """
+        Just unzips the remote uploads.7z, and cleans up local files.
+        """
+        # Server info
+        login   = self.text_login.get_text()
+        port    = self.text_port .get_text()
+        pem     = os.path.abspath(self.text_pem.get_text())
+        remote  = self.text_remote.get_text()
+        
+        # Back to the upload process
+        if os.path.exists('uploads'):
+            
+            # Remote extract
+            self.log('  Extracting remote uploads.7z...')
+            c = 'ssh -p '+port+' -i "'+pem+'" '+login+' 7z x -aoa ' + remote + '/uploads.7z' + ' -o' + remote
+            if self.system(c): return
+
+            self.log('  Cleaning up')                
+            rmtree('uploads')
+            if os.path.exists('uploads.7z'): os.remove('uploads.7z')
+
+    def collect_assetto_files(self, source_folder, skins_only=False):
         """
         Copies all the required files from the supplied content folder. 
         source_folder should be something like 'tracks/imola' or 'cars/ks_meow'
         """
         source_folder = os.path.join(self.text_local(),'content',source_folder)
         
+        if skins_only:
+            source_folder = os.path.join(source_folder, 'skins')
+
         # File extensions we should copy over. ACSM needs a few extra heavies.
         filetypes = ['ini', 'lut', 'rto', 'acd', 'json']
         if self.combo_mode.get_index() == 1:
@@ -559,7 +625,7 @@ class uploader():
                     os.makedirs(os.path.dirname(destination), exist_ok=True)
                     try: shutil.copy(source, destination, follow_symlinks=True)
                     except Exception as e: print(e)
-    
+
             
 
     def log(self, *a):
