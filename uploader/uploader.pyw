@@ -871,14 +871,14 @@ class uploader():
         self.log('Generating acsm config')
         
         # Server info
-        login   = self.text_login.get_text()
-        port    = self.text_port .get_text()
-        pem     = os.path.abspath(self.text_pem.get_text())
+        # login   = self.text_login.get_text()
+        # port    = self.text_port .get_text()
+        # pem     = os.path.abspath(self.text_pem.get_text())
 
         # Load the championship from the server        
-        self.log('  Downloading championship.json...')
-        c = 'scp -P '+port+' -i "' + pem +'" '+ login+':"'+self.text_remote_championship()+'" championship.json'
-        if self.system(c): return True
+        # self.log('  Downloading championship.json...')
+        # c = 'scp -P '+port+' -i "' + pem +'" '+ login+':"'+self.text_remote_championship()+'" championship.json'
+        # if self.system(c): return True
         c = self.championship = load_json('championship.json')
 
         # Whether the venue has changed
