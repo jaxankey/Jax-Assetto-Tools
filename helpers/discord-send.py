@@ -17,10 +17,10 @@ e.color       = 15548997 # Red
 e.description = message.strip()
 
 # Send it!
-id = webhook.send('', embeds=[e], wait=True)
+message = webhook.send('', embeds=[e], wait=True)
 
 # If we're supposed to delete...
 if delete_after:
   time.sleep(60*delete_after)
-  webhook.delete_message(id)
+  webhook.delete_message(message.id)
 
