@@ -1,0 +1,5 @@
+#!/bin/bash
+
+cd /home/ubuntu/Jax-Assetto-Tools/monitor/web
+mkdir -p ~/logs
+nice -n 10 python3 -m http.server 37777 &>~/logs/ac-website.log &
