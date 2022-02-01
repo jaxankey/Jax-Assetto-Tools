@@ -1,0 +1,5 @@
+#!/bin/bash
+
+~/Jax-Assetto-Tools/acsm/stop-server-manager
+~/Jax-Assetto-Tools/acsm/start-server-manager
+
