@@ -20,7 +20,7 @@ os.chdir(os.path.dirname(os.path.abspath(__file__)))
 path_log = ''
 
 # ACSM premium settings
-server_manager_premium_mode = True
+server_manager_premium_mode = False
 url_INFO          = None
 url_api_details   = None
 path_live_timings = None
