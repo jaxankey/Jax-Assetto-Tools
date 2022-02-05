@@ -267,9 +267,9 @@ function update_table() { console.log('update_table()')
   if(checkbox_driver_bests.checked) {
 
     // Assemble a dictionary by name to easily overwrite bests
-    bests = {}
+    var bests = {}
     for(var n in laps)
-      if(bests[laps[n].name] == undefined || bests[laps[n].name] > laps[n].time_ms)
+      if(bests[laps[n].name] == undefined || bests[laps[n].name].time_ms > laps[n].time_ms)
         bests[laps[n].name] = laps[n]
 
     // Now overwrite laps
