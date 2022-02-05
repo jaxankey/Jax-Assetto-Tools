@@ -32,6 +32,7 @@ path_ac = None
 url_webhook_online  = None
 online_header       = ''
 online_footer       = ''
+session_complete_header = '**Session complete.**'
 
 # Persistent post for venue information
 url_webhook_info    = None
@@ -99,6 +100,9 @@ class Monitor():
         # Discord webhook objects
         self.webhook_online  = None # List of webhooks
         self.webhook_info    = None
+        
+        # List of all onlines seen during this session
+        self.onlines = set()
 
         # Create the webhook for who is online
         if url_webhook_online:
@@ -718,7 +722,9 @@ class Monitor():
         # If there are any online
         onlines = []; n=1
         for name in self.state['online']:
-            onlines.append('**'+str(n)+'.** '+name+' ('+self.get_carname(self.state['online'][name]['car'])+')')
+            namecar = name+' ('+self.get_carname(self.state['online'][name]['car'])+')'
+            onlines.append('**'+str(n)+'.** '+namecar)
+            self.onlines.add(namecar)
             n += 1
 
         # Return the list
@@ -782,8 +788,23 @@ class Monitor():
             self.state['online_message_id'] = self.send_message(self.webhook_online, body1, '', '\n\n'+online_footer, self.state['online_message_id'])
             if self.state['online_message_id'] == None: print('DID NOT EDIT OR SEND ONLINES')
 
-        # Otherwise, try to delete any existing message
-        else: self.delete_message(self.webhook_online, self.state['online_message_id'])
+        # Otherwise try to update or delete the existing message
+        elif self.state['online_message_id']: 
+            # If there are any online
+            errbody = []; n=1
+            for namecar in self.onlines:
+                errbody.append('**'+str(n)+'.** '+namecar)
+                n += 1
+                
+            body1 = session_complete_header+'\n\n'+'\n'.join(errbody)
+            self.send_message(self.webhook_online, body1, '', '\n\n'+online_footer, self.state['online_message_id'], 0)
+            
+            # Reset the session info
+            self.state['online_message_id'] = None
+            self.onlines = set()
+
+            #self.delete_message(self.webhook_online, self.state['online_message_id'])
+            
 
         # Save the state.
         self.save_and_archive_state()
@@ -800,7 +821,7 @@ class Monitor():
             try: webhook.delete_message(message_id)
             except: pass
 
-    def send_message(self, webhook, body1, body2, footer, message_id=None):
+    def send_message(self, webhook, body1, body2, footer, message_id=None, color=15548997):
         """
         Sends a message with the supplied header and footer, making sure it's
         less than 4096 characters total. Returns the message id
@@ -829,7 +850,7 @@ class Monitor():
 
             # Sending by embed makes it prettier and larger
             e = discord.Embed()
-            e.color       = 15548997 # Red
+            e.color       = color
             e.description = body
 
             # Decide whether to make a new message or use the existing
