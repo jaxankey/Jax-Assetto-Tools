@@ -33,6 +33,7 @@ url_webhook_online  = None
 online_header       = ''
 online_footer       = ''
 session_complete_header = '**Session complete.**'
+online_timeout      = 10*60 # time after which a dead message is not reused.
 
 # Persistent post for venue information
 url_webhook_info    = None
@@ -103,6 +104,7 @@ class Monitor():
         
         # List of all onlines seen during this session
         self.onlines = set()
+        self.online_message_end_time = 0
 
         # Create the webhook for who is online
         if url_webhook_online:
@@ -781,6 +783,21 @@ class Monitor():
         # If there is anyone online send a message about it
         if onlines:
 
+            # If there is online_message_end_time, that means the last time we
+            # were here, we updated a message to "completed" state / closed the session.
+            # It also means we have online_message_id and the self.onlines set.
+            # If this "dead post" has timed out, erase this info, which 
+            # will generate a new message.
+            if self.online_message_end_time \
+            and time.time()-self.online_message_end_time > online_timeout:
+        
+                # Reset the session info
+                self.state['online_message_id'] = None
+                self.onlines = set()
+
+            # We're posting onlines so there is no end time any more
+            self.online_message_end_time = 0
+
             # Assemble the message body
             body1 = online_header + '\n\n' + onlines
 
@@ -799,10 +816,12 @@ class Monitor():
             body1 = session_complete_header+'\n\n'+'\n'.join(errbody)
             self.send_message(self.webhook_online, body1, '', '\n\n'+online_footer, self.state['online_message_id'], 0)
             
-            # Reset the session info
-            self.state['online_message_id'] = None
-            self.onlines = set()
-
+            # Remember the time this message was "closed". If a new session
+            # starts within a little time of this, use the same message id
+            self.online_message_end_time = time.time()
+            # Session info is reset after a timeout.
+            
+            
             #self.delete_message(self.webhook_online, self.state['online_message_id'])
             
 
