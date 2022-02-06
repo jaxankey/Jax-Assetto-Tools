@@ -810,7 +810,7 @@ class Monitor():
             # If there are any online
             errbody = []; n=1
             for namecar in self.onlines:
-                errbody.append('**'+str(n)+'.** '+namecar)
+                errbody.append(str(n)+'. '+namecar)
                 n += 1
                 
             body1 = session_complete_header+'\n\n'+'\n'.join(errbody)
