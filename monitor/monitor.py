@@ -727,7 +727,7 @@ class Monitor():
         for name in self.state['online']:
             namecar = name+' ('+self.get_carname(self.state['online'][name]['car'])+')'
             onlines.append('**'+str(n)+'.** '+namecar)
-            if namecar not in self.state['onlines']: self.state['onlines'].append(namecar)
+            if namecar not in self.state['seen_namecars']: self.state['seen_namecars'].append(namecar)
             n += 1
 
         # Return the list
@@ -786,7 +786,7 @@ class Monitor():
 
             # If there is session_end_time, that means the last time we
             # were here, we updated a message to "completed" state / closed the session.
-            # It also means we have online_message_id and the self.state['onlines'].
+            # It also means we have online_message_id and the self.state['seen_namecars'].
             # If this "dead post" has timed out, erase this info, which 
             # will generate a new message.
             if self.state['session_end_time'] \
@@ -794,7 +794,7 @@ class Monitor():
         
                 # Reset the session info
                 self.state['online_message_id'] = None
-                self.state['onlines'] = []
+                self.state['seen_namecars'] = []
 
             # We're posting onlines so there is no end time any more
             self.state['session_end_time'] = 0
@@ -812,7 +812,7 @@ class Monitor():
             
             # Get a list of the seen namecars from this session
             errbody = []; n=1
-            for namecar in self.state['onlines']:
+            for namecar in self.state['seen_namecars']:
                 errbody.append(str(n)+'. '+namecar)
                 n += 1
                 
