@@ -103,9 +103,7 @@ class Monitor():
         self.webhook_info    = None
         
         # List of all onlines seen during this session
-        self.onlines = set()
-        self.online_message_end_time = 0
-
+        
         # Create the webhook for who is online
         if url_webhook_online:
             self.webhook_online = discord.Webhook.from_url(url_webhook_online, adapter=discord.RequestsWebhookAdapter())
@@ -300,6 +298,9 @@ class Monitor():
             stesrac           = dict(), # Dictionary of carset name lists by car for grouping laps
             cars              = list(), # List of car directories
             carnames          = dict(), # Dictionary converting car dirnames to fancy names for everything in the venue.
+        
+            onlines           = [], # Set of people/cars seen online for this session.
+            session_end_time  = 0, 
         )
 
     def vanilla_parse_lines(self, lines, init=False):
@@ -726,7 +727,7 @@ class Monitor():
         for name in self.state['online']:
             namecar = name+' ('+self.get_carname(self.state['online'][name]['car'])+')'
             onlines.append('**'+str(n)+'.** '+namecar)
-            self.onlines.add(namecar)
+            if namecar not in self.state['onlines']: self.state['onlines'].append(namecar)
             n += 1
 
         # Return the list
@@ -780,23 +781,23 @@ class Monitor():
         #########################################
         # HAY MESSAGE WITH JUST ONLINES
 
-        # If there is anyone online send a message about it
+        # If there is anyone currently online send / update the message about it
         if onlines:
 
-            # If there is online_message_end_time, that means the last time we
+            # If there is session_end_time, that means the last time we
             # were here, we updated a message to "completed" state / closed the session.
-            # It also means we have online_message_id and the self.onlines set.
+            # It also means we have online_message_id and the self.state['onlines'].
             # If this "dead post" has timed out, erase this info, which 
             # will generate a new message.
-            if self.online_message_end_time \
-            and time.time()-self.online_message_end_time > online_timeout:
+            if self.state['session_end_time'] \
+            and time.time()-self.state['session_end_time'] > online_timeout:
         
                 # Reset the session info
                 self.state['online_message_id'] = None
-                self.onlines = set()
+                self.state['onlines'] = []
 
             # We're posting onlines so there is no end time any more
-            self.online_message_end_time = 0
+            self.state['session_end_time'] = 0
 
             # Assemble the message body
             body1 = online_header + '\n\n' + onlines
@@ -805,23 +806,25 @@ class Monitor():
             self.state['online_message_id'] = self.send_message(self.webhook_online, body1, '', '\n\n'+online_footer, self.state['online_message_id'])
             if self.state['online_message_id'] == None: print('DID NOT EDIT OR SEND ONLINES')
 
-        # Otherwise try to update or delete the existing message
+        # No one is currently online. If we have a message id, make sure it's
+        # an "end session" message.
         elif self.state['online_message_id']: 
-            # If there are any online
+            
+            # Get a list of the seen namecars from this session
             errbody = []; n=1
-            for namecar in self.onlines:
-                errbody.append('**'+str(n)+'.** '+namecar)
+            for namecar in self.state['onlines']:
+                errbody.append(str(n)+'. '+namecar)
                 n += 1
                 
-            body1 = session_complete_header+'\n\n'+'\n'.join(errbody)
+            body1 = session_complete_header+'\n\nParticipants:'+'\n'.join(errbody)
             self.send_message(self.webhook_online, body1, '', '\n\n'+online_footer, self.state['online_message_id'], 0)
             
             # Remember the time this message was "closed". If a new session
             # starts within a little time of this, use the same message id
-            self.online_message_end_time = time.time()
+            self.state['session_end_time'] = time.time()
             # Session info is reset after a timeout.
             
-            
+            # Old method: delete it.
             #self.delete_message(self.webhook_online, self.state['online_message_id'])
             
 
