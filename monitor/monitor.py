@@ -816,7 +816,7 @@ class Monitor():
                 errbody.append(str(n)+'. '+namecar)
                 n += 1
                 
-            body1 = session_complete_header+'\n\nParticipants:'+'\n'.join(errbody)
+            body1 = session_complete_header+'\n\nParticipants:\n'+'\n'.join(errbody)
             self.send_message(self.webhook_online, body1, '', '\n\n'+online_footer, self.state['online_message_id'], 0)
             
             # Remember the time this message was "closed". If a new session
