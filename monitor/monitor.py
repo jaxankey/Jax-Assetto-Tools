@@ -299,7 +299,7 @@ class Monitor():
             cars              = list(), # List of car directories
             carnames          = dict(), # Dictionary converting car dirnames to fancy names for everything in the venue.
         
-            onlines           = [], # Set of people/cars seen online for this session.
+            seen_namecars     = [], # Set of people/cars seen online for this session.
             session_end_time  = 0, 
         )
 
