@@ -573,7 +573,7 @@ class Monitor():
         """
         m = int(t/60000)
         s = (t-m*60000)*0.001
-        return '%d:%.3f' % (m,s)
+        return '%d:%02d.%03d' % (m,int(s),(s%1)*1000)
 
     def to_ms(self, s):
         """
