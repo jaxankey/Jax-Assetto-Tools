@@ -731,6 +731,7 @@ class Monitor():
             namecar = name+' ('+self.get_carname(self.state['online'][name]['car'])+')'
             onlines.append('**'+str(n)+'.** '+namecar)
             if not namecar in self.state['seen_namecars']: self.state['seen_namecars'].append(namecar)
+            print('get_onlines_string seen_namecars', self.state['seen_namecars'])
             n += 1
 
         # Return the list
@@ -800,6 +801,8 @@ class Monitor():
                 # new_venue and __init__ that clears seen_namecars
                 self.state['online_message_id'] = None
                 self.state['seen_namecars'] = []
+                print('send_state_messages seen_namecars', self.state['seen_namecars'])
+                
             self.state['session_end_time'] = 0 # Always do this for a live session
 
             # Assemble the message body
@@ -827,6 +830,7 @@ class Monitor():
         # an "end session" message.
         # JACK: This is a hack; I'm not sure why sometimes seen_namecars is empty but there
         # is an online_message_id, except on startup or new venue.
+        print('end_session', self.state['seen_namecars'])
         if self.state['online_message_id'] and len(self.state['seen_namecars']): 
             
             # Get a list of the seen namecars from this session
