@@ -509,6 +509,9 @@ class Monitor():
         # Dump the existing state and copy to the archive before we update the timestamp
         self.save_and_archive_state()
 
+        # End any session message that is currently active.
+        self.end_session()
+
         # Reset everything; new venue happens when the server resets, which boots people (hopefully)
         self.reset_state()
 
@@ -806,11 +809,25 @@ class Monitor():
             self.state['online_message_id'] = self.send_message(self.webhook_online, body1, '', '\n\n'+online_footer, self.state['online_message_id'])
             if self.state['online_message_id'] == None: print('DID NOT EDIT OR SEND ONLINES')
 
-        # No one is currently online. If we have a message id, make sure it's
+        # No one is currently online. 
+        else: self.end_session() 
+        
+        
+
+        # Save the state.
+        self.save_and_archive_state()
+
+    def end_session(self):
+        """
+        If we have an active online message and no one is online,
+        "close" the session message.
+        """
+        
+        # If we have a message id, make sure it's
         # an "end session" message.
         # JACK: This is a hack; I'm not sure why sometimes seen_namecars is empty but there
         # is an online_message_id, except on startup or new venue.
-        elif self.state['online_message_id'] and len(self.state['seen_namecars']): 
+        if self.state['online_message_id'] and len(self.state['seen_namecars']): 
             
             # Get a list of the seen namecars from this session
             errbody = []; n=1
@@ -823,15 +840,9 @@ class Monitor():
             
             # Remember the time this message was "closed". If a new session
             # starts within a little time of this, use the same message id
+            # Otherwise it will make a new session message.
             self.state['session_end_time'] = time.time()
-            # Session info is reset after a timeout.
             
-            # Old method: delete it.
-            #self.delete_message(self.webhook_online, self.state['online_message_id'])
-            
-
-        # Save the state.
-        self.save_and_archive_state()
 
     def delete_message(self, webhook, message_id):
         """
