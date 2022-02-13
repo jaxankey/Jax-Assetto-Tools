@@ -810,7 +810,7 @@ class Monitor():
         # an "end session" message.
         # JACK: This is a hack; I'm not sure why sometimes seen_namecars is empty but there
         # is an online_message_id, except on startup or new venue.
-        elif self.state['online_message_id'] and len(self.state['seen_namecars']: 
+        elif self.state['online_message_id'] and len(self.state['seen_namecars']): 
             
             # Get a list of the seen namecars from this session
             errbody = []; n=1
