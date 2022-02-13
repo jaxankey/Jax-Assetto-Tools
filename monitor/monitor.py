@@ -727,7 +727,7 @@ class Monitor():
         for name in self.state['online']:
             namecar = name+' ('+self.get_carname(self.state['online'][name]['car'])+')'
             onlines.append('**'+str(n)+'.** '+namecar)
-            if namecar not in self.state['seen_namecars']: self.state['seen_namecars'].append(namecar)
+            if not namecar in self.state['seen_namecars']: self.state['seen_namecars'].append(namecar)
             n += 1
 
         # Return the list
@@ -782,22 +782,22 @@ class Monitor():
         # HAY MESSAGE WITH JUST ONLINES
 
         # If there is anyone currently online send / update the message about it
+        # onlines is either a string or None if there isn't anyone online
         if onlines:
 
             # If there is session_end_time, that means the last time we
-            # were here, we updated a message to "completed" state / closed the session.
+            # were here, we updated a message to "completed" state.
             # It also means we have online_message_id and the self.state['seen_namecars'].
             # If this "dead post" has timed out, erase this info, which 
             # will generate a new message.
             if self.state['session_end_time'] \
             and time.time()-self.state['session_end_time'] > online_timeout:
         
-                # Reset the session info
+                # Reset the session info. Note this is the only place other than
+                # new_venue and __init__ that clears seen_namecars
                 self.state['online_message_id'] = None
                 self.state['seen_namecars'] = []
-
-            # We're posting onlines so there is no end time any more
-            self.state['session_end_time'] = 0
+            self.state['session_end_time'] = 0 # Always do this for a live session
 
             # Assemble the message body
             body1 = online_header + '\n\n' + onlines
