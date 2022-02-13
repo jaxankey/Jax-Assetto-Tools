@@ -44,7 +44,7 @@ laps_footer         = ''
 
 # Other
 web_archive_history = 0
-debug               = False
+debug               = True
 
 # Get the user values from the ini file
 if os.path.exists('monitor.ini.private'): p = 'monitor.ini.private'
@@ -808,7 +808,9 @@ class Monitor():
 
         # No one is currently online. If we have a message id, make sure it's
         # an "end session" message.
-        elif self.state['online_message_id']: 
+        # JACK: This is a hack; I'm not sure why sometimes seen_namecars is empty but there
+        # is an online_message_id, except on startup or new venue.
+        elif self.state['online_message_id'] and len(self.state['seen_namecars']: 
             
             # Get a list of the seen namecars from this session
             errbody = []; n=1
