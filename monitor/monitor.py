@@ -170,7 +170,7 @@ class Monitor():
         Grabs all the latest event information from the server, and 
         send / update messages if anything changed.
         """
-
+        print('premium_get_latest_data')
         # If this is the first run, some things are none.
         first_run = self.live_timings == None
 
