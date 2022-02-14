@@ -184,6 +184,9 @@ class Monitor():
         except: print('ERROR: Could not open ' + url_api_details)        
         if path_live_timings:
             self.live_timings = load_json(path_live_timings)
+        
+        else: print('premium_get_latest_data: no path_live_timings')
+            
             
         # Data from website.
         if self.details:
@@ -212,8 +215,10 @@ class Monitor():
             cars = list(self.details['content']['cars'].keys())
             carset_fully_changed = len(set(cars).intersection(self.state['cars'])) == 0
             self.state['cars'] = cars
+        
+        else: print('premium_get_latest_data: no self.details')
                 
-        # Data from live_timings.json
+        # Basic data from live_timings.json
         if self.live_timings:
 
             # UPDATE TRACK / LAYOUT
@@ -223,10 +228,12 @@ class Monitor():
             self.state['track']  = track
             self.state['layout'] = layout
         
+        else: print('premium_get_latest_data: no self.live_timings for basic data')
+        
         # Before doing laps, check if the venue has changed; if it has, 
         # this will reload the ui data
         if venue_changed or carset_fully_changed: 
-            if venue_changed: print('Venue changed.')
+            if venue_changed: print('premium_get_latest_data: venue changed')
             self.new_venue(self['track'], self['layout'], self['cars'])    
         
         
@@ -266,7 +273,8 @@ class Monitor():
                             
                         # Remember to update the messages
                         laps_onlines_changed = True
-                   
+        
+        else: print('premium_get_latest_data: no self.live_timings for detailed data')
         
         # If anything changed, we need to update the messages
         if first_run or laps_onlines_changed or venue_changed or carset_fully_changed: 
