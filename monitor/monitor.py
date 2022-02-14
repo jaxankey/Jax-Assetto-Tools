@@ -170,7 +170,7 @@ class Monitor():
         Grabs all the latest event information from the server, and 
         send / update messages if anything changed.
         """
-        print('premium_get_latest_data')
+        
         # If this is the first run, some things are none.
         first_run = self.live_timings == None
 
@@ -182,9 +182,9 @@ class Monitor():
         # Grab the data; extra careful for urls which can fail.
         try:    self.details = json.loads(urllib.request.urlopen(url_api_details,  timeout=5).read(), strict=False)
         except: print('ERROR: Could not open ' + url_api_details)        
-        if path_live_timings:
-            self.live_timings = load_json(path_live_timings)
         
+        # Grab the other data
+        if path_live_timings: self.live_timings = load_json(path_live_timings)
         else: print('premium_get_latest_data: no path_live_timings')
             
             
@@ -202,6 +202,8 @@ class Monitor():
             for car in self.details['players']['Cars']:
                 if car['IsConnected']: new.add((car['DriverName'], car['Model']))
 
+            print('\ncheck:', old, new)
+            
             # If they are not equal, update 
             if new != old:
                 print('Updating onlines.')
