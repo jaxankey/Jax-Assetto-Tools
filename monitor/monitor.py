@@ -202,8 +202,6 @@ class Monitor():
             for car in self.details['players']['Cars']:
                 if car['IsConnected']: new.add((car['DriverName'], car['Model']))
 
-            print('\ncheck:', old, new)
-            
             # If they are not equal, update 
             if new != old:
                 print('Updating onlines.')
