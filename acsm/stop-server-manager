@@ -1,3 +1,4 @@
 #!/bin/bash
 
 pkill -INT server-manager
+sleep 5
