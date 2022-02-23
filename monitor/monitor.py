@@ -124,6 +124,9 @@ class Monitor():
                 self.state.update(load_json(p))
                 print('\nFOUND state.json, loaded')
                 pprint.pprint(self.state)
+                
+                # May as well update once at the beginning, in case something was fixed
+                self.load_ui_data()
         except:
             print('\n\n-------------\nError: corrupt state.json; deleting')
             os.remove(p)
@@ -518,15 +521,16 @@ class Monitor():
         self.reset_state()
 
         # Stick the track directory in there
+        print('new_venue (continued)...')
         print('  track ', self.state['track'],  '->', track)
         print('  layout', self.state['layout'], '->', layout)
         print('  cars  ', self.state['cars'],   '->', cars)
-
         self.state['track']  = track
         self.state['layout'] = layout
         self.state['cars']   = cars
 
         # Update the state with the race.json if it exists (gives track and cars and carset info)
+        print('loading ui data...')
         self.load_ui_data()
 
         # Timestamp changes only for new track; use the most recently seen timestamp
