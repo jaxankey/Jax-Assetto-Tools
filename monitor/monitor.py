@@ -123,7 +123,7 @@ class Monitor():
             if os.path.exists(p):
                 self.state.update(load_json(p))
                 print('\nFOUND state.json, loaded')
-                if debug: pprint.pprint(self.state)
+                pprint.pprint(self.state)
         except:
             print('\n\n-------------\nError: corrupt state.json; deleting')
             os.remove(p)
@@ -132,7 +132,7 @@ class Monitor():
         # Premium mode
         if server_manager_premium_mode: 
             print('Monitoring for updates...')
-            
+
             # Get all the latest data from the server
             while True:
                 self.premium_get_latest_data()
