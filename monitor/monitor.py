@@ -175,9 +175,9 @@ class Monitor():
         first_run = self.live_timings == None
 
         # Flag for information that changed
-        laps_onlines_changed = False # laps or onlines for sending messages
-        venue_changed        = False # for making new venue
-        carset_fully_changed = False # for making new venue
+        laps_or_onlines_changed = False # laps or onlines for sending messages
+        venue_changed           = False # for making new venue
+        carset_fully_changed    = False # for making new venue
 
         # Grab the data; extra careful for urls which can fail.
         try:    self.details = json.loads(urllib.request.urlopen(url_api_details,  timeout=5).read(), strict=False)
@@ -193,22 +193,28 @@ class Monitor():
 
             # UPDATE ONLINES
 
-            # Convert the current state['online'] to a set of (name,car)
+            # Compare state online to details
             old = set()
-            for name in self.state['online']: old.add((name,self.state['online'][name]['car']))
-
-            # Loop over all the cars and create a set of (name,car) to compare
             new = set()
-            for car in self.details['players']['Cars']:
+            for name in self.state['online']: old.add((name, self.state['online'][name]['car']))
+            for car in self.details['players']['Cars']:      
                 if car['IsConnected']: new.add((car['DriverName'], car['Model']))
 
             # If they are not equal, update 
             if new != old:
-                print('Updating onlines.')
+                print('Detected a difference in online drivers', new, old)
                 self.state['online'] = dict()
-                for item in new: self.state['online'][item[0]] = dict(car=item[1])
-                laps_onlines_changed = True
+                for item in new: 
+                    
+                    # Update state onlines
+                    self.state['online'][item[0]] = dict(car=item[1])
+                    
+                    # Update namecars
+                    self.state['seen_namecars'] = item[0]+' ('+self.get_carname(item[1])+')'
+                    
+                laps_or_onlines_changed = True
         
+            
             # UPDATE CARSET
             
             # Get the new carset list
@@ -248,7 +254,7 @@ class Monitor():
                 if not name in self['laps']: 
                     print('New driver lap:', name)
                     self['laps'][name] = dict()
-                    laps_onlines_changed = True
+                    laps_or_onlines_changed = True
 
                 for car in self.live_timings['Drivers'][guid]['Cars']:
                     
@@ -272,13 +278,13 @@ class Monitor():
                         print(self['laps'][name][car])
                             
                         # Remember to update the messages
-                        laps_onlines_changed = True
+                        laps_or_onlines_changed = True
         
         else: print('premium_get_latest_data: no self.live_timings for detailed data')
         
         # If anything changed, we need to update the messages
-        if first_run or laps_onlines_changed or venue_changed or carset_fully_changed: 
-            print('Something changed', laps_onlines_changed, venue_changed, carset_fully_changed, 'sending messages')
+        if first_run or laps_or_onlines_changed or venue_changed or carset_fully_changed: 
+            print('Something changed', laps_or_onlines_changed, venue_changed, carset_fully_changed, 'sending messages')
             self.send_state_messages()
               
                 
@@ -443,9 +449,6 @@ class Monitor():
                         # Archive it
                         self.save_and_archive_state()
                 
-                        # Remove all online driver messages
-                        self.delete_online_messages()
-                        
                         # Send the venue inform message
                         self.send_state_messages()
                     
@@ -491,16 +494,6 @@ class Monitor():
         if not init:
             self.send_state_messages()
             self.save_and_archive_state()
-
-
-    def delete_online_messages(self):
-        """
-        Runs through self.state['online'][name], deleting message ids from the webhook
-        """
-        for name in self.state['online']:
-            try: self.webhook_online.delete_message(self.state['online'][name]['id'])
-            except: pass
-            self.state['online'].pop(name)
 
     def new_venue(self, track, layout, cars):
         """
