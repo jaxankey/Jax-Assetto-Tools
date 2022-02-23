@@ -859,6 +859,9 @@ class Monitor():
             # starts within a little time of this, use the same message id
             # Otherwise it will make a new session message.
             self.state['session_end_time'] = time.time()
+            
+            # Save this info for next boot
+            self.save_and_archive_state()
                 
 
     def delete_message(self, webhook, message_id):
