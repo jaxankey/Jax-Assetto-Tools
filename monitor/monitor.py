@@ -530,7 +530,6 @@ class Monitor():
         self.state['cars']   = cars
 
         # Update the state with the race.json if it exists (gives track and cars and carset info)
-        print('loading ui data...')
         self.load_ui_data()
 
         # Timestamp changes only for new track; use the most recently seen timestamp
@@ -542,7 +541,7 @@ class Monitor():
         """
         if skip: return
 
-        print('SAVING/ARCHIVING STATE')
+        print('save_and_archive_state()', not skip)
 
         # Make sure we have the appropriate directories
         if not os.path.exists('web'): os.mkdir('web')
@@ -604,17 +603,18 @@ class Monitor():
         path_ui_track = os.path.join(path_ac, 'content', 'tracks', 
             self.state['track'], 'ui', 
             self.state['layout'],'ui_track.json')
-        
+
         # If the track/layout/ui_track.json exists, load the track name!
-        if os.path.exists(path_ui_track): 
+        if os.path.exists(path_ui_track):
+            print(' ',path_ui_track)
             j = load_json(path_ui_track)
             if j: self.state['track_name'] = j['name']
-        
+
         # Now load all the carsets if they exist
         path_carsets = os.path.join(path_ac, 'carsets')
         print('Checking', path_carsets)
         if os.path.exists(path_carsets):
-            
+
             # Looks for and sort the carset paths
             carset_paths = glob.glob(os.path.join(path_carsets, '*'))
             carset_paths.sort()
@@ -624,24 +624,26 @@ class Monitor():
             self.state['carsets'] = dict()
             self.state['stesrac'] = dict()
             for path in carset_paths:
-                
+                print(' ', path)
+
                 # Read the file
                 f = open(path, 'r', encoding="utf8"); s = f.read().strip(); f.close()
-                
+
                 # Get the list of cars
                 name = os.path.split(path)[-1]
                 self.state['carsets'][name] = s.split('\n')
-                
+
                 # For each of these cars, append the carset name to the reverse-lookup
                 for car in self.state['carsets'][name]:
                     if car not in self.state['stesrac']: self.state['stesrac'][car] = []
                     self.state['stesrac'][car].append(name)
-                
+
                 # If this carset matches ours, remember this carset
                 if set(self.state['carsets'][name]) == set(self.state['cars']):
                     self.state['carset'] = name
 
         # Next load the nice names of all the cars for this venue
+        print('Car nice names:')
         self.state['carnames'] = dict()
         for car in self.state['cars']:
             path_ui_car = os.path.join(path_ac,'content','cars',car,'ui','ui_car.json')
@@ -649,13 +651,15 @@ class Monitor():
                 try:
                     j = load_json(path_ui_car)
                     self.state['carnames'][car] = j['name']
+                    print(' ', car, j['name'])
                 except:
                     print('ERROR: loading', path_ui_car)
                     self.state['carnames'][car] = car
-            
+                    print(' ', car, '(error)')
+
         # Dump modifications
         self.save_and_archive_state()
-            
+
     def get_carname(self, car):
         """
         Returns the fancy car name if possible, or the car dir if not.
@@ -820,8 +824,6 @@ class Monitor():
 
         # No one is currently online. 
         else: self.end_session() 
-        
-        
 
         # Save the state.
         self.save_and_archive_state()
@@ -831,12 +833,12 @@ class Monitor():
         If we have an active online message and no one is online,
         "close" the session message.
         """
-        
+
         # If we have a message id, make sure it's
         # an "end session" message.
-        print('end_session', self.state['seen_namecars'])
+        print('end_session()', self.state['seen_namecars'], self.state['online_message_id'])
         if self.state['online_message_id']: 
-            
+
             # Get a list of the seen namecars from this session
             errbody = []; n=1
             for namecar in self.state['seen_namecars']:
@@ -847,22 +849,21 @@ class Monitor():
             # is an online_message_id, except on startup or new venue.
             if len(errbody):
                 body1 = session_complete_header+'\n\nParticipants:\n'+'\n'.join(errbody)
-                self.send_message(self.webhook_online, body1, '', '\n\n'+online_footer, self.state['online_message_id'], 0)
+                self.state['online_message_id'] = self.send_message(self.webhook_online, body1, '', '\n\n'+online_footer, self.state['online_message_id'], 0)
+                
+                # Remember the time this message was "closed". If a new session
+                # starts within a little time of this, use the same message id
+                # Otherwise it will make a new session message.
+                self.state['session_end_time'] = time.time()
             
             # JACK: Otherwise delete it.
             else: 
                 print('**** GOSH DARN IT, LOST THE SEEN_NAMECARS AGAIN! WTF.')
                 self.delete_message(self.webhook_online, self.state['online_message_id'])
                 self.state['online_message_id'] = None
+                self.state['session_end_time'] = 0
             
-            # Remember the time this message was "closed". If a new session
-            # starts within a little time of this, use the same message id
-            # Otherwise it will make a new session message.
-            self.state['session_end_time'] = time.time()
             
-            # Save this info for next boot
-            self.save_and_archive_state()
-                
 
     def delete_message(self, webhook, message_id):
         """
@@ -883,15 +884,12 @@ class Monitor():
         """
         print('\nsend_message()')
 
-        # Make sure we are given a proper message_id
-        if not type(message_id) == int: message_id = None
-
         # Keep the total character limit below 4096, cutting body1 first, then body 2
         if len(body1+body2+footer) > 4070: # 4070 gives a little buffer for ... and stuff. I don't wanna count.
-            
+
             # If body2 and footer are already over the limit, just trim body2 and be done
             if len(body2+footer) > 4070: body = body2[0:4070-len(footer)] + ' ...' + footer
-            
+
             # Otherwise, we trim body1
             else:                        body = body1[0:4070-len(body2)-len(footer)] + ' ...' + body2 + footer
 
@@ -910,8 +908,11 @@ class Monitor():
 
             # Decide whether to make a new message or use the existing
             if message_id:
-                try:    webhook.edit_message(message_id, embeds=[e])
-                except: message_id = webhook.send('', embeds=[e], wait=True).id
+                try:
+                    webhook.edit_message(message_id, embeds=[e])
+                except:
+                    print('Whoops could not edit message', message_id, e)
+                    message_id = webhook.send('', embeds=[e], wait=True).id
             else:
                 try:    message_id = webhook.send('', embeds=[e], wait=True).id
                 except: message_id = None
