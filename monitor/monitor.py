@@ -209,8 +209,9 @@ class Monitor():
                     # Update state onlines
                     self.state['online'][item[0]] = dict(car=item[1])
                     
-                    # Update namecars
-                    self.state['seen_namecars'] = item[0]+' ('+self.get_carname(item[1])+')'
+                    # Update namecar
+                    namecar = item[0]+' ('+self.get_carname(item[1])+')'
+                    if not namecar in self.state['seen_namecars']: self.state['seen_namecars'].append(namecar) 
                     
                 laps_or_onlines_changed = True
         
