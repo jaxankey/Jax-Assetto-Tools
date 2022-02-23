@@ -1,4 +1,13 @@
 #!/bin/bash
 
+echo "Waiting until port 8081 is free..."
+
+while nc -w 1 -z localhost 8081; do
+  echo "  bonk"
+  sleep 1
+done
+
+echo "Launching server manager..."
+
 cd /home/ubuntu/ACSM
 ./server-manager &> ~/logs/server-manager.log &
