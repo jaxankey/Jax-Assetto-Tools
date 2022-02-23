@@ -755,7 +755,7 @@ class Monitor():
 
         # Get the list of who is online
         onlines = self.get_onlines_string()
-        if debug: print('Online:\n', onlines)
+        print('  Online:\n', onlines)
 
         # Get the list of driver best laps
         laps = self.get_laps_string()
@@ -836,25 +836,32 @@ class Monitor():
         
         # If we have a message id, make sure it's
         # an "end session" message.
-        # JACK: This is a hack; I'm not sure why sometimes seen_namecars is empty but there
-        # is an online_message_id, except on startup or new venue.
         print('end_session', self.state['seen_namecars'])
-        if self.state['online_message_id'] and len(self.state['seen_namecars']): 
+        if self.state['online_message_id']: 
             
             # Get a list of the seen namecars from this session
             errbody = []; n=1
             for namecar in self.state['seen_namecars']:
                 errbody.append(str(n)+'. '+namecar)
                 n += 1
-                
-            body1 = session_complete_header+'\n\nParticipants:\n'+'\n'.join(errbody)
-            self.send_message(self.webhook_online, body1, '', '\n\n'+online_footer, self.state['online_message_id'], 0)
+            
+            # JACK: This is a hack; I'm not sure why sometimes seen_namecars is empty but there
+            # is an online_message_id, except on startup or new venue.
+            if len(errbody):
+                body1 = session_complete_header+'\n\nParticipants:\n'+'\n'.join(errbody)
+                self.send_message(self.webhook_online, body1, '', '\n\n'+online_footer, self.state['online_message_id'], 0)
+            
+            # JACK: Otherwise delete it.
+            else: 
+                print('**** GOSH DARN IT, LOST THE SEEN_NAMECARS AGAIN! WTF.')
+                self.delete_message(self.webhook_online, self.state['online_message_id'])
+                self.state['online_message_id'] = None
             
             # Remember the time this message was "closed". If a new session
             # starts within a little time of this, use the same message id
             # Otherwise it will make a new session message.
             self.state['session_end_time'] = time.time()
-            
+                
 
     def delete_message(self, webhook, message_id):
         """
