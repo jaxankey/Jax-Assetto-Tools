@@ -609,6 +609,8 @@ class Monitor():
             print(' ',path_ui_track)
             j = load_json(path_ui_track)
             if j: self.state['track_name'] = j['name']
+        else:
+            self.state['track_name'] = self.state['track']
 
         # Now load all the carsets if they exist
         path_carsets = os.path.join(path_ac, 'carsets')
