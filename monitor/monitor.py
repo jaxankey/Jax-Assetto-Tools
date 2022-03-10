@@ -599,6 +599,7 @@ class Monitor():
         Load car and track ui_*.json, and look for carsets
         """
         print('\nload_ui_data()')
+        print(str(self.state['track']), str(self.state['layout']))
 
         # If we're here, there is no race.json, so let's look for information
         # in the ui_*.json files for the track and cars.
