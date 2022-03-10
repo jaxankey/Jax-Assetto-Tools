@@ -184,11 +184,15 @@ class Monitor():
 
         # Grab the data; extra careful for urls which can fail.
         try:    self.details = json.loads(urllib.request.urlopen(url_api_details,  timeout=5).read(), strict=False)
-        except: print('ERROR: Could not open ' + url_api_details)        
+        except: 
+            print('ERROR: Could not open ' + url_api_details)        
+            return
         
         # Grab the other data
         if path_live_timings: self.live_timings = load_json(path_live_timings)
-        else: print('premium_get_latest_data: no path_live_timings')
+        else: 
+            print('premium_get_latest_data: no path_live_timings')
+            return
             
             
         # Data from website.
