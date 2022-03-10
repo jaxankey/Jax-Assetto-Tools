@@ -605,9 +605,14 @@ class Monitor():
         # in the ui_*.json files for the track and cars.
 
         # Start by looking for the track and layout
-        path_ui_track = os.path.join(path_ac, 'content', 'tracks', 
-            self.state['track'], 'ui', 
-            self.state['layout'],'ui_track.json')
+        if self.state['layout'] != None:
+            path_ui_track = os.path.join(path_ac, 'content', 'tracks', 
+                self.state['track'], 'ui', 
+                self.state['layout'],'ui_track.json')
+        else:
+            path_ui_track = os.path.join(path_ac, 'content', 'tracks', 
+                self.state['track'], 'ui', 'ui_track.json')
+
 
         # If the track/layout/ui_track.json exists, load the track name!
         if os.path.exists(path_ui_track):
