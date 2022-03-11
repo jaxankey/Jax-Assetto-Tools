@@ -409,9 +409,9 @@ class Monitor():
                         # state[laps][n][car] = {'time': '12:32:032', 'time_ms':12345, 'cuts': 3}
 
                         # If the time is better than the existing or no entry exists
-                        # Update it!
-                        if not c in self.state[laps][n] \
-                        or t_ms < self.state[laps][n][c]['time_ms']:
+                        # Update it! Eliminate some bug laps by enforcing more than 1 second.
+                        if (not c in self.state[laps][n] or t_ms < self.state[laps][n][c]['time_ms']) \
+                        and t_ms > 1000:
 
                             self.state[laps][n][c] = dict(time=t, time_ms=t_ms, cuts=cuts)
                             if not init: 
