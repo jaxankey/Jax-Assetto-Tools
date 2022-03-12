@@ -611,7 +611,7 @@ class uploader():
         # File extensions we should copy over. ACSM needs a few extra heavies.
         filetypes = ['ini', 'lut', 'rto', 'acd', 'json']
         if self.combo_mode.get_index() == 1:
-            filetypes = filetypes + ['ai', 'bin', 'jpg', 'png']
+            filetypes = filetypes + ['ai', 'bin', 'jpg', 'png', 'JPG', 'PNG']
         
         # Walk through the directory picking up the key files
         print('collecting', source_folder)
