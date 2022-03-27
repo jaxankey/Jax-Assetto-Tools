@@ -612,13 +612,26 @@ class uploader():
         filetypes = ['ini', 'lut', 'rto', 'acd', 'json']
         if self.combo_mode.get_index() == 1:
             filetypes = filetypes + ['ai', 'bin', 'jpg', 'png', 'JPG', 'PNG']
-        
+
         # Walk through the directory picking up the key files
         print('collecting', source_folder)
         for root, dirs, files in os.walk(source_folder):
             for file in files:
+                
                 if os.path.splitext(file)[-1][1:] in filetypes:
-                    source      = os.path.join(root,file)
+                    
+                    # Source path full
+                    source = os.path.join(root,file)
+                    
+                    # Lower case extension
+                    o,x = os.path.splitext(source)
+                    if x in ['JPG','PNG']:
+                        new_source = o+'.'+x.lower()
+                        os.rename(source, new_source)
+                        print(source,'->',new_source)
+                        source = new_source
+                   
+                    # Destination path for uploading
                     destination = os.path.join('uploads', source[len(self.text_local())+1:])
                     
                     # Copy it over, making dirs first
