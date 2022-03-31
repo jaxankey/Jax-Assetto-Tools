@@ -3,6 +3,10 @@
 import glob, codecs, os, shutil, random, json, pyperclip, webbrowser, stat
 import spinmob.egg as egg
 
+# Uploading skins etc, should stop when no cars selected
+# Browse buttons
+
+
 # Change to the directory of this script
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 print('WORKING DIRECTORY:')
@@ -167,12 +171,20 @@ class uploader():
         self.text_precommand = self.tab_settings.add(egg.gui.TextBox('',
             tip='Command to run before everything begins.',
             autosettings_path='text_precommand'), alignment=0)
+        self.button_browse_precommand = self.tab_settings.add(egg.gui.Button('Browse', 
+            tip='Opens a dialog to let you select a script file or something.',
+            signal_clicked=self._button_browse_precommand_clicked))
+
+
 
         self.tab_settings.new_autorow()
         self.tab_settings.add(egg.gui.Label('Post-Command:'))
         self.text_postcommand = self.tab_settings.add(egg.gui.TextBox('',
             tip='Command to run after everything is done.',
             autosettings_path='text_postcommand'), alignment=0)
+        self.button_browse_postcommand = self.tab_settings.add(egg.gui.Button('Browse', 
+            tip='Opens a dialog to let you select a script file or something.',
+            signal_clicked=self._button_browse_postcommand_clicked))
 
 
 
@@ -472,27 +484,6 @@ class uploader():
             if self.system(self.text_postcommand()): return
         self.log('Done! Hopefully!')
 
-    def update_skins(self):
-        """
-        Runs the pre-script (presumably copies latest skins into local assetto),
-        even if unchecked, provided it exists, then packages and uploads just 
-        the selected car skins, then runs post, even if unchecked, provided it exists.
-        """
-        # Pre-command
-        if self.text_precommand().strip() != '':
-            self.log('Running pre-command')
-            if self.system(self.text_precommand()): return
-
-        self.log('\n------- UPDATING SKINS -------')
-        self.package_content(True)
-        self.upload_content(True)
-        self.unpack_uploaded_content(True)
-        
-        # Post-command
-        if self.text_postcommand().strip() != '':
-            self.log('Running post-command')
-            if self.system(self.text_postcommand()): return
-        self.log('Done! Hopefully!')
 
     def package_content(self, skins_only=False):
         """
@@ -509,7 +500,7 @@ class uploader():
         # Make sure we have at least one car
         if len(cars) == 0:
             self.log('No cars selected?')
-            return
+            return 'no cars'
 
         # Make sure we have a track
         if track == '' and not skins_only:
@@ -821,14 +812,28 @@ class uploader():
         """
         Pop up the directory selector.
         """
-        path = egg.dialogs.load('Show me the *.pem file, Johnny Practicehole', default_directory='assetto_pem')
+        path = egg.dialogs.load(text='Show me the key file, Johnny Practicehole', default_directory='assetto_pem')
         if(path): self.text_pem(path)
+
+    def _button_browse_precommand_clicked(self, e):
+        """
+        Pop up the directory selector.
+        """
+        path = egg.dialogs.load(text='Select a file to run, apex-nerd.', default_directory='assetto_precommand')
+        if(path): self.text_precommand('"'+path+'"')
+
+    def _button_browse_postcommand_clicked(self, e):
+        """
+        Pop up the directory selector.
+        """
+        path = egg.dialogs.load(text='Select a file to run, apex-nerd.', default_directory='assetto_postcommand')
+        if(path): self.text_postcommand('"'+path+'"')
 
     def _button_browse_local_clicked(self, e):
         """
         Pop up the directory selector.
         """
-        path = egg.dialogs.select_directory('Select the Assetto Corsa directory, apex-nerd.', default_directory='assetto_local')
+        path = egg.dialogs.select_directory(text='Select the Assetto Corsa directory, apex-nerd.', default_directory='assetto_local')
         if(path):
             self.text_local(path)
             self.button_refresh.click()
@@ -1174,6 +1179,28 @@ class uploader():
         self.car_directories = list(self.cars.keys())
         self.car_directories.sort()
         for n in self.car_directories: egg.pyqtgraph.QtGui.QListWidgetItem(n, self.list_cars)
+    
+    def update_skins(self):
+        """
+        Runs the pre-script (presumably copies latest skins into local assetto),
+        even if unchecked, provided it exists, then packages and uploads just 
+        the selected car skins, then runs post, even if unchecked, provided it exists.
+        """
+        # Pre-command
+        if self.text_precommand().strip() != '':
+            self.log('Running pre-command')
+            if self.system(self.text_precommand()): return
+
+        self.log('\n------- UPDATING SKINS -------')
+        if self.package_content(True) == 'no cars': return
+        self.upload_content(True)
+        self.unpack_uploaded_content(True)
+        
+        # Post-command
+        if self.text_postcommand().strip() != '':
+            self.log('Running post-command')
+            if self.system(self.text_postcommand()): return
+        self.log('Done! Hopefully!')
 
     def update_tracks(self):
         """
