@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 import glob, codecs, os, shutil, random, json, pyperclip, webbrowser, stat, pprint
 import spinmob.egg as egg
-egg.gui.egg_settings_path = os.path.join(egg.settings.path_home, 'ac_server_uploader')
 
 # Change to the directory of this script
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
@@ -628,7 +627,7 @@ class uploader():
                     if x in ['JPG','PNG']:
                         new_source = o+'.'+x.lower()
                         os.rename(source, new_source)
-                        print(source,'->',new_source)
+                        print('-------------------------------------\n',source,'->',new_source)
                         source = new_source
                    
                     # Destination path for uploading
