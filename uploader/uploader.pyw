@@ -1,10 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-import glob, codecs, os, shutil, random, json, pyperclip, webbrowser, stat
+import glob, codecs, os, shutil, random, json, pyperclip, webbrowser, stat, time
 import spinmob.egg as egg
 
-# Uploading skins etc, should stop when no cars selected
-# Browse buttons
 
 
 # Change to the directory of this script
@@ -49,7 +47,8 @@ class uploader():
     def __init__(self, show=True, blocking=True):
 
         # For troubleshooting.
-        self.timer_exceptions = egg.gui.TimerExceptions()        
+        self.timer_exceptions = egg.gui.TimerExceptions() 
+        self.timer_exceptions.signal_new_exception.connect(self._signal_new_exception)
 
         # Flag for whether we're in the init phase
         self._init = True
@@ -139,12 +138,15 @@ class uploader():
         self.text_stop = self.tab_settings.add(egg.gui.TextBox('/home/username/stop-server',
             tip='Remote path to a script that stops the server prior to modifying / uploading.', 
             autosettings_path='text_stop'), alignment=0)
-
+        
         self.tab_settings.new_autorow()
         self.label_start = self.tab_settings.add(egg.gui.Label('Start Server Command:'))
         self.text_start = self.tab_settings.add(egg.gui.TextBox('/home/username/start-servers',
             tip='Remote path to a script that starts the server.', 
             autosettings_path='text_start'), alignment=0)
+        self.button_start_server = self.tab_settings.add(egg.gui.Button('Run Command',
+            signal_clicked=self._button_start_server_clicked,
+            tip='Run the command using the SSH parameters above.'))
 
         self.tab_settings.new_autorow()
         self.label_monitor = self.tab_settings.add(egg.gui.Label('Restart Monitor Command:'))
@@ -311,6 +313,20 @@ class uploader():
         # Show it no more commands below this.
         if show: self.window.show(blocking)
 
+    def _button_start_server_clicked(self, *a):
+        """
+        Called when someone clicks the "Run Command" button.
+        """
+        self.start_server()
+
+    def _signal_new_exception(self, *a):
+        """
+        Called when a new exception comes in.
+        """
+        print('--------------------')
+        print(a)
+        print('--------------------')
+
     def save_gui(self):
         """
         Saves the GUI config that isn't auto-saved already.
@@ -385,6 +401,19 @@ class uploader():
         """
         self.update_skins()
 
+    def start_server(self):
+        """
+        Runs the start server command over ssh.
+        """
+        login   = self.text_login.get_text()
+        port    = self.text_port .get_text()
+        pem     = os.path.abspath(self.text_pem.get_text())
+        start   = self.text_start.get_text()   # For acsm
+        
+        self.log('Starting server...')
+        c = 'ssh -p '+port+' -i "'+pem+'" '+login+' "'+start+'"' 
+        if self.system(c): return
+
     def _button_upload_clicked(self,e,skins_only=False):
         """
         Uploads the current configuration to the server.
@@ -413,7 +442,6 @@ class uploader():
         # Package not checked
         else: self.log('*Skipping package')
 
-
         
         ####################################
         # SERVER STUFF
@@ -430,7 +458,7 @@ class uploader():
         if self.checkbox_upload():
             
             # Upload the 7z, and clean remote files
-            self.upload_content(skins_only)
+            if self.upload_content(skins_only): return True
     
             # Stop server
             if self.checkbox_restart() and stop != '' and not skins_only:
@@ -452,9 +480,7 @@ class uploader():
                 
             # Start server
             if self.checkbox_restart() and start != '' and not skins_only:
-                self.log('Starting server...')
-                c = 'ssh -p '+port+' -i "'+pem+'" '+login+' "'+start+'"' 
-                if self.system(c): return
+                self.start_server()
             else: self.log('*Skipping server start')
 
             # Start server
@@ -538,7 +564,7 @@ class uploader():
         # Make sure we don't bonk the system with rm -rf
         if not remote.lower().find('assetto') >= 0:
             self.log('Yeah, sorry, to avoid messing with something unintentionally, we enforce that your remote path have the word "assetto" in it.')
-            return
+            return True
 
         # Start the upload process
         self.log('Uploading content...')
@@ -552,19 +578,19 @@ class uploader():
             c = '7z a ../uploads.7z *'
             if self.system(c): 
                 os.chdir('..')
-                return
+                return True
             os.chdir('..')
         
             self.log('  Uploading uploads.7z...')
             c = 'scp -P '+port+' -i "' + pem + '" uploads.7z '+login+':"'+remote+'"'
-            if self.system(c): return
+            if self.system(c): return True
 
             # If we're cleaning remote files... Note skins only prevents this
             # regardless of the checkbox state.
             if self.checkbox_clean() and not skins_only:
                 self.log('  Cleaning out old content...')
                 c = 'ssh -p '+port+' -i "'+pem+'" '+login+' rm -rf ' + remote + '/content/cars/* ' + remote + '/content/tracks/*'
-                if self.system(c): return
+                if self.system(c): return True
 
     def unpack_uploaded_content(self, skins_only=False):
         """
@@ -644,10 +670,12 @@ class uploader():
         """
         Runs a system command and logs it.
         """
+        print()
         print(command)
         r = os.system(command)
         if r!=0: 
             self.log('  UH OH! See console!')
+            #self.log('  ', r)
             return r
         return 0
 
@@ -708,20 +736,6 @@ class uploader():
         print('_combo_carsets_changed')
         self.button_load.click()
         self.save_gui()
-
-    def upload_file(self, path):
-        """
-        Just uplaods a file relative to this script's working directory.
-        """
-        # Server info
-        login  = self.text_login.get_text()
-        port   = self.text_port .get_text()
-        pem    = os.path.abspath(self.text_pem.get_text())
-        remote = self.text_remote.get_text()
-
-        # Upload path
-        c = 'scp -P '+port+' -i "' + pem + '" "'+path+'" '+login+':"'+remote+'"'
-        return self.system(c)
 
     def _button_delete_clicked(self,e):
         """
@@ -1196,17 +1210,17 @@ class uploader():
         # Pre-command
         if self.text_precommand().strip() != '':
             self.log('Running pre-command')
-            if self.system(self.text_precommand()): return
+            if self.system(self.text_precommand()): return True
 
         self.log('\n------- UPDATING SKINS -------')
-        if self.package_content(True) == 'no cars': return
-        self.upload_content(True)
+        if self.package_content(True) == 'no cars': return True
+        if self.upload_content(True): return True
         self.unpack_uploaded_content(True)
         
         # Post-command
         if self.text_postcommand().strip() != '':
             self.log('Running post-command')
-            if self.system(self.text_postcommand()): return
+            if self.system(self.text_postcommand()): return True
         self.log('Done! Hopefully!')
 
     def update_tracks(self):
