@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-import glob, codecs, os, shutil, random, json, pyperclip, webbrowser, stat, pprint
+import glob, codecs, os, shutil, random, json, pyperclip, webbrowser, stat
 import spinmob.egg as egg
 
 # Change to the directory of this script
