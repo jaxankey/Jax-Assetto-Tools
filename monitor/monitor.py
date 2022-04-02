@@ -124,13 +124,12 @@ class Monitor():
                 self.state.update(load_json(p))
                 print('\nFOUND state.json, loaded')
                 pprint.pprint(self.state)
-                
+
                 # May as well update once at the beginning, in case something was fixed
                 self.load_ui_data()
         except:
             print('\n\n-------------\nError: corrupt state.json; deleting')
             os.remove(p)
-
 
         # Premium mode
         if server_manager_premium_mode: 
@@ -140,28 +139,26 @@ class Monitor():
             while True:
                 self.premium_get_latest_data()
                 time.sleep(3)
-            
-            
-            
+
         # Vanilla server
         else:
             if os.path.isdir(path_log):
                 logs = glob.glob(os.path.join(path_log,'*'))
                 path_log = max(logs, key=os.path.getctime)
-    
+
             # Parse the existing log and incorporate ui data
             self.vanilla_parse_lines(open(path_log, 'r', encoding="utf8").readlines(), True)
             self.load_ui_data()
-            
+
             # Send and save
             self.send_state_messages()
             self.save_and_archive_state()
-            
+
             # Monitor the file, but don't bother if we're just debugging.
             if not debug:
                 print('\nMONITORING FOR CHANGES...')
                 self.vanilla_parse_lines(tail(open(path_log, 'r', encoding="utf8"), True))
-            
+
         return
 
     def __getitem__(self, key): return self.state[key]
@@ -188,13 +185,16 @@ class Monitor():
             print('ERROR: Could not open ' + url_api_details)        
             return
         
+        if first_run and debug:
+            print('\n----First run self.details:')
+            pprint.pprint(self.details)
+
         # Grab the other data
         if path_live_timings: self.live_timings = load_json(path_live_timings)
-        else: 
-            print('premium_get_latest_data: no path_live_timings')
+        else:
+            print('ERROR: premium_get_latest_data: no path_live_timings')
             return
-            
-            
+
         # Data from website.
         if self.details:
 
@@ -787,7 +787,8 @@ class Monitor():
         # Track name
         track_name = self.state['track_name']
         if not track_name: track_name = self.state['track']
-        if track_name: body1 = body1 + track_name + '!]('+url_event_info+')**'
+        if not track_name: track_name = 'track name not found'
+        if track_name: body1 = body1 + track_name + ']('+url_event_info+')**'
 
         # Subheader
         body1 = body1 + '\n' + venue_subheader

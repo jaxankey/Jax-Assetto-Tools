@@ -1,4 +1,4 @@
 #!/bin/bash
 
-pkill -INT server-manager
-sleep 5
+pkill -INT ac-weekly
+sleep 1
