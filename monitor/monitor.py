@@ -101,9 +101,9 @@ class Monitor():
         # Discord webhook objects
         self.webhook_online  = None # List of webhooks
         self.webhook_info    = None
-        
+
         # List of all onlines seen during this session
-        
+
         # Create the webhook for who is online
         if url_webhook_online:
             self.webhook_online = discord.Webhook.from_url(url_webhook_online, adapter=discord.RequestsWebhookAdapter())
@@ -125,11 +125,12 @@ class Monitor():
                 print('\nFOUND state.json, loaded')
                 pprint.pprint(self.state)
 
-                # May as well update once at the beginning, in case something was fixed
-                self.load_ui_data()
         except:
             print('\n\n-------------\nError: corrupt state.json; deleting')
             os.remove(p)
+
+        # May as well update once at the beginning, in case something changed
+        self.load_ui_data()
 
         # Premium mode
         if server_manager_premium_mode: 
@@ -163,14 +164,14 @@ class Monitor():
 
     def __getitem__(self, key): return self.state[key]
 
-        
+
 
     def premium_get_latest_data(self):
         """
         Grabs all the latest event information from the server, and 
         send / update messages if anything changed.
         """
-        
+
         # If this is the first run, some things are none.
         first_run = self.live_timings == None
 
@@ -181,10 +182,10 @@ class Monitor():
 
         # Grab the data; extra careful for urls which can fail.
         try:    self.details = json.loads(urllib.request.urlopen(url_api_details,  timeout=5).read(), strict=False)
-        except: 
-            print('ERROR: Could not open ' + url_api_details)        
+        except:
+            print('ERROR: Could not open ' + url_api_details)
             return
-        
+
         if first_run and debug:
             print('\n----First run self.details:')
             pprint.pprint(self.details)
@@ -195,55 +196,54 @@ class Monitor():
             print('ERROR: premium_get_latest_data: no path_live_timings')
             return
 
+        if debug and first_run:
+            print('\n----First run self.live_timings:')
+            pprint.pprint(self.live_timings)
+
         # Data from website.
         if self.details:
 
             # UPDATE ONLINES
 
-            # Compare state online to details
+            # Compare state online drivers to details online drivers
             old = set()
             new = set()
             for name in self.state['online']: old.add((name, self.state['online'][name]['car']))
-            for car in self.details['players']['Cars']:      
+            for car in self.details['players']['Cars']:
                 if car['IsConnected']: new.add((car['DriverName'], car['Model']))
 
-            # If they are not equal, update 
+            # If they are not equal, update
             if new != old:
                 print('Detected a difference in online drivers', new, old)
                 self.state['online'] = dict()
-                for item in new: 
-                    
+                for item in new:
+
                     # Update state onlines
                     self.state['online'][item[0]] = dict(car=item[1])
-                    
+
                     # Update namecar
                     namecar = item[0]+' ('+self.get_carname(item[1])+')'
                     if not namecar in self.state['seen_namecars']: self.state['seen_namecars'].append(namecar) 
-                    
+
                 laps_or_onlines_changed = True
-        
-            
+
+
             # UPDATE CARSET
-            
+
             # Get the new carset list
             cars = list(self.details['content']['cars'].keys())
             carset_fully_changed = len(set(cars).intersection(self.state['cars'])) == 0
             self.state['cars'] = cars
-        
-        else: print('premium_get_latest_data: no self.details')
-                
-        # Basic data from live_timings.json
-        if self.live_timings:
+
 
             # UPDATE TRACK / LAYOUT
-            track  = self.live_timings['Track']
-            layout = self.live_timings['TrackLayout']
+            track, layout = self.details['track'].split('-')
             venue_changed = track != self.state['track'] or layout != self.state['layout']
             self.state['track']  = track
             self.state['layout'] = layout
-        
-        else: print('premium_get_latest_data: no self.live_timings for basic data')
-        
+
+        else: print('premium_get_latest_data: no self.details')
+
         # Before doing laps, check if the venue has changed; if it has, 
         # this will reload the ui data
         if venue_changed or carset_fully_changed: 
@@ -599,18 +599,18 @@ class Monitor():
         Load car and track ui_*.json, and look for carsets
         """
         print('\nload_ui_data()')
-        print(str(self.state['track']), str(self.state['layout']))
+        print('state track, layout =', str(self.state['track']), str(self.state['layout']))
 
         # If we're here, there is no race.json, so let's look for information
         # in the ui_*.json files for the track and cars.
 
         # Start by looking for the track and layout
         if self.state['layout'] != None:
-            path_ui_track = os.path.join(path_ac, 'content', 'tracks', 
-                self.state['track'], 'ui', 
+            path_ui_track = os.path.join(path_ac, 'content', 'tracks',
+                self.state['track'], 'ui',
                 self.state['layout'],'ui_track.json')
         else:
-            path_ui_track = os.path.join(path_ac, 'content', 'tracks', 
+            path_ui_track = os.path.join(path_ac, 'content', 'tracks',
                 self.state['track'], 'ui', 'ui_track.json')
 
 
