@@ -244,16 +244,16 @@ class Monitor():
 
         else: print('premium_get_latest_data: no self.details')
 
-        # Before doing laps, check if the venue has changed; if it has, 
+        # Before doing laps, check if the venue has changed; if it has,
         # this will reload the ui data
-        if venue_changed or carset_fully_changed: 
+        if venue_changed or carset_fully_changed:
             if venue_changed: print('premium_get_latest_data: venue changed')
-            self.new_venue(self['track'], self['layout'], self['cars'])    
-        
-        
+            self.new_venue(self['track'], self['layout'], self['cars'])
+
+
         # Okay, back to laps.
         if self.live_timings:
-            
+
             # UPDATE BEST LAPS
             for guid in self.live_timings['Drivers']:
                 name = self.live_timings['Drivers'][guid]['CarInfo']['DriverName']
