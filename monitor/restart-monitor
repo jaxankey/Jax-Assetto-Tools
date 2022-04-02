@@ -1,6 +1,14 @@
 #!/bin/bash
 
+echo changing to "$(dirname "$0")"
 cd "$(dirname "$0")"
 
-./stop-monitor
-./start-monitor
+if [ -z $1 ]
+then
+  label='jax-monitor'
+else
+  label=$1
+fi
+
+./stop-monitor $label
+./start-monitor $label

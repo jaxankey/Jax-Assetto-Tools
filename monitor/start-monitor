@@ -1,6 +1,15 @@
 #!/bin/bash
 
+echo changing to "$(dirname "$0")"
 cd "$(dirname "$0")"
 
+if [ -z $1 ]
+then
+  label='jax-monitor'
+else
+  label=$1
+fi
+echo starting monitor $label
+
 mkdir -p ~/logs
-nice -n 10 ./monitor.py &>~/logs/ac-monitor.log &
+nice -n 10 ./monitor.py $label &>~/logs/ac-monitor.log &
