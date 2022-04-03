@@ -125,12 +125,14 @@ class Monitor():
                 print('\nFOUND state.json, loaded')
                 pprint.pprint(self.state)
 
+                # May as well update once at the beginning, in case something changed
+                # Note we cannot do this without state having track.
+                self.load_ui_data()
+
+
         except:
             print('\n\n-------------\nError: corrupt state.json; deleting')
             os.remove(p)
-
-        # May as well update once at the beginning, in case something changed
-        self.load_ui_data()
 
         # Premium mode
         if server_manager_premium_mode: 
@@ -237,7 +239,10 @@ class Monitor():
 
 
             # UPDATE TRACK / LAYOUT
-            track, layout = self.details['track'].split('-')
+            s = self.details['track'].split('-')
+            track = s[0]
+            if len(s) > 1: layout = s[1]
+            else:          layout = ''
             venue_changed = track != self.state['track'] or layout != self.state['layout']
             self.state['track']  = track
             self.state['layout'] = layout
