@@ -186,8 +186,9 @@ class Monitor():
         try:    self.details = json.loads(urllib.request.urlopen(url_api_details,  timeout=5).read(), strict=False)
         except:
             print('ERROR: Could not open ' + url_api_details)
+            if not self['down_message_id']: self['down_message_id'] = self.send_message(self.webhook_info, 'Server is down. I need an adult! :(', '', '')
             return
-
+        
         if first_run and debug:
             print('\n----First run self.details:')
             pprint.pprint(self.details)
@@ -197,6 +198,11 @@ class Monitor():
         else:
             print('ERROR: premium_get_latest_data: no path_live_timings')
             return
+
+        # If we get this far, no need for the down message.
+        if self.state['down_message_id']: 
+            self.delete_message(self.webhook_info, self['down_message_id'])
+            self['down_message_id'] = None
 
         if debug and first_run:
             print('\n----First run self.live_timings:')
@@ -316,6 +322,7 @@ class Monitor():
             track             = None,   # Directory name of the track
             layout            = None,   # Layout name
             laps_message_id   = None,   # id of the discord message about laps to edit
+            down_message_id   = None,   # id of the discord message about whether the server is down
 
             archive_path      = None,   # Path to the archive of state.json
             laps              = dict(), # Dictionary by name of valid laps for this track / layout
@@ -888,7 +895,7 @@ class Monitor():
         Deletes the supplied message.
         """
         # Make sure we actually have a message id
-        if not type(message_id) == int: return
+        if not type(message_id) == int or not message_id: return
 
         print('delete_message()')
         if webhook and message_id:
