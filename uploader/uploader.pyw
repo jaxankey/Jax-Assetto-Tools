@@ -3,7 +3,7 @@
 import glob, codecs, os, shutil, random, json, pyperclip, webbrowser, stat, time
 import spinmob.egg as egg
 
-
+# CHAMPIONSHIP NEEDS TO ENSURE CONTENT MANAGER WRAPPER ENABLED
 
 # Change to the directory of this script
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
