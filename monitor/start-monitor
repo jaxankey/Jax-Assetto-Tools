@@ -12,4 +12,4 @@ fi
 echo starting monitor $label
 
 mkdir -p ~/logs
-nice -n 10 ./monitor.py $label &>~/logs/ac-monitor.log &
+nice -n 10 ./monitor.py $label &>~/logs/$label.log &
