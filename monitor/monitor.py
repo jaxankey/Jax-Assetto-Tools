@@ -187,7 +187,9 @@ class Monitor():
         try:    self.details = json.loads(urllib.request.urlopen(url_api_details,  timeout=5).read(), strict=False)
         except:
             print('ERROR: Could not open ' + url_api_details)
-            if not self['down_message_id']: self['down_message_id'] = self.send_message(self.webhook_info, 'Server is down. I need an adult! :(', '', '')
+            if not self['down_message_id']: 
+                self['down_message_id'] = self.send_message(self.webhook_info, 'Server is down. I need an adult! :(', '', '')
+                self.save_and_archive_state()
             return
         
         if first_run and debug:
@@ -204,6 +206,7 @@ class Monitor():
         if self.state['down_message_id']: 
             self.delete_message(self.webhook_info, self['down_message_id'])
             self['down_message_id'] = None
+            self.save_and_archive_state()
 
         if debug and first_run:
             print('\n----First run self.live_timings:')
