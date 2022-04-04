@@ -166,6 +166,7 @@ class Monitor():
 
     def __getitem__(self, key): return self.state[key]
 
+    def __setitem__(self, key, value): self.state[key] = value
 
 
     def premium_get_latest_data(self):
