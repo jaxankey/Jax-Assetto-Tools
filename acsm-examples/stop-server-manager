@@ -1,0 +1,4 @@
+#!/bin/bash
+
+pkill -INT -f server-manager-weekly
+sleep 1

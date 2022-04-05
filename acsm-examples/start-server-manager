@@ -1,0 +1,4 @@
+#!/bin/bash
+cd /home/assetto/ac-weekly
+nohup ./server-manager server-manager-weekly > /home/assetto/logs/server-manager-weekly.log &
+

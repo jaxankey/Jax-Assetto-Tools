@@ -1,5 +1,0 @@
-#!/bin/bash
-
-/home/assetto/ac-weekly/jax-assetto-tools/acsm/stop-server-manager
-/home/assetto/ac-weekly/jax-assetto-tools/acsm/start-server-manager
-

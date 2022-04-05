@@ -1,0 +1,5 @@
+#!/bin/bash
+
+/home/assetto/ac-weekly/stop-server-manager
+/home/assetto/ac-weekly/start-server-manager
+

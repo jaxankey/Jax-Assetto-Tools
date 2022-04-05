@@ -1,0 +1,3 @@
+#!/bin/bash
+/home/assetto/ac-weekly/stop-monitor
+/home/assetto/ac-weekly/start-monitor
