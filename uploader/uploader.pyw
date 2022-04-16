@@ -83,7 +83,7 @@ class uploader():
 
         self.combo_server = self.grid_top.add(egg.gui.ComboBox([],
             tip='Select a server configuration.',
-            signal_changed=self._combo_server_changed))
+            signal_changed=self._combo_server_changed)).set_width(200)
 
         self.button_load_server = self.grid_top.add(egg.gui.Button('Load',
             tip='Load the selected server configuration.',
