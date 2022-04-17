@@ -50,9 +50,14 @@ class uploader():
         self.timer_exceptions = egg.gui.TimerExceptions() 
         self.timer_exceptions.signal_new_exception.connect(self._signal_new_exception)
 
-        # Flag for whether we're in the init phase
+        # Flag for whether we're in the init phases
         self._init = True
-
+        self._loading_server    = False
+        self._loading_uploader  = False
+        self._refilling_layouts = False
+        self._refilling_tracks  = False
+        self._refilling_carsets = False
+        
         ######################
         # Set the working directory to that of the script
         a = os.path.abspath(__file__)
@@ -87,14 +92,18 @@ class uploader():
 
         self.button_load_server = self.grid_top.add(egg.gui.Button('Load',
             tip='Load the selected server configuration.',
-            signal_clicked=self._button_load_server_clicked))
+            signal_clicked=self._button_load_server_clicked)).hide()
 
         self.button_save_server = self.grid_top.add(egg.gui.Button('Save',
             tip='Save the current server configuration.',
-            signal_clicked=self._button_save_server_clicked))
+            signal_clicked=self._button_save_server_clicked)).hide()
+
+        self.button_clone_server = self.grid_top.add(egg.gui.Button('Clone',
+            tip='Clones the selected server configuration.',
+            signal_clicked=self._button_clone_server_clicked))
 
         self.button_delete_server = self.grid_top.add(egg.gui.Button('Delete',
-            tip='Delete the selected server configuration.',
+            tip='Delete the selected server configuration (and saves it to servers/servername.json.backup in case you bootched).',
             signal_clicked=self._button_delete_server_clicked))
 
         # Tabs
@@ -209,11 +218,7 @@ class uploader():
             tip='Opens a dialog to let you select a script file or something.',
             signal_clicked=self._button_browse_postcommand_clicked))
 
-        ###################
-        # Load the servers list
-        self.update_server_list()
-        self._button_load_server_clicked()
-
+        
 
 
         #############################
@@ -237,9 +242,9 @@ class uploader():
             tip='Select a track!', 
             signal_changed=self._combo_tracks_changed ), alignment=0).set_minimum_width(200)
         self.combo_layouts = self.grid2a.add(egg.gui.ComboBox([],
-            tip='Select a layout (if there is one)!',
-            signal_changed=self._combo_layouts_changed), alignment=0).set_minimum_width(200)
+            tip='Select a layout (if there is one)!'), alignment=0).set_minimum_width(200)
         self.label_pitboxes= self.grid2a.add(egg.gui.Label('(0 pit boxes)'))
+        self.combo_layouts.signal_changed.connect(self._combo_layouts_changed) # WHY??? WHY DOESN'T THE USUAL WAY WORK??
 
         # Grid for car controls (save/load, etc)
         self.tab_uploader.new_autorow()
@@ -249,6 +254,7 @@ class uploader():
 
         # Save load buttons
         self.combo_carsets = self.grid2b.add(egg.gui.ComboBox(['[New Carset]'],
+            signal_changed=self._combo_carsets_changed,
             tip='Select a carset (if you have one saved)!'), alignment=0)
         self.grid2b.set_column_stretch(0)
         self.button_load = self.grid2b.add(egg.gui.Button('Load',
@@ -340,39 +346,34 @@ class uploader():
         ]
 
         ###################
-        # Load tracks and cars
-        self.button_refresh.click()
-        
-        # Do this after updating carsets to avoid issues
-        self.combo_carsets.signal_changed.connect(self._combo_carsets_changed)
-
-        ###################
-        # Update gui
-        self._combo_mode_changed(None)
+        # Load the servers list
+        self.update_server_list()
 
         # Enables various events again.
         self._init = False
 
-        
+        # Now load whichever one was selected.
+        self._button_load_server_clicked()
+                
         ######################
-        # Show it no more commands below this.
+        # Show the window; no more commands below this.
         if show: self.window.show(blocking)
 
     def update_server_list(self):
         """
         Searches servers directory and updates combo box.
         """
-        print('Updating server list...')
+        print('update_server_list')
         
         # Clear existing
         self.combo_server.clear()
         self.combo_server.add_item('[New Server]')
 
         if not os.path.exists('servers'): os.makedirs('servers')
-        paths = glob.glob(os.path.join('servers','*'))
+        paths = glob.glob(os.path.join('servers','*.json'))
         for path in paths: self.combo_server.add_item(os.path.splitext(os.path.split(path)[-1])[0])
 
-        # Now remember the last selection
+        # Now set it to the previous selection
         self.load_server_gui()
 
 
@@ -380,7 +381,7 @@ class uploader():
         """
         Called whenever someone changes a server setting. Enables the save button.
         """
-        self.button_save_server.enable()
+        if not self._loading_server: self.button_save_server.click()
 
     def _combo_server_changed(self, *a):
         """
@@ -388,15 +389,20 @@ class uploader():
         """
         if self._init: return
         print('_combo_server_changed')
+
+        # If we're on "new server" prompt for a save.
+        if self.combo_server() == 0: 
+            self.button_save_server.click()
+            return
+
+        # Now whatever we've chosen, load it.
         self._button_load_server_clicked()
         self.save_server_gui()
 
-    def _button_load_server_clicked(self, *a): 
+    def load_server_json(self):
         """
-        Load the selected server.
+        Gets the selected server json from file.
         """
-        print('_button_load_server_clicked')
-
         # Special case: first element in combo box is new server
         if self.combo_server.get_index() == 0: return
 
@@ -405,30 +411,112 @@ class uploader():
         if not os.path.exists(path) or os.path.isdir(path): 
             self.log('Weird. Could not find', path, '\n  I need an adult!')
             return
-        
+
         # Load it.
         f = open(path, 'r', encoding="utf8")
         j = json.load(f, strict=False)
         f.close()
-        for key in j:
-            exec('self.'+key+'.set_value(value)', dict(self=self, value=j[key]))
-            print(' ', key, '->', j[key])
+        return j
+
+    def _button_clone_server_clicked(self, *a):
+        """
+        Pops up a dialog and adds a new server with the same settings.
+        """
+        if self.combo_server() == 0: return
+
+        name, ok = egg.pyqtgraph.QtGui.QInputDialog.getText(egg.pyqtgraph.QtGui.QWidget(), 'New Server', 'Name your new server:')
+        name = name.strip()
+
+        # If someone cancels out do nothing
+        if not ok or name == '': return
+
+        # Otherwise, copy the current selection
+        old_path = os.path.join('servers', self.combo_server.get_text()+'.json')
+        new_path = os.path.join('servers', name+'.json')
+        shutil.copy(old_path, new_path)
+
+        # Add it to the list and select it
+        self.combo_server.add_item(name)
+        self.combo_server.set_text(name)
+
+    def _button_load_server_clicked(self, *a): 
+        """
+        Load the selected server.
+        """
+        print('_button_load_server_clicked')
         
-        # It's sync'd
-        self.button_save_server.disable()
-            
+        # If it's "new server" ask for one
+        if self.combo_server() == 0: 
+            self.button_save_server.click()
+            return
+
+        # Load the server GUI stuff
+        self._load_server_settings()
+
+        # Refresh the content based on the assetto path
+        self._button_refresh_clicked()
+
+    def _load_server_settings(self):
+        """
+        Loads the data for the settings tab only, based on the chosen server.
+        """
+        print('_load_server_settings')
+        j = self.load_server_json()        
+        if not 'settings' in j: return
+        print('  loaded json')
+
+        self._loading_server = True
+        for key in j['settings']:
+            exec('self.'+key+'.set_value(value)', dict(self=self, value=j['settings'][key]))
+            #print(' ', key, '->', j['settings'][key])
+        self._loading_server = False
+
+    def _load_server_uploader(self):
+        """
+        Loads the garbage into the uploader for the chosen server.
+        """
+        print('_load_server_uploader')
+        j = self.load_server_json()
+        if not 'uploader' in j: return
+        print('  loaded json')
+
+        self._loading_uploader = True
+
+        # Now populate everything :)
+        try:    self.combo_tracks.set_text(j['uploader']['combo_tracks'])
+        except Exception as e: print('load_upload_gui combo_tracks', e)
+        try:    self.combo_layouts.set_text(j['uploader']['combo_layouts'], block_signals=True)
+        except Exception as e: print('load_upload_gui combo_layouts', e)
+        try:    self.combo_carsets.set_text(j['uploader']['combo_carsets'])
+        except Exception as e: print('load_upload_gui combo_carsets', e)
+        
+        # List items
+        self.set_list_cars_selection(j['uploader']['list_cars'])
+
+        self._loading_uploader = False
+
+
     def _button_save_server_clicked(self, *a): 
         """
         Saves the current server configuration under the chosen name, or pops up a dialog
         if [New Server] is chosen.
         """
-        print('_button_save_server_clicked()')
+        if self._loading_uploader: return
+        print('_button_save_server_clicked')
 
         # Special case: first element in combo box is new carset
         if self.combo_server() == 0:
-            name, ok = egg.pyqtgraph.QtGui.QInputDialog.getText(egg.pyqtgraph.QtGui.QWidget(), 'New Carset', 'Name your server:')
+            name, ok = egg.pyqtgraph.QtGui.QInputDialog.getText(egg.pyqtgraph.QtGui.QWidget(), 'New Server', 'Name your new server:')
             name = name.strip()
-            if not ok or name == '': return
+
+            # If someone cancels out, don't take no for an answer.
+            if not ok or name == '': 
+                if len(self.combo_server.get_all_items()) == 0: 
+                    self._button_save_server_clicked()
+                    return
+                else:
+                    self.combo_server.set_index(1)
+                    return
             
             # Add it to the combo and select it
             self.combo_server.add_item(name)
@@ -438,10 +526,18 @@ class uploader():
 
         # Set up the server dictionary / json
         server = dict()
+
+        server['settings'] = dict()
         for key in self._server_keys:
             value = eval('self.'+key+'()', dict(self=self))
-            print(' ', key, value)
-            server[key] = value
+            server['settings'][key] = value
+
+        server['uploader'] = dict(
+            combo_tracks  = self.combo_tracks.get_text(),
+            combo_layouts = self.combo_layouts.get_text(),
+            combo_carsets = self.combo_carsets.get_text(),
+            list_cars     = self.get_selected_cars(),
+        )
 
         # Write the file
         if not os.path.exists('servers'): os.makedirs('servers')
@@ -453,7 +549,20 @@ class uploader():
         self.combo_server.set_text(name)
 
     
-    def _button_delete_server_clicked(self, *a): return
+    def _button_delete_server_clicked(self, *a): 
+        """
+        Removes the selected server from the list and deletes the file.
+        """
+        if self.combo_server() == 0: return
+        print('_button_delete_server_clicked')
+
+        # Get the name, kill the file
+        name = self.combo_server.get_text()
+        path = os.path.join('servers', name+'.json')
+        if os.path.exists(path+'.backup'): os.unlink(path+'.backup')
+        os.rename(path, path+'.backup')
+        self.combo_server.remove_item(self.combo_server())
+        return
 
     def _button_start_server_clicked(self, *a):
         """
@@ -475,9 +584,7 @@ class uploader():
         """
         if self._init: return
         
-        gui = dict(
-            combo_server = self.combo_server.get_text()
-        )
+        gui = dict(combo_server=self.combo_server.get_text())
         print('save_server_gui')
         json.dump(gui, open('server.json', 'w'), indent=2)
 
@@ -489,44 +596,9 @@ class uploader():
         gui = load_json('server.json')
         if not gui: return
 
-        # Combos
         try: self.combo_server.set_text(gui['combo_server'])
         except Exception as e: print('load_server_gui combo_server', e)
 
-    def save_upload_gui(self):
-        """
-        Saves the GUI config that isn't auto-saved already. This includes both server and uploader.
-        """
-        if self._init: return
-        
-        gui = dict(
-            combo_tracks  = self.combo_tracks.get_text(),
-            combo_layouts = self.combo_layouts.get_text(),
-            combo_carsets = self.combo_carsets.get_text(),
-            list_cars     = self.get_selected_cars(),
-        )
-        print('save_upload_gui')
-        json.dump(gui, open('uploader.json', 'w'), indent=2)
-
-    def load_upload_gui(self):
-        """
-        Loads uploader.json to fill in the config that is not auto-saved already.
-        """
-        print('load_upload_gui')
-        gui = load_json('uploader.json')
-        if not gui: return
-
-        # Combos
-        try:    self.combo_tracks.set_text(gui['combo_tracks'])
-        except Exception as e: print('load_upload_gui combo_tracks', e)
-        try:    self.combo_layouts.set_text(gui['combo_layouts'], block_signals=True)
-        except Exception as e: print('load_upload_gui combo_layouts', e)
-        try:    self.combo_carsets.set_text(gui['combo_carsets'])
-        except Exception as e: print('load_upload_gui combo_carsets', e)
-        
-        # List items
-        self.set_list_cars_selection(gui['list_cars'])
-        
     def _checkbox_clean_changed(self, e=None):
         """
         Warn the user about this.
@@ -547,15 +619,17 @@ class uploader():
         """
         Just set the carset combo when anything changes.
         """
+        if self._loading_uploader: return
+        print('_list_cars_changed')
         self.combo_carsets(0)
-        self.save_upload_gui()
+        self.button_save_server.click()
 
-    def _combo_mode_changed(self,e):
+    def _combo_mode_changed(self,*e):
         """
         Called when the server mode has changed. Just hides / shows the
         relevant settings.
         """
-        print('Mode changed')
+        print('_combo_mode_changed')
         premium = self.combo_mode.get_index() == 1
         self.label_remote_championship.hide(premium)
         self.text_remote_championship .hide(premium)
@@ -861,28 +935,42 @@ class uploader():
         pyperclip.copy(s)
         return s
 
-    def _combo_tracks_changed(self,e):
-        print('_combo_tracks_changed')
+    def _combo_tracks_changed(self,*e):
+        #if self._updating_tracks or self._loading_uploader: return
+
+        if self._refilling_tracks: return
+        print('_combo_tracks_changed (populates layouts)')
         
         track = self.combo_tracks.get_text()
         if track == '': return
 
         # Update the layouts selector
+        self._refilling_layouts = True
         self.combo_layouts.clear()
 
         # Search for models_*.ini
-        paths = glob.glob(os.path.join(self.text_local(), 'content', 'tracks', track, 'models_*.ini'))
+        root = os.path.join(self.text_local(), 'content', 'tracks', track, 'models_*.ini')
+        print(root)
+        paths = glob.glob(root)
         for path in paths:
             layout = os.path.split(path)[-1].replace('models_','').replace('.ini','')
             self.combo_layouts.add_item(layout)
-        
-        # Get the initial data!
-        self._combo_layouts_changed(True)
-        
-        self.save_upload_gui()
+        self._refilling_layouts = False
 
-    def _combo_layouts_changed(self,e):
-        print('_combo_layouts_changed')
+        # No need to show nothing...
+        if len(self.combo_layouts.get_all_items()) == 0: self.combo_layouts.hide()
+        else:                                            self.combo_layouts.show()
+
+        # Get the pitboxes
+        self._combo_layouts_changed()
+        
+        self.button_save_server.click()
+
+    def _combo_layouts_changed(self,*e):
+        #if self._updating_tracks or self._loading_uploader: return
+        if self._refilling_layouts: return
+        print('_combo_layouts_changed (extracts pitboxes)')
+        
         # Paths
         local  = self.text_local()
         track  = self.combo_tracks.get_text()
@@ -897,12 +985,14 @@ class uploader():
         self.track = load_json(p)
         self.label_pitboxes('('+self.track['pitboxes']+' pit boxes)')
         
-        self.save_upload_gui()
+        self.button_save_server.click()
 
-    def _combo_carsets_changed(self,e): 
+    def _combo_carsets_changed(self,e):
+        if self._refilling_carsets or self._loading_uploader: return 
+
         print('_combo_carsets_changed')
         self.button_load.click()
-        self.save_upload_gui()
+        self.button_save_server.click()
 
     def _button_delete_clicked(self,e):
         """
@@ -933,7 +1023,7 @@ class uploader():
             s = s.strip()
             if s != '':
                 try:    self.list_cars.findItems(s, egg.pyqtgraph.QtCore.Qt.MatchExactly)[0].setSelected(True)
-                except: self.log('\nWARNING: '+s+' not in list')
+                except: self.log('WARNING: '+s+' not in list')
         
         # Reconnect
         self.list_cars.itemSelectionChanged.connect(self._list_cars_changed)
@@ -959,7 +1049,7 @@ class uploader():
 
         self.set_list_cars_selection(selected)
         
-        self.save_upload_gui()
+        self.button_save_server.click()
         
     def _button_save_clicked(self,e):
         """
@@ -1018,26 +1108,19 @@ class uploader():
             self.text_local(path)
             self.button_refresh.click()
 
-    def _button_refresh_clicked(self, e):
+    def _button_refresh_clicked(self, *e):
         """
         Refresh cars and tracks
         """
         print('_button_refresh_clicked')
 
-        # Load the carsets list
+        # Load the carsets, tracks, and cars 
+        self.update_cars()
+        self.update_tracks()
         self.update_carsets()
         
-        # Search for tracks
-        self.update_tracks()
-
-        # Search for cars
-        self.update_cars()
-
-        # Load the combo boxes etc to the last state
-        self.load_upload_gui()
-
-        # Reload the carset
-        self.button_load.click()
+        # # Load the combo boxes etc to the last state for this server
+        self._load_server_uploader()
         
 
     def get_server_cfg_source(self):
@@ -1312,8 +1395,11 @@ class uploader():
         """
         Searches carsets directory and updates combo box.
         """
-        self.log('Updating carsets...')
+        #self.log('Updating carsets...')
         print('update_carsets')
+
+        # Prevents signals
+        self._refilling_carsets = True
 
         # Clear existing
         self.combo_carsets.clear()
@@ -1323,13 +1409,19 @@ class uploader():
         paths = glob.glob(os.path.join('carsets','*'))
         for path in paths: self.combo_carsets.add_item(os.path.split(path)[-1])
 
+        # Enable signals again
+        self._refilling_carsets = False
+
     def update_cars(self):
         """
         Searches through the current assetto directory for all cars, skins, etc.
         """
         print('update_cars')
         
-        # Clear out the list
+        # Disconnect the update signal until the end
+        self.list_cars.itemSelectionChanged.disconnect()
+
+        # Clear out the list 
         self.list_cars.clear()
 
         # Dictionary to hold all the model names
@@ -1338,7 +1430,7 @@ class uploader():
 
         # Get all the car paths
         paths = glob.glob(os.path.join(self.text_local(), 'content', 'cars', '*'))
-        self.log('Updating cars...')
+        #self.log('Updating cars...')
         for path in paths:
 
             # Get the car's directory name
@@ -1371,6 +1463,9 @@ class uploader():
         self.car_directories = list(self.cars.keys())
         self.car_directories.sort()
         for n in self.car_directories: egg.pyqtgraph.QtGui.QListWidgetItem(n, self.list_cars)
+
+        # Reconnect
+        self.list_cars.itemSelectionChanged.connect(self._list_cars_changed)
     
     def update_skins(self):
         """
@@ -1400,16 +1495,15 @@ class uploader():
         """
         print('update_tracks')
         # Clear existing
+        self._refilling_tracks = True
         self.combo_tracks.clear()
 
         # Get all the paths
-        self.log('Updating tracks...')
+        #self.log('Updating tracks...')
         paths = glob.glob(os.path.join(self.text_local(), 'content', 'tracks', '*'))
         paths.sort()
-        for path in paths:
-            self.combo_tracks.add_item(os.path.split(path)[-1])
-
-
+        for path in paths: self.combo_tracks.add_item(os.path.split(path)[-1])
+        self._refilling_tracks = False
 
 
 # Start the show!
