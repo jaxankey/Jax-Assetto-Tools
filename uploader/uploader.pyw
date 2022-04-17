@@ -288,32 +288,31 @@ class uploader():
 
         # Actions
         self.checkbox_pre  = self.grid2s.add(egg.gui.CheckBox(
-            'Pre', autosettings_path='checkbox_pre', 
+            'Pre', signal_changed=self._any_server_setting_changed, 
             tip='Run the pre-command before everything starts.'))
         self.checkbox_modify  = self.grid2s.add(egg.gui.CheckBox(
-            'Config', autosettings_path='checkbox_modify', 
+            'Config', signal_changed=self._any_server_setting_changed, 
             tip='Modify the server files with the above configuration.'))
         self.checkbox_package = self.grid2s.add(egg.gui.CheckBox(
-            'Content', autosettings_path='checkbox_package', 
+            'Content', signal_changed=self._any_server_setting_changed, 
             tip='Package up all the local files for upload.'))
         self.checkbox_upload  = self.grid2s.add(egg.gui.CheckBox(
-            'Upload', autosettings_path='checkbox_upload', 
+            'Upload', signal_changed=self._any_server_setting_changed, 
             tip='Upload to server and unpack.'))
         self.checkbox_clean = self.grid2s.add(egg.gui.CheckBox(
-            'Clean Server', autosettings_path='checkbox_clean', 
-            signal_changed=self._checkbox_clean_changed,
+            'Clean Server', signal_changed=self._any_server_setting_changed,
             tip='During upload, remove all old content (cars and tracks) from the server.'))
         self.checkbox_restart = self.grid2s.add(egg.gui.CheckBox(
-            'Restart Server', autosettings_path='checkbox_restart', 
+            'Restart Server', signal_changed=self._any_server_setting_changed, 
             tip='Stop the server before upload and restart after upload.'))
         self.checkbox_monitor = self.grid2s.add(egg.gui.CheckBox(
-            'Restart Monitor', autosettings_path='checkbox_monitor', 
+            'Restart Monitor', signal_changed=self._any_server_setting_changed, 
             tip='Restart the monitor after upload and server restart.'))
         self.checkbox_url = self.grid2s.add(egg.gui.CheckBox(
-            'Open URL', autosettings_path='checkbox_url', 
+            'Open URL', signal_changed=self._any_server_setting_changed, 
             tip='Open the specified URL in your browser.'))
         self.checkbox_post  = self.grid2s.add(egg.gui.CheckBox(
-            'Post', autosettings_path='checkbox_post', 
+            'Post', signal_changed=self._any_server_setting_changed, 
             tip='Run the post-command after everything is done.'))
         
         # upload button
@@ -343,6 +342,15 @@ class uploader():
             'text_postcommand',
             'text_precommand',
             'text_url',
+            'checkbox_pre',
+            'checkbox_modify',
+            'checkbox_package',
+            'checkbox_upload',
+            'checkbox_clean',
+            'checkbox_restart',
+            'checkbox_monitor',
+            'checkbox_url',
+            'checkbox_post',
         ]
 
         ###################
