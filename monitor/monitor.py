@@ -9,6 +9,8 @@
 ##################################################################
 
 # Problem seems to coincide with 8081/API/details being unavailable, even when I remove state, it finds laps somewhere!!
+# The problem is that live_timings.json sticks around from the old venue (!). Let's add to monitor.ini the path to live_timings
+# and delete this on new venue.
 
 import os, json, discord, shutil, pprint, glob, time, urllib
 
@@ -270,8 +272,6 @@ class Monitor():
 
         # Okay, back to laps.
         if self.live_timings and not venue_changed and not carset_fully_changed:
-
-            print('continuing premium_get_latest_data()...')
 
             # UPDATE BEST LAPS
             for guid in self.live_timings['Drivers']:
