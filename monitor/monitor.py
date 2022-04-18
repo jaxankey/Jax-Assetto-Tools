@@ -271,6 +271,8 @@ class Monitor():
         # Okay, back to laps.
         if self.live_timings and not venue_changed and not carset_fully_changed:
 
+            print('continuing premium_get_latest_data()...')
+
             # UPDATE BEST LAPS
             for guid in self.live_timings['Drivers']:
                 name = self.live_timings['Drivers'][guid]['CarInfo']['DriverName']
@@ -342,6 +344,12 @@ class Monitor():
             seen_namecars     = [], # Set of people/cars seen online for this session.
             session_end_time  = 0, 
         )
+
+        # Reset the other info that's hanging around.
+        self.details      = None
+        self.info         = None
+        self.live_timings = None
+
 
     def vanilla_parse_lines(self, lines, init=False):
         """
