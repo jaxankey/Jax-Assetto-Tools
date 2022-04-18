@@ -680,7 +680,7 @@ class uploader():
             if self.combo_mode() == 0: self.generate_acserver_cfg()
             else:                      
                 if self.generate_acsm_cfg(): return
-        else: self.log('*Skipping server config')
+        #else: self.log('*Skipping server config')
 
         # Collect and package all the data
         if self.checkbox_package():
@@ -689,7 +689,7 @@ class uploader():
             self.package_content(skins_only)
             
         # Package not checked
-        else: self.log('*Skipping package')
+        #else: self.log('*Skipping package')
 
         
         ####################################
@@ -714,7 +714,7 @@ class uploader():
                 self.log('Stopping server...')
                 c = 'ssh -p '+port+' -i "'+pem+'" '+login+' "'+stop+'"' 
                 if self.system(c): return
-            else: self.log('*Skipping server stop')
+            #else: self.log('*Skipping server stop')
                 
             # Remote unzip the upload
             self.unpack_uploaded_content(skins_only)
@@ -730,17 +730,17 @@ class uploader():
             # Start server
             if self.checkbox_restart() and start != '' and not skins_only:
                 self.start_server()
-            else: self.log('*Skipping server start')
+            #else: self.log('*Skipping server start')
 
             # Start server
             if self.checkbox_monitor() and monitor != '' and not skins_only:
                 self.log('Restarting monitor...')
                 c = 'ssh -p '+port+' -i "'+pem+'" '+login+' "'+monitor+'"' 
                 if self.system(c): return
-            else: self.log('*Skipping monitor restart')
+            #else: self.log('*Skipping monitor restart')
 
         # No upload
-        else: self.log('*Skipping upload')
+        #else: self.log('*Skipping upload')
 
         # Copy the nice cars list to the clipboard
         if self.combo_mode() == 0:
@@ -751,7 +751,7 @@ class uploader():
         if self.checkbox_url() and self.text_url() != '':
             self.log('Opening supplied URL...')
             webbrowser.open(self.text_url())
-        else: self.log('*Skipping URL')
+        #else: self.log('*Skipping URL')
 
         # Post-command
         if self.checkbox_post() and self.text_postcommand().strip() != '':

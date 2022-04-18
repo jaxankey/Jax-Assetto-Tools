@@ -8,6 +8,8 @@
 # See monitor.ini for configuration!                             #
 ##################################################################
 
+# Problem seems to coincide with 8081/API/details being unavailable, even when I remove state, it finds laps somewhere!!
+
 import os, json, discord, shutil, pprint, glob, time, urllib
 
 # Change to the directory of this script
@@ -267,7 +269,7 @@ class Monitor():
 
 
         # Okay, back to laps.
-        if self.live_timings:
+        if self.live_timings and not venue_changed and not carset_fully_changed:
 
             # UPDATE BEST LAPS
             for guid in self.live_timings['Drivers']:
