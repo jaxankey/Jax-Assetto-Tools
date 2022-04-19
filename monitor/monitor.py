@@ -79,6 +79,9 @@ def load_json(path):
     """
     Load the supplied path with all the safety measures and encoding etc.
     """
+    if not os.path.exists(path): 
+        print('load_json: could not find', path)
+        return
     try:
         f = open(path, 'r', encoding='utf8')
         j = json.load(f, strict=False)
@@ -178,17 +181,19 @@ class Monitor():
         Grabs all the latest event information from the server, and 
         send / update messages if anything changed.
         """
+        if debug: print('\n_premium_get_latest_data')
 
-        # If this is the first run, some things are none.
-        first_run = self.live_timings == None
+        # If self.live_timings == None, we consider this a "first run" for the venue, printing details.
+        first_run = (self.live_timings == None)
 
         # Flag for information that changed
         laps_or_onlines_changed = False # laps or onlines for sending messages
-        venue_changed           = False # for making new venue
+        track_changed           = False # for making new venue
         carset_fully_changed    = False # for making new venue
 
-        # Grab the data; extra careful for urls which can fail.
-        try:    self.details = json.loads(urllib.request.urlopen(url_api_details,  timeout=5).read(), strict=False)
+        # Grab the "details" from 8081/API/details. If this fails, the "server is down"
+        # because we can't get basic information like carset.
+        try: self.details = json.loads(urllib.request.urlopen(url_api_details,  timeout=5).read(), strict=False)
         except:
             print('ERROR: Could not open ' + url_api_details)
             if not self['down_message_id']: 
@@ -196,32 +201,23 @@ class Monitor():
                 self.save_and_archive_state()
             return
         
+        # Print the debug info
         if first_run and debug:
             print('\n----First run self.details:')
             pprint.pprint(self.details)
 
-        # Grab the other data
-        if path_live_timings: self.live_timings = load_json(path_live_timings)
-        else:
-            print('ERROR: premium_get_latest_data: no path_live_timings')
-            return
-
-        # If we get this far, no need for the down message.
+        # If we get this far, clear any existing down message.
         if self.state['down_message_id']: 
             self.delete_message(self.webhook_info, self['down_message_id'])
             self['down_message_id'] = None
             self.save_and_archive_state()
-
-        if debug and first_run:
-            print('\n----First run self.live_timings:')
-            pprint.pprint(self.live_timings)
 
         # Data from website.
         if self.details:
 
             # UPDATE ONLINES
 
-            # Compare state online drivers to details online drivers
+            # Compare last seen drivers (state) to the newly found set of drivers (details)
             old = set()
             new = set()
             for name in self.state['online']: old.add((name, self.state['online'][name]['car']))
@@ -243,35 +239,45 @@ class Monitor():
 
                 laps_or_onlines_changed = True
 
-
-            # UPDATE CARSET
-
-            # Get the new carset list
+            # Get the carset list from details and see if it changed
             cars = list(self.details['content']['cars'].keys())
             carset_fully_changed = len(set(cars).intersection(self.state['cars'])) == 0
             self.state['cars'] = cars
 
-
-            # UPDATE TRACK / LAYOUT
+            # Get the track/layout from details and see if it changed
             s = self.details['track'].split('-')
             track = s[0]
             if len(s) > 1: layout = s[1]
             else:          layout = ''
-            venue_changed = track != self.state['track'] or layout != self.state['layout']
+            track_changed = (track != self.state['track'] or layout != self.state['layout'])
             self.state['track']  = track
             self.state['layout'] = layout
 
-        else: print('premium_get_latest_data: no self.details')
+        # This should never happen.
+        else: print('premium_get_latest_data: no self.details; this code should be unreachable')
 
-        # Before doing laps, check if the venue has changed; if it has,
-        # this will reload the ui data
-        if venue_changed or carset_fully_changed:
-            if venue_changed: print('premium_get_latest_data: venue changed')
+        # If the venue changed, do the new venue stuff.
+        if track_changed or carset_fully_changed:
+            if track_changed:        print('premium_get_latest_data: track changed')
+            if carset_fully_changed: print('premium_get_latest_data: carset fully changed')
+            
+            # Resets state, sets track, layout, carset
             self.new_venue(self['track'], self['layout'], self['cars'])
+            self.live_timings = None
 
+            # Move this so we don't accidentally think it's ok when the carset is totally changed
+            # (live_timings.json does not include the available cars)
+            os.rename(path_live_timings, path_live_timings+".backup")
 
-        # Okay, back to laps.
-        if self.live_timings and not venue_changed and not carset_fully_changed:
+        # Try to grab the live_timings data; load_json returns None if the file was moved.
+        if path_live_timings: self.live_timings = load_json(path_live_timings)
+    
+        # If we found and loaded live_timings, look for new laps.
+        if self.live_timings:
+
+            if debug and first_run:
+                print('\n----First run self.live_timings:')
+                pprint.pprint(self.live_timings)
 
             # UPDATE BEST LAPS
             for guid in self.live_timings['Drivers']:
@@ -307,11 +313,8 @@ class Monitor():
                         # Remember to update the messages
                         laps_or_onlines_changed = True
         
-        else: print('premium_get_latest_data: no self.live_timings for detailed data')
-        
-        # If anything changed, we need to update the messages
-        if first_run or laps_or_onlines_changed or venue_changed or carset_fully_changed: 
-            print('Something changed', laps_or_onlines_changed, venue_changed, carset_fully_changed, 'sending messages')
+        # Finally, if ANYTHING changed, we need to update the messages
+        if first_run or laps_or_onlines_changed or track_changed or carset_fully_changed: 
             self.send_state_messages()
               
                 
@@ -345,10 +348,10 @@ class Monitor():
             session_end_time  = 0, 
         )
 
-        # Reset the other info that's hanging around.
-        self.details      = None
-        self.info         = None
-        self.live_timings = None
+        # # Reset the other info that's hanging around.
+        # self.details      = None
+        # self.info         = None
+        # self.live_timings = None
 
 
     def vanilla_parse_lines(self, lines, init=False):

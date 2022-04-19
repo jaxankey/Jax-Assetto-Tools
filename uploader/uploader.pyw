@@ -1071,9 +1071,9 @@ class uploader():
             if not ok or name == '': return
             
             # Add it to the combo and select it
-            self.combo_carsets.add_item(name)
+            if not name in self.combo_carsets.get_all_items(): self.combo_carsets.add_item(name)
 
-        # Otherwise use what's there.
+        # Otherwise use what's there. This should actually never get reached...
         else: name = self.combo_carsets.get_text()
 
         # Write the file
@@ -1082,7 +1082,7 @@ class uploader():
         for car in self.get_selected_cars(): f.write(car+'\n')
         f.close()
         
-        # Make sure it's selected.
+        # Make sure it's selected; also updates the list I guess
         self.combo_carsets.set_text(name)
 
 
