@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-import glob, codecs, os, shutil, random, json, pyperclip, webbrowser, stat, time
+import glob, codecs, os, shutil, random, json, pyperclip, webbrowser, stat, time, subprocess
 import spinmob.egg as egg
 
 # CHAMPIONSHIP NEEDS TO ENSURE CONTENT MANAGER WRAPPER ENABLED
@@ -44,11 +44,12 @@ class uploader():
     GUI class for uploading content and restarting the assetto server.
     """
 
-    def __init__(self, show=True, blocking=False):
+    def __init__(self, show=True, blocking=True):
 
         # For troubleshooting.
         self.timer_exceptions = egg.gui.TimerExceptions() 
         self.timer_exceptions.signal_new_exception.connect(self._signal_new_exception)
+        self.timer_exceptions.start()
 
         # Flag for whether we're in the init phases
         self._init = True
@@ -491,7 +492,9 @@ class uploader():
         self._loading_uploader = True
 
         # Now populate everything :)
-        try:    self.combo_tracks.set_text(j['uploader']['combo_tracks'])
+        try:    
+            self.combo_tracks.set_text(j['uploader']['combo_tracks'])
+            self._combo_tracks_changed() # JACK: redundant, but catches if it's already selected.
         except Exception as e: print('load_upload_gui combo_tracks', e)
         try:    self.combo_layouts.set_text(j['uploader']['combo_layouts'], block_signals=True)
         except Exception as e: print('load_upload_gui combo_layouts', e)
@@ -659,9 +662,10 @@ class uploader():
         pem     = os.path.abspath(self.text_pem.get_text())
         start   = self.text_start.get_text()   # For acsm
         
-        self.log('Starting server...')
-        c = 'ssh -p '+port+' -i "'+pem+'" '+login+' "'+start+'"' 
-        if self.system(c): return
+        if start.strip() != '':
+            self.log('Starting server...')
+            #c = 'ssh -p '+port+' -i "'+pem+'" '+login+' "'+start+'"' 
+            if self.system(['ssh', '-T', '-p', port, '-i', pem, login, start]): return
 
     def _button_upload_clicked(self,e,skins_only=False):
         """
@@ -673,15 +677,14 @@ class uploader():
         # Pre-command
         if self.checkbox_pre() and self.text_precommand().strip() != '':
             self.log('Running pre-command')
-            if self.system(self.text_precommand()): return
+            if self.system([self.text_precommand()]): return
 
         # Generate the appropriate config files
         if self.checkbox_modify() and not skins_only: 
             if self.combo_mode() == 0: self.generate_acserver_cfg()
-            else:                      
-                if self.generate_acsm_cfg(): return
+            elif self.generate_acsm_cfg(): return
         #else: self.log('*Skipping server config')
-
+        
         # Collect and package all the data
         if self.checkbox_package():
             
@@ -712,20 +715,20 @@ class uploader():
             # Stop server
             if self.checkbox_restart() and stop != '' and not skins_only:
                 self.log('Stopping server...')
-                c = 'ssh -p '+port+' -i "'+pem+'" '+login+' "'+stop+'"' 
-                if self.system(c): return
+                #c = 'ssh -p '+port+' -i "'+pem+'" '+login+' "'+stop+'"' 
+                if self.system(['ssh', '-T', '-p', port, '-i', pem, login, stop]): return True
             #else: self.log('*Skipping server stop')
                 
             # Remote unzip the upload
-            self.unpack_uploaded_content(skins_only)
+            if self.unpack_uploaded_content(skins_only): return True
             
             # If we made a championship.json
             if self.checkbox_modify() and self.combo_mode()==1 \
             and os.path.exists('championship.json') and not skins_only:
                 # Upload it
-                self.log('  Uploading championship.json...')
-                c = 'scp -P '+port+' -i "' + pem +'" championship.json '+ login+':"'+self.text_remote_championship()+'"'
-                if self.system(c): return
+                self.log('Uploading championship.json...')
+                #c = 'scp -P '+port+' -i "' + pem +'" championship.json '+ login+':"'+self.text_remote_championship()+'"'
+                if self.system(['scp', '-T', '-P', port, '-i', pem, 'championship.json', login+':"'+self.text_remote_championship()+'"']): return True
                 
             # Start server
             if self.checkbox_restart() and start != '' and not skins_only:
@@ -735,8 +738,8 @@ class uploader():
             # Start server
             if self.checkbox_monitor() and monitor != '' and not skins_only:
                 self.log('Restarting monitor...')
-                c = 'ssh -p '+port+' -i "'+pem+'" '+login+' "'+monitor+'"' 
-                if self.system(c): return
+                #c = 'ssh -p '+port+' -i "'+pem+'" '+login+' "'+monitor+'"' 
+                if self.system(['ssh', '-T', '-p', port, '-i', pem, login, monitor]): return True
             #else: self.log('*Skipping monitor restart')
 
         # No upload
@@ -756,7 +759,7 @@ class uploader():
         # Post-command
         if self.checkbox_post() and self.text_postcommand().strip() != '':
             self.log('Running post-command')
-            if self.system(self.text_postcommand()): return
+            if self.system([self.text_postcommand()]): return True
         self.log('Done! Hopefully!')
 
 
@@ -764,10 +767,11 @@ class uploader():
         """
         Packages all the content. Or just the skins.
         """
+        
         # Make sure it's clean
         if os.path.exists('uploads'): rmtree('uploads')
         if os.path.exists('uploads.7z'): os.remove('uploads.7z')
-
+        
         # get the tracks and cars
         track = self.combo_tracks.get_text() # Track directory
         cars  = self.get_selected_cars()     # List of car directories
@@ -775,7 +779,7 @@ class uploader():
         # Make sure we have at least one car
         if len(cars) == 0:
             self.log('No cars selected?')
-            return 'no cars'
+            return
 
         # Make sure we have a track
         if track == '' and not skins_only:
@@ -783,7 +787,6 @@ class uploader():
             return
 
         # COPY EVERYTHING TO TEMP DIRECTORY
-
         # Cars: we just need data dir and data.acd (if present)
         if skins_only: self.log('Collecting skins')
         else:          self.log('Collecting cars')
@@ -815,31 +818,28 @@ class uploader():
             self.log('Yeah, sorry, to avoid messing with something unintentionally, we enforce that your remote path have the word "assetto" in it.')
             return True
 
-        # Start the upload process
-        self.log('Uploading content...')
-
         # If we have uploads to compress
         if os.path.exists('uploads'):
             
             # Compress the files we gathered (MUCH faster upload)
-            self.log('  Compressing uploads.7z')
+            self.log('Compressing uploads.7z')
             os.chdir('uploads')
-            c = '7z a ../uploads.7z *'
-            if self.system(c): 
+            #c = '7z a ../uploads.7z *'
+            if self.system(['7z', 'a', '../uploads.7z', '*']): 
                 os.chdir('..')
                 return True
             os.chdir('..')
         
-            self.log('  Uploading uploads.7z...')
-            c = 'scp -P '+port+' -i "' + pem + '" uploads.7z '+login+':"'+remote+'"'
-            if self.system(c): return True
+            self.log('Uploading uploads.7z...')
+            #c = 'scp -P '+port+' -i "' + pem + '" uploads.7z '+login+':"'+remote+'"'
+            if self.system(['scp', '-T', '-P', port, '-i', pem, 'uploads.7z', login+':"'+remote+'"']): return True
 
             # If we're cleaning remote files... Note skins only prevents this
             # regardless of the checkbox state.
             if self.checkbox_clean() and not skins_only:
-                self.log('  Cleaning out old content...')
-                c = 'ssh -p '+port+' -i "'+pem+'" '+login+' rm -rf ' + remote + '/content/cars/* ' + remote + '/content/tracks/*'
-                if self.system(c): return True
+                self.log('Cleaning out old content...')
+                #c = 'ssh -p '+port+' -i "'+pem+'" '+login+' rm -rf ' + remote + '/content/cars/* ' + remote + '/content/tracks/*'
+                if self.system(['ssh', '-T', '-p', port, '-i', pem, login, 'rm -rf '+remote+'/content/cars/* '+remote+'/content/tracks/*']): return True
 
     def unpack_uploaded_content(self, skins_only=False):
         """
@@ -855,11 +855,11 @@ class uploader():
         if os.path.exists('uploads'):
             
             # Remote extract
-            self.log('  Extracting remote uploads.7z...')
-            c = 'ssh -p '+port+' -i "'+pem+'" '+login+' 7z x -aoa ' + remote + '/uploads.7z' + ' -o' + remote
-            if self.system(c): return
+            self.log('Extracting remote uploads.7z...')
+            #c = 'ssh -p '+port+' -i "'+pem+'" '+login+' 7z x -aoa ' + remote + '/uploads.7z' + ' -o' + remote
+            if self.system(['ssh', '-T', '-p', port,'-i',pem,login,'7z x -aoa '+remote+'/uploads.7z -o'+remote]): return True
 
-            self.log('  Cleaning up')                
+            self.log('Removing local uploads...')                
             rmtree('uploads')
             if os.path.exists('uploads.7z'): os.remove('uploads.7z')
 
@@ -921,11 +921,16 @@ class uploader():
         """
         print()
         print(command)
-        r = os.system(command)
-        if r!=0: 
-            self.log('  UH OH! See console!')
-            #self.log('  ', r)
-            return r
+        #r = os.system(command)
+        self._c = command
+        self._r = subprocess.run(self._c, capture_output=True, shell=True)
+        if self._r.returncode:
+            self.log('--------------------') 
+            self.log('ERROR:\n')
+            self.log(' '.join(command)+'\n')
+            self.log(self._r.stderr.decode('utf-8').strip())
+            self.log('--------------------') 
+            return 1
         return 0
 
     def get_nice_selected_cars_string(self):
@@ -1161,14 +1166,14 @@ class uploader():
         self.log('Generating acsm config')
         
         # Server info
-        # login   = self.text_login.get_text()
-        # port    = self.text_port .get_text()
-        # pem     = os.path.abspath(self.text_pem.get_text())
+        login   = self.text_login.get_text()
+        port    = self.text_port .get_text()
+        pem     = os.path.abspath(self.text_pem.get_text())
 
         # Load the championship from the server        
-        # self.log('  Downloading championship.json...')
-        # c = 'scp -P '+port+' -i "' + pem +'" '+ login+':"'+self.text_remote_championship()+'" championship.json'
-        # if self.system(c): return True
+        self.log('Downloading championship.json')
+        #c = 'scp -P '+port+' -i "' + pem +'" '+ login+':"'+self.text_remote_championship()+'" championship.json'
+        if self.system(['scp', '-T', '-P', port, '-i', pem, login+':"'+self.text_remote_championship()+'"', 'championship.json']): return True
         c = self.championship = load_json('championship.json')
 
         # Make sure there is a remote championship to upload to
@@ -1271,14 +1276,18 @@ class uploader():
                     'Skin' : R[n]['Skin'], })
         
         # Write the new file.
-        self.log('  Updating championship.json')
-        with open('championship.json','w', encoding="utf8") as f: json.dump(self.championship, f, indent=2)
+        self.log('Updating championship.json')
+        f = open('championship.json','w', encoding="utf8") 
+        json.dump(self.championship, f, indent=2)
+        f.close()
+        return False
 
     def generate_acserver_cfg(self):
         """
         Writes the entry_list.ini and server_cfg.ini, and race.json for 
         the vanilla / steam acServer.
         """
+        print('generate_acserver_cfg')
         self.log('Generating acServer config')
 
         # Get the selected car directories
@@ -1484,17 +1493,17 @@ class uploader():
         # Pre-command
         if self.text_precommand().strip() != '':
             self.log('Running pre-command')
-            if self.system(self.text_precommand()): return True
+            if self.system([self.text_precommand()]): return True
 
         self.log('\n------- UPDATING SKINS -------')
         if self.package_content(True) == 'no cars': return True
         if self.upload_content(True): return True
-        self.unpack_uploaded_content(True)
+        if self.unpack_uploaded_content(True): return True
         
         # Post-command
         if self.text_postcommand().strip() != '':
             self.log('Running post-command')
-            if self.system(self.text_postcommand()): return True
+            if self.system([self.text_postcommand()]): return True
         self.log('Done! Hopefully!')
 
     def update_tracks(self):
