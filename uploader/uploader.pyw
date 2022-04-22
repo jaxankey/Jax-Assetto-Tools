@@ -1239,6 +1239,9 @@ class uploader():
         N = self.number_slots()
         if 'pitboxes' not in self.track: self.track['pitboxes'] = 0
         N = min(N, int(self.track['pitboxes']))
+
+        # Update the metadata
+        c['Stats']['NumEntrants'] = N
         
         # Now fill the pitboxes
         # JACK: Classes,Entrants must have an entry for everyone in
