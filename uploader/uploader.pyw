@@ -1126,6 +1126,7 @@ class uploader():
         Refresh cars and tracks
         """
         print('_button_refresh_clicked')
+        self.log('Scanning content...')
 
         # Load the carsets, tracks, and cars 
         self.update_cars()
@@ -1134,6 +1135,8 @@ class uploader():
         
         # # Load the combo boxes etc to the last state for this server
         self._load_server_uploader()
+
+        self.log('  w00t')
         
 
     def get_server_cfg_source(self):
