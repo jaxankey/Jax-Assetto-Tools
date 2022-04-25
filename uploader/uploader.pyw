@@ -17,7 +17,7 @@ def load_json(path):
     """
     try:
         if os.path.exists(path):
-            f = open(path, 'r', encoding='utf8')
+            f = open(path, 'r', encoding='utf8', errors='replace')
             j = json.load(f, strict=False)
             f.close()
             return j
@@ -995,6 +995,7 @@ class uploader():
         if not os.path.exists(p): return
 
         # Load it and get the pit number
+        print('loading', p)
         self.track = load_json(p)
         self.label_pitboxes('('+self.track['pitboxes']+' pit boxes)')
         
@@ -1169,14 +1170,15 @@ class uploader():
         self.log('Generating acsm config')
         
         # Server info
-        login   = self.text_login.get_text()
-        port    = self.text_port .get_text()
-        pem     = os.path.abspath(self.text_pem.get_text())
+        # login   = self.text_login.get_text()
+        # port    = self.text_port .get_text()
+        # pem     = os.path.abspath(self.text_pem.get_text())
 
-        # Load the championship from the server        
-        self.log('Downloading championship.json')
-        #c = 'scp -P '+port+' -i "' + pem +'" '+ login+':"'+self.text_remote_championship()+'" championship.json'
-        if self.system(['scp', '-T', '-P', port, '-i', pem, login+':"'+self.text_remote_championship()+'"', 'championship.json']): return True
+        # Load the championship from the server    
+        # JACK: Downloading causes the problem where there are all kinds of results that won't go away and you can't restart it.    
+        # self.log('Downloading championship.json')
+        # #c = 'scp -P '+port+' -i "' + pem +'" '+ login+':"'+self.text_remote_championship()+'" championship.json'
+        # if self.system(['scp', '-T', '-P', port, '-i', pem, login+':"'+self.text_remote_championship()+'"', 'championship.json']): return True
         c = self.championship = load_json('championship.json')
 
         # Make sure there is a remote championship to upload to
@@ -1229,9 +1231,10 @@ class uploader():
         e['RaceSetup']['LegalTyres'] = "V;H;M;S;ST;SM;SV" # JACK: UNPACK AND SCRAPE DATA.ACD? GROSS!!
         
         # Reset the signup form, but only if the venue has changed.
-        if new_venue: 
-            self.log('New venue detected, clearing signup.')
-            c['SignUpForm']['Responses'] = []
+        # if new_venue: 
+        #     self.log('New venue detected, clearing signup.')
+        # JACK: 
+        c['SignUpForm']['Responses'] = []
         
         # Now that we know if there are still responses, 
         # We can fill up the Entrants and EntryList
