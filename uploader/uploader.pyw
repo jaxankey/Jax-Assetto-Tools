@@ -1500,7 +1500,7 @@ class uploader():
         the selected car skins, then runs post, even if unchecked, provided it exists.
         """
         # Pre-command
-        if self.text_precommand().strip() != '':
+        if self.text_precommand().strip() != '' and self.checkbox_pre():
             self.log('Running pre-command')
             if self.system([self.text_precommand()]): return True
 
