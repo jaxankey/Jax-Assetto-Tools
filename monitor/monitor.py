@@ -83,7 +83,7 @@ def load_json(path):
         print('load_json: could not find', path)
         return
     try:
-        f = open(path, 'r', encoding='utf8')
+        f = open(path, 'r', encoding='utf8', errors='replace')
         j = json.load(f, strict=False)
         f.close()
         return j
