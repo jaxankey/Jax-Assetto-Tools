@@ -326,11 +326,11 @@ class Monitor():
         if path_championship not in ['', None] and os.path.exists(path_championship):
             try:
                 c = load_json(path_championship)
-                
+
                 # Parse the scheduled timestamp and add the qualifying time.
                 tq = dateutil.parser.parse(c['Events'][0]['Scheduled']).timestamp()
-                tr = tq + c['Events'][0]['Sessions']['Qualify']['Time']*60
-                
+                tr = tq + c['Events'][0]['RaceSetup']['Sessions']['QUALIFY']['Time']*60
+
                 # If it's different, update the state and send messages
                 if tq != self['qual_timestamp'] or tr != self['race_timestamp']:
                     event_timestamp_changed = True
@@ -849,9 +849,9 @@ class Monitor():
 
         # If we have qual / race timestamps, put those in
         if self['race_timestamp']:
-            body1 = body1 + '\n**<t:'+str(self['race_timestamp'])+'>**'
-            if self['qual_timestamp']:
-                body1 = body1 + '**(Qual opens <t:'+str(self['qual_timestamp'])+'>**'
+            body1 = body1 + '\n**<t:'+str(int(self['race_timestamp']))+'> **'
+#            if self['qual_timestamp']:
+#                body1 = body1 + '**(Qual opens <t:'+str(int(self['qual_timestamp']))+'>**'
 
         # Subheader
         body1 = body1 + '\n' + venue_subheader
