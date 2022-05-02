@@ -849,7 +849,8 @@ class Monitor():
 
         # If we have qual / race timestamps, put those in
         if self['race_timestamp']:
-            body1 = body1 + '\n**<t:'+str(int(self['race_timestamp']))+'> **'
+            ts = str(int(self['race_timestamp']))
+            body1 = body1 + '\n**<t:'+ts+':F> (<t:'+ts+':R>)**'
 #            if self['qual_timestamp']:
 #                body1 = body1 + '**(Qual opens <t:'+str(int(self['qual_timestamp']))+'>**'
 
