@@ -5,6 +5,22 @@ import spinmob.egg as egg
 
 # CHAMPIONSHIP NEEDS TO ENSURE CONTENT MANAGER WRAPPER ENABLED
 
+# Get local timezone
+# datetime.datetime.now(datetime.timezone.utc).astimezone().tzinfo
+
+# Convert python datetime object to iso format
+# datetime.datetime.now().isoformat()
+
+# ISO to unix
+# >>> import dateutil.parser as dp
+# >>> t = '1984-06-02T19:05:00.000Z'
+# >>> parsed_t = dp.parse(t)
+# >>> t_in_seconds = parsed_t.timestamp()
+# >>> t_in_seconds
+# '455051100'
+# dow = time.strftime('%A', time.localtime(epoch))
+
+
 # Change to the directory of this script
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 print('WORKING DIRECTORY:')
