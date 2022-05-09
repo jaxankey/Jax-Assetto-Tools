@@ -1,24 +1,13 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-import glob, codecs, os, shutil, random, json, pyperclip, webbrowser, stat, time, subprocess
+import glob, codecs, os, shutil, random, json, pyperclip, webbrowser, stat, time, datetime, subprocess
 import spinmob.egg as egg
 
 # CHAMPIONSHIP NEEDS TO ENSURE CONTENT MANAGER WRAPPER ENABLED
 
-# Get local timezone
-# datetime.datetime.now(datetime.timezone.utc).astimezone().tzinfo
+# Download button for remote championship
 
-# Convert python datetime object to iso format
-# datetime.datetime.now().isoformat()
-
-# ISO to unix
-# >>> import dateutil.parser as dp
-# >>> t = '1984-06-02T19:05:00.000Z'
-# >>> parsed_t = dp.parse(t)
-# >>> t_in_seconds = parsed_t.timestamp()
-# >>> t_in_seconds
-# '455051100'
-# dow = time.strftime('%A', time.localtime(epoch))
+# Go button for URL
 
 
 # Change to the directory of this script
@@ -55,17 +44,17 @@ def rmtree(top):
     os.rmdir(top)
 
 # GUI class for configuring the server
-class uploader():
+class Uploader():
     """
     GUI class for uploading content and restarting the assetto server.
     """
 
-    def __init__(self, show=True, blocking=True):
+    def __init__(self, show=True, blocking=False):
 
         # For troubleshooting.
-        self.timer_exceptions = egg.gui.TimerExceptions() 
-        self.timer_exceptions.signal_new_exception.connect(self._signal_new_exception)
-        self.timer_exceptions.start()
+        # self.timer_exceptions = egg.gui.TimerExceptions()
+        # self.timer_exceptions.signal_new_exception.connect(self._signal_new_exception)
+        # self.timer_exceptions.start()
 
         # Flag for whether we're in the init phases
         self._init = True
@@ -86,7 +75,7 @@ class uploader():
 
         # Other variables
         self.track = dict()
-        self.style_category = 'color:blue; font-size:14pt; font-weight:bold'
+        self.style_category    = 'color:blue; font-size:14pt; font-weight:bold'
         self.style_fancybutton = 'background-color: blue; color: white; font-weight:bold'
 
 
@@ -1549,4 +1538,4 @@ class uploader():
 
 
 # Start the show!
-self = uploader()
+self = Uploader()
