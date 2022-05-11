@@ -1,11 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-import glob, codecs, os, shutil, random, json, pyperclip, webbrowser, stat, time, datetime, subprocess
+import glob, codecs, os, shutil, random, json, pyperclip, webbrowser, stat
+import dateutil, subprocess, time, datetime
 import spinmob.egg as egg
-
-# CHAMPIONSHIP NEEDS TO ENSURE CONTENT MANAGER WRAPPER ENABLED
-
-# Download button for remote championship
 
 # Go button for URL
 
@@ -44,12 +41,12 @@ def rmtree(top):
     os.rmdir(top)
 
 # GUI class for configuring the server
-class Uploader():
+class Uploader:
     """
     GUI class for uploading content and restarting the assetto server.
     """
 
-    def __init__(self, show=True, blocking=False):
+    def __init__(self, show=True, blocking=True):
 
         # For troubleshooting.
         # self.timer_exceptions = egg.gui.TimerExceptions()
@@ -74,10 +71,10 @@ class Uploader():
         if not os.path.exists('carsets'): os.mkdir('carsets')
 
         # Other variables
-        self.track = dict()
+        self.server = dict()
+        self.track  = dict()
         self.style_category    = 'color:blue; font-size:14pt; font-weight:bold'
         self.style_fancybutton = 'background-color: blue; color: white; font-weight:bold'
-
 
 
         ######################
@@ -119,7 +116,7 @@ class Uploader():
 
         # Log
         self.text_log = self.window.add(egg.gui.TextLog(), alignment=0)
-        self.text_log.append_text('Welcome to AC Uploader!\n')
+        self.text_log.append_text('Welcome to AC Uploader!')
 
 
 
@@ -195,6 +192,9 @@ class Uploader():
         self.text_remote_championship = self.tab_settings.add(egg.gui.TextBox('/home/username/server-manager/json/championships/blah-blah-blah.json',
             tip='Remote path to the championship json we wish to update. Requires json mode in\nserver-manager\'s config.yml.', 
             signal_changed=self._any_server_setting_changed), alignment=0)
+        self.button_download_championship = self.tab_settings.add(egg.gui.Button('Download',
+            tip='Try to download the specified file to championship.json, and get some basic info from it.',
+            signal_clicked = self._button_download_championship_clicked))
 
         self.tab_settings.set_row_stretch(20)
 
@@ -203,6 +203,10 @@ class Uploader():
         self.text_url = self.tab_settings.add(egg.gui.TextBox('',
             tip='Website to open when uploading, for example a place to modify the car selection on the reservation sheet, or a place to upload files for everyone else.',
             signal_changed=self._any_server_setting_changed), alignment=0)
+        self.button_go_url = self.tab_settings.add(egg.gui.Button(
+            'Go to URL', tip='Open the supplied URL in your browser.',
+            signal_clicked=self._button_go_url_clicked
+        ))
 
         self.tab_settings.new_autorow()
         self.tab_settings.add(egg.gui.Label('Pre-Command:'))
@@ -281,6 +285,13 @@ class Uploader():
         self.list_cars.setSelectionMode(egg.pyqtgraph.QtGui.QAbstractItemView.ExtendedSelection)
         self.list_cars.itemSelectionChanged.connect(self._list_cars_changed)
 
+        # self.tab_uploader.new_autorow()
+        # self.tab_uploader.add(egg.gui.Label('\nRace Flag Drops').set_style(self.style_category))
+        # self.tab_uploader.new_autorow()
+        # self.grid_date = self.tab_uploader.add(egg.gui.GridLayout(margins=False))
+        # self.datetime = self.grid_date.add(egg.pyqtgraph.QtGui.QDateTimeEdit())
+        # self.tab_uploader.new_autorow()
+
         # Server stuff
         self.tab_uploader.new_autorow()
         self.tab_uploader.add(egg.gui.Label('\nServer').set_style(self.style_category))
@@ -290,7 +301,7 @@ class Uploader():
         self.grid2s.add(egg.gui.Label('Max Pit Boxes:'))
         self.number_slots = self.grid2s.add(egg.gui.NumberBox(16,
             tip='Maximum number of pitboxes (will not exceed the track limit).', 
-            bounds=(1,None), int=True, autosettings_path='number_slots')).set_width(42)
+            bounds=(1,None), int=True)).set_width(42)
 
         # Actions
         self.checkbox_pre  = self.grid2s.add(egg.gui.CheckBox(
@@ -299,6 +310,9 @@ class Uploader():
         self.checkbox_modify  = self.grid2s.add(egg.gui.CheckBox(
             'Config', signal_changed=self._any_server_setting_changed, 
             tip='Modify the server files with the above configuration.'))
+        self.checkbox_autoweek = self.grid2s.add(egg.gui.CheckBox(
+            'Auto-Week', signal_changed=self._any_server_setting_changed,
+            tip='Automatically increment the race time\'s week until the next available date.'))
         self.checkbox_package = self.grid2s.add(egg.gui.CheckBox(
             'Content', signal_changed=self._any_server_setting_changed, 
             tip='Package up all the local files for upload.'))
@@ -322,8 +336,8 @@ class Uploader():
             tip='Run the post-command after everything is done.'))
         
         # upload button
-        self.grid2s.new_autorow()
-        self.grid_go = self.grid2s.add(egg.gui.GridLayout(False), alignment=0, column_span=11)
+        self.tab_uploader.new_autorow()
+        self.grid_go = self.tab_uploader.add(egg.gui.GridLayout(False), alignment=0)
         self.button_upload = self.grid_go.add(egg.gui.Button(
             'Go!', tip='Packages the required server data, uploads, restarts the server, cleans up the local files.', 
             signal_clicked=self._button_upload_clicked), alignment=0)
@@ -348,8 +362,10 @@ class Uploader():
             'text_postcommand',
             'text_precommand',
             'text_url',
+            'number_slots',
             'checkbox_pre',
             'checkbox_modify',
+            'checkbox_autoweek',
             'checkbox_package',
             'checkbox_upload',
             'checkbox_clean',
@@ -372,6 +388,45 @@ class Uploader():
         ######################
         # Show the window; no more commands below this.
         if show: self.window.show(blocking)
+
+    def _button_go_url_clicked(self, *a):
+        """
+        Opens the URL in browser.+++
+        """
+        if self.text_url() != '':
+            self.log('Opening supplied URL...')
+            webbrowser.open(self.text_url())
+
+    # else: self.log('*Skipping URL')
+    def _button_download_championship_clicked(self, *a):
+        """
+        Attempts to download the championship file into the server.json.
+        """
+        # Server info
+        login   = self.text_login.get_text()
+        port    = self.text_port .get_text()
+        pem     = os.path.abspath(self.text_pem.get_text())
+
+        # Load the championship from the server
+        self.log('Downloading championship.json...')
+        #c = 'scp -P '+port+' -i "' + pem +'" '+ login+':"'+self.text_remote_championship()+'" championship.json'
+        if self.system(['scp', '-T', '-P', port, '-i', pem, login+':"'+self.text_remote_championship()+'"', 'championship.json']):
+            self.log('ERROR: Download failed.')
+            return
+
+        # load it
+        c = load_json('championship.json')
+        if not c:
+            self.log('ERROR: Could not load championship.json.')
+            return
+
+        # Dump it into the server file
+        self.log('  Saving contents...')
+        self.server['championship'] = c
+        self.button_save_server.click()
+        self.log('  Done!')
+
+
 
     def update_server_list(self):
         """
@@ -428,9 +483,14 @@ class Uploader():
 
         # Load it.
         f = open(path, 'r', encoding="utf8")
-        j = json.load(f, strict=False)
+        self.server = json.load(f, strict=False)
         f.close()
-        return j
+
+        # If there is no championship, warn!
+        if not 'championship' in self.server and self.server['settings']['combo_mode'] == 1:
+            self.log('\n-------\nWARNING: You must download the remote championship json at least once for this server.\n-------\n')
+
+        return self.server
 
     def _button_clone_server_clicked(self, *a):
         """
@@ -475,13 +535,13 @@ class Uploader():
         Loads the data for the settings tab only, based on the chosen server.
         """
         print('_load_server_settings')
-        j = self.load_server_json()        
-        if not 'settings' in j: return
+        self.server = self.load_server_json()
+        if not 'settings' in self.server: return
         print('  loaded json')
 
         self._loading_server = True
-        for key in j['settings']:
-            exec('self.'+key+'.set_value(value)', dict(self=self, value=j['settings'][key]))
+        for key in self.server['settings']:
+            exec('self.'+key+'.set_value(value)', dict(self=self, value=self.server['settings'][key]))
             #print(' ', key, '->', j['settings'][key])
         self._loading_server = False
 
@@ -490,24 +550,24 @@ class Uploader():
         Loads the garbage into the uploader for the chosen server.
         """
         print('_load_server_uploader')
-        j = self.load_server_json()
-        if not 'uploader' in j: return
-        print('  loaded json')
+        #self.server = self.load_server_json()
+        if not 'uploader' in self.server: return
+        print('  found uploader key')
 
         self._loading_uploader = True
 
         # Now populate everything :)
         try:    
-            self.combo_tracks.set_text(j['uploader']['combo_tracks'])
+            self.combo_tracks.set_text(self.server['uploader']['combo_tracks'])
             self._combo_tracks_changed() # JACK: redundant, but catches if it's already selected.
         except Exception as e: print('load_upload_gui combo_tracks', e)
-        try:    self.combo_layouts.set_text(j['uploader']['combo_layouts'], block_signals=True)
+        try:    self.combo_layouts.set_text(self.server['uploader']['combo_layouts'], block_signals=True)
         except Exception as e: print('load_upload_gui combo_layouts', e)
-        try:    self.combo_carsets.set_text(j['uploader']['combo_carsets'])
+        try:    self.combo_carsets.set_text(self.server['uploader']['combo_carsets'])
         except Exception as e: print('load_upload_gui combo_carsets', e)
         
         # List items
-        self.set_list_cars_selection(j['uploader']['list_cars'])
+        self.set_list_cars_selection(self.server['uploader']['list_cars'])
 
         self._loading_uploader = False
 
@@ -541,14 +601,12 @@ class Uploader():
         else: name = self.combo_server.get_text()
 
         # Set up the server dictionary / json
-        server = dict()
-
-        server['settings'] = dict()
+        self.server['settings'] = dict()
         for key in self._server_keys:
             value = eval('self.'+key+'()', dict(self=self))
-            server['settings'][key] = value
+            self.server['settings'][key] = value
 
-        server['uploader'] = dict(
+        self.server['uploader'] = dict(
             combo_tracks  = self.combo_tracks.get_text(),
             combo_layouts = self.combo_layouts.get_text(),
             combo_carsets = self.combo_carsets.get_text(),
@@ -558,7 +616,7 @@ class Uploader():
         # Write the file
         if not os.path.exists('servers'): os.makedirs('servers')
         f = open(os.path.join('servers', name+'.json'), 'w', encoding="utf8")
-        json.dump(server, f, indent=2)
+        json.dump(self.server, f, indent=2)
         f.close()
         
         # Make sure it's selected.
@@ -756,16 +814,13 @@ class Uploader():
             self.log('List copied to clipboard')
             
         # Forward to the supplied URL
-        if self.checkbox_url() and self.text_url() != '':
-            self.log('Opening supplied URL...')
-            webbrowser.open(self.text_url())
-        #else: self.log('*Skipping URL')
+        if self.checkbox_url(): self.button_go_url.click()
 
         # Post-command
         if self.checkbox_post() and self.text_postcommand().strip() != '':
             self.log('Running post-command')
             if self.system([self.text_postcommand()]): return True
-        self.log('Done! Hopefully!')
+        self.log('------- DONE! -------\n')
 
 
     def package_content(self, skins_only=False):
@@ -1184,7 +1239,10 @@ class Uploader():
         # self.log('Downloading championship.json')
         # #c = 'scp -P '+port+' -i "' + pem +'" '+ login+':"'+self.text_remote_championship()+'" championship.json'
         # if self.system(['scp', '-T', '-P', port, '-i', pem, login+':"'+self.text_remote_championship()+'"', 'championship.json']): return True
-        c = self.championship = load_json('championship.json')
+        #c = load_json('championship.json')
+        if not 'championship' in self.server:
+            self.log('ERROR: Championship json has not been downloaded yet.')
+        c = self.server['championship']
 
         # Make sure there is a remote championship to upload to
         remote_championship = self.text_remote_championship().strip()
@@ -1288,12 +1346,29 @@ class Uploader():
                     'Team' : R[n]['Team'],
                     'Model': R[n]['Car'],
                     'Skin' : R[n]['Skin'], })
-        
+
+        # Finally, update the schedule
+        if self.checkbox_autoweek() and c['Events'][0]['Scheduled']:
+            self.log('  Auto-Week')
+            self.log('  ',c['Events'][0]['Scheduled'], '->')
+
+            # Parse the scheduled timestamp and add the qualifying time.
+            tq = dateutil.parser.isoparse(c['Events'][0]['Scheduled'])
+
+            # Go backwards to before our time, then forward to the first week after now.
+            week = datetime.timedelta(days=7)
+            while tq.timestamp() > time.time(): tq -= week
+            while tq.timestamp() < time.time(): tq += week
+
+            self.log('  ', tq.isoformat())
+            c['Events'][0]['Scheduled'] = tq.isoformat()
+
         # Write the new file.
-        self.log('Updating championship.json')
-        f = open('championship.json','w', encoding="utf8") 
-        json.dump(self.championship, f, indent=2)
-        f.close()
+        self.log('Saving championship')
+        # f = open('championship.json','w', encoding="utf8")
+        # json.dump(c, f, indent=2)
+        # f.close()
+        self.button_save_server.click()
         return False
 
     def generate_acserver_cfg(self):
@@ -1538,4 +1613,4 @@ class Uploader():
 
 
 # Start the show!
-self = Uploader()
+u = Uploader()
