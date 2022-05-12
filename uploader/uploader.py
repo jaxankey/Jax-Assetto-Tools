@@ -976,7 +976,7 @@ class Uploader:
         print(command)
         #r = os.system(command)
         self._c = command
-        self._r = subprocess.run(self._c, capture_output=True, shell=True)
+        self._r = subprocess.run(self._c, capture_output=False, shell=True)
         if self._r.returncode:
             self.log('--------------------') 
             self.log('ERROR:\n')
@@ -1157,7 +1157,7 @@ class Uploader:
         Pop up the directory selector.
         """
         path = egg.dialogs.load(text='Select a file to run, apex-nerd.', default_directory='assetto_precommand')
-        if(path): self.text_precommand('"'+path+'"')
+        if path: self.text_precommand('"'+path+'"')
 
     def _button_browse_postcommand_clicked(self, e):
         """
