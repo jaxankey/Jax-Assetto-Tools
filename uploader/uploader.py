@@ -193,7 +193,7 @@ class Uploader:
             tip='Remote path to the championship json we wish to update. Requires json mode in\nserver-manager\'s config.yml.', 
             signal_changed=self._any_server_setting_changed), alignment=0)
         self.button_download_championship = self.tab_settings.add(egg.gui.Button('Download',
-            tip='Try to download the specified file to championship.json, and get some basic info from it.',
+            tip='Download the specified championship into the server.json file.',
             signal_clicked = self._button_download_championship_clicked))
 
         self.tab_settings.set_row_stretch(20)
@@ -201,7 +201,7 @@ class Uploader:
         self.tab_settings.new_autorow()
         self.tab_settings.add(egg.gui.Label('Post-Upload URL:'))
         self.text_url = self.tab_settings.add(egg.gui.TextBox('',
-            tip='Website to open when uploading, for example a place to modify the car selection on the reservation sheet, or a place to upload files for everyone else.',
+            tip='Optional website to open after upload (e.g., the reservation sheet or the site that re-indexes server manager).',
             signal_changed=self._any_server_setting_changed), alignment=0)
         self.button_go_url = self.tab_settings.add(egg.gui.Button(
             'Go to URL', tip='Open the supplied URL in your browser.',
@@ -211,7 +211,7 @@ class Uploader:
         self.tab_settings.new_autorow()
         self.tab_settings.add(egg.gui.Label('Pre-Command:'))
         self.text_precommand = self.tab_settings.add(egg.gui.TextBox('',
-            tip='Command to run before everything begins.',
+            tip='Optional command to run before everything begins.',
             signal_changed=self._any_server_setting_changed), alignment=0)
         self.button_browse_precommand = self.tab_settings.add(egg.gui.Button('Browse', 
             tip='Opens a dialog to let you select a script file or something.',
@@ -222,7 +222,7 @@ class Uploader:
         self.tab_settings.new_autorow()
         self.tab_settings.add(egg.gui.Label('Post-Command:'))
         self.text_postcommand = self.tab_settings.add(egg.gui.TextBox('',
-            tip='Command to run after everything is done.',
+            tip='Optional command to run after everything is done.',
             signal_changed=self._any_server_setting_changed), alignment=0)
         self.button_browse_postcommand = self.tab_settings.add(egg.gui.Button('Browse', 
             tip='Opens a dialog to let you select a script file or something.',
@@ -698,11 +698,24 @@ class Uploader:
         """
         print('_combo_mode_changed')
         premium = self.combo_mode.get_index() == 1
-        self.label_remote_championship.hide(premium)
-        self.text_remote_championship .hide(premium)
+
+        # Settings tab
+        self.label_remote_championship   .hide(premium)
+        self.text_remote_championship    .hide(premium)
+        self.button_download_championship.hide(premium)
+        self.label_stop         .show(premium)
+        self.label_start        .show(premium)
+        self.label_monitor      .show(premium)
+        self.text_stop          .show(premium)
+        self.text_start         .show(premium)
+        self.button_start_server.show(premium)
+        self.text_monitor       .show(premium)
+
+        # Uploader tab
         self.checkbox_restart         .show(premium)
         self.checkbox_monitor         .show(premium)
         self.checkbox_autoweek        .hide(premium)
+
         self._any_server_setting_changed()
 
 
