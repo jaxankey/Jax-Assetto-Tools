@@ -285,13 +285,6 @@ class Uploader:
         self.list_cars.setSelectionMode(egg.pyqtgraph.QtGui.QAbstractItemView.ExtendedSelection)
         self.list_cars.itemSelectionChanged.connect(self._list_cars_changed)
 
-        # self.tab_uploader.new_autorow()
-        # self.tab_uploader.add(egg.gui.Label('\nRace Flag Drops').set_style(self.style_category))
-        # self.tab_uploader.new_autorow()
-        # self.grid_date = self.tab_uploader.add(egg.gui.GridLayout(margins=False))
-        # self.datetime = self.grid_date.add(egg.pyqtgraph.QtGui.QDateTimeEdit())
-        # self.tab_uploader.new_autorow()
-
         # Server stuff
         self.tab_uploader.new_autorow()
         self.tab_uploader.add(egg.gui.Label('\nServer').set_style(self.style_category))
