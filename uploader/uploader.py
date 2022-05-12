@@ -700,6 +700,9 @@ class Uploader:
         premium = self.combo_mode.get_index() == 1
         self.label_remote_championship.hide(premium)
         self.text_remote_championship .hide(premium)
+        self.checkbox_restart         .show(premium)
+        self.checkbox_monitor         .show(premium)
+        self.checkbox_autoweek        .hide(premium)
         self._any_server_setting_changed()
 
 
@@ -768,8 +771,8 @@ class Uploader:
             # Upload the 7z, and clean remote files
             if self.upload_content(skins_only): return True
     
-            # Stop server
-            if self.checkbox_restart() and stop != '' and not skins_only:
+            # Stop server, but only if there is a command, we're not doing skins, and we're in vanilla mode
+            if self.checkbox_restart() and stop != '' and not skins_only and self.combo_mode()==0:
                 self.log('Stopping server...')
                 #c = 'ssh -p '+port+' -i "'+pem+'" '+login+' "'+stop+'"' 
                 if self.system(['ssh', '-T', '-p', port, '-i', pem, login, stop]): return True
@@ -787,12 +790,12 @@ class Uploader:
                 if self.system(['scp', '-T', '-P', port, '-i', pem, 'championship.json', login+':"'+self.text_remote_championship()+'"']): return True
                 
             # Start server
-            if self.checkbox_restart() and start != '' and not skins_only:
+            if self.checkbox_restart() and start != '' and not skins_only and self.combo_mode()==0:
                 self.start_server()
             #else: self.log('*Skipping server start')
 
-            # Start server
-            if self.checkbox_monitor() and monitor != '' and not skins_only:
+            # Restart monitor if enabled, there is a script, we're not just doing skins, and we're in vanilla mode
+            if self.checkbox_monitor() and monitor != '' and not skins_only and self.combo_mode()==0:
                 self.log('Restarting monitor...')
                 #c = 'ssh -p '+port+' -i "'+pem+'" '+login+' "'+monitor+'"' 
                 if self.system(['ssh', '-T', '-p', port, '-i', pem, login, monitor]): return True
@@ -1340,7 +1343,8 @@ class Uploader:
                     'Model': R[n]['Car'],
                     'Skin' : R[n]['Skin'], })
 
-        # Finally, update the schedule
+        # Finally, update the schedule, but only if we're in ACSM mode (we must be for this
+        # function to have been called!) and the key exists
         if self.checkbox_autoweek() and c['Events'][0]['Scheduled']:
             self.log('  Auto-Week')
             self.log('  ',c['Events'][0]['Scheduled'], '->')
