@@ -1,16 +1,15 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-import glob, codecs, os, shutil, random, json, pyperclip, webbrowser, stat
-import dateutil, subprocess, time, datetime
-import spinmob.egg as egg
+import glob, codecs, os, sys, shutil, random, json, pyperclip, webbrowser, stat
+import dateutil, subprocess, time, datetime, importlib
 
-# Go button for URL
-
-
-# Change to the directory of this script
-os.chdir(os.path.dirname(os.path.abspath(__file__)))
+# Change to the directory of this script depending on whether this is a "compiled" version or run as script
+if os.path.split(sys.executable)[-1] == 'uploader.exe': os.chdir(os.path.dirname(sys.executable)) # For executable version
+else:                                                   os.chdir(os.path.dirname(os.path.abspath(__file__)))
 print('WORKING DIRECTORY:')
 print(os.getcwd())
+
+import spinmob.egg as egg
 
 # Function for loading a json at the specified path
 def load_json(path):
@@ -48,6 +47,12 @@ class Uploader:
 
     def __init__(self, show=True, blocking=True):
 
+        # If we're in executable mode, close the splash screen
+        if '_PYIBoot_SPLASH' in os.environ and importlib.util.find_spec("pyi_splash"):
+            import pyi_splash # Warning should be ok; we don't get here outside of executable mode.
+            pyi_splash.update_text('UI Loaded ...')
+            pyi_splash.close()
+
         # For troubleshooting.
         # self.timer_exceptions = egg.gui.TimerExceptions()
         # self.timer_exceptions.signal_new_exception.connect(self._signal_new_exception)
@@ -60,12 +65,6 @@ class Uploader:
         self._refilling_layouts = False
         self._refilling_tracks  = False
         self._refilling_carsets = False
-        
-        ######################
-        # Set the working directory to that of the script
-        a = os.path.abspath(__file__)
-        d = os.path.dirname(a)
-        os.chdir(d)
 
         # Make sure we have a carset folder
         if not os.path.exists('carsets'): os.mkdir('carsets')
@@ -89,24 +88,25 @@ class Uploader:
         self.grid_top = self.window.add(egg.gui.GridLayout(False))
         self.window.new_autorow()
 
+        self.grid_top.add(egg.gui.Label('Server Config:'))
         self.combo_server = self.grid_top.add(egg.gui.ComboBox([],
-            tip='Select a server configuration.',
+            tip='Select a server profile.',
             signal_changed=self._combo_server_changed)).set_width(200)
 
         self.button_load_server = self.grid_top.add(egg.gui.Button('Load',
-            tip='Load the selected server configuration.',
+            tip='Load the selected server profile.',
             signal_clicked=self._button_load_server_clicked)).hide()
 
         self.button_save_server = self.grid_top.add(egg.gui.Button('Save',
-            tip='Save the current server configuration.',
+            tip='Save the current server profile.',
             signal_clicked=self._button_save_server_clicked)).hide()
 
         self.button_clone_server = self.grid_top.add(egg.gui.Button('Clone',
-            tip='Clones the selected server configuration.',
+            tip='Clones the selected server profile.',
             signal_clicked=self._button_clone_server_clicked))
 
         self.button_delete_server = self.grid_top.add(egg.gui.Button('Delete',
-            tip='Delete the selected server configuration (and saves it to servers/servername.json.backup in case you bootched).',
+            tip='Delete the selected server profile (and saves it to servers/servername.json.backup in case you bootched).',
             signal_clicked=self._button_delete_server_clicked))
 
         # Tabs
@@ -302,7 +302,7 @@ class Uploader:
             tip='Run the pre-command before everything starts.'))
         self.checkbox_modify  = self.grid2s.add(egg.gui.CheckBox(
             'Config', signal_changed=self._any_server_setting_changed, 
-            tip='Modify the server files with the above configuration.'))
+            tip='Modify the server files with the above profile.'))
         self.checkbox_autoweek = self.grid2s.add(egg.gui.CheckBox(
             'Auto-Week', signal_changed=self._any_server_setting_changed,
             tip='Automatically increment the race time\'s week until the next available date.'))
@@ -429,10 +429,11 @@ class Uploader:
         
         # Clear existing
         self.combo_server.clear()
-        self.combo_server.add_item('[New Server]')
+        self.combo_server.add_item('[Create Server Profile]')
 
         if not os.path.exists('servers'): os.makedirs('servers')
         paths = glob.glob(os.path.join('servers','*.json'))
+        paths.sort()
         for path in paths: self.combo_server.add_item(os.path.splitext(os.path.split(path)[-1])[0])
 
         # Now set it to the previous selection
@@ -491,7 +492,7 @@ class Uploader:
         """
         if self.combo_server() == 0: return
 
-        name, ok = egg.pyqtgraph.QtGui.QInputDialog.getText(egg.pyqtgraph.QtGui.QWidget(), 'New Server', 'Name your new server:')
+        name, ok = egg.pyqtgraph.QtGui.QInputDialog.getText(egg.pyqtgraph.QtGui.QWidget(), 'New Server Profile', 'Name your new server profile:')
         name = name.strip()
 
         # If someone cancels out do nothing

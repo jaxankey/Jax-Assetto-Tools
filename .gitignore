@@ -8,3 +8,4 @@ uploads.7z
 *.backup
 egg_settings
 .idea
+*.exe
