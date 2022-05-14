@@ -1267,7 +1267,7 @@ class Uploader:
         new_venue = False
 
         # Name
-        new_name = self.combo_carsets.get_text()+' at '+self.track['name']
+        new_name = self.combo_carsets.get_text()+' at '+self.track['name']+' ('+self.combo_server.get_text()+')'
         # if c['Name'] != new_name: 
         #     print('Venue:', c['Name'], '->', new_name)
         #     new_venue = True
