@@ -11,6 +11,9 @@ print(os.getcwd())
 
 import spinmob.egg as egg
 
+_unsaved_carset = '[Unsaved Carset]'
+_create_new_profile = '[Create New Profile]'
+
 # Function for loading a json at the specified path
 def load_json(path):
     """
@@ -88,10 +91,10 @@ class Uploader:
         self.grid_top = self.window.add(egg.gui.GridLayout(False))
         self.window.new_autorow()
 
-        self.grid_top.add(egg.gui.Label('Server Config:'))
+        self.grid_top.add(egg.gui.Label('Profile:'))
         self.combo_server = self.grid_top.add(egg.gui.ComboBox([],
             tip='Select a server profile.',
-            signal_changed=self._combo_server_changed)).set_width(200)
+            signal_changed=self._combo_server_changed)).set_width(150)
 
         self.button_load_server = self.grid_top.add(egg.gui.Button('Load',
             tip='Load the selected server profile.',
@@ -106,8 +109,12 @@ class Uploader:
             signal_clicked=self._button_clone_server_clicked))
 
         self.button_delete_server = self.grid_top.add(egg.gui.Button('Delete',
-            tip='Delete the selected server profile (and saves it to servers/servername.json.backup in case you bootched).',
+            tip='Delete the selected server profile (and saves it to servers/servername.json.backup in case you bootched it).',
             signal_clicked=self._button_delete_server_clicked))
+
+        self.button_delete_server = self.grid_top.add(egg.gui.Button('Rename',
+            tip='Renames the selected server profile.',
+            signal_clicked=self._button_rename_server_clicked))
 
         # Tabs
         self.tabs = self.window.add(egg.gui.TabArea(autosettings_path='tabs'))
@@ -263,14 +270,14 @@ class Uploader:
         self.grid2b = self.tab_uploader.add(egg.gui.GridLayout(False), alignment=0)
 
         # Save load buttons
-        self.combo_carsets = self.grid2b.add(egg.gui.ComboBox(['[New Carset]'],
+        self.combo_carsets = self.grid2b.add(egg.gui.ComboBox([_unsaved_carset],
             signal_changed=self._combo_carsets_changed,
             tip='Select a carset (if you have one saved)!'), alignment=0)
         self.grid2b.set_column_stretch(0)
         self.button_load = self.grid2b.add(egg.gui.Button('Load',
             tip='Load the selected carset.', signal_clicked=self._button_load_clicked))
         self.button_save = self.grid2b.add(egg.gui.Button('Save',
-            tip='Save / overwrite the selected carset with the selection below.\nIf [New Carset] is selected, this pops up a dialog to name the carset.',
+            tip='Save / overwrite the selected carset with the selection below.\nIf [Unsaved Carset] is selected, this pops up a dialog to name the carset.',
             signal_clicked=self._button_save_clicked))
         self.button_delete = self.grid2b.add(egg.gui.Button('Delete',
             tip='Delete the selected carset.',
@@ -331,15 +338,27 @@ class Uploader:
         # upload button
         self.tab_uploader.new_autorow()
         self.grid_go = self.tab_uploader.add(egg.gui.GridLayout(False), alignment=0)
+
         self.button_upload = self.grid_go.add(egg.gui.Button(
             'Go!', tip='Packages the required server data, uploads, restarts the server, cleans up the local files.', 
-            signal_clicked=self._button_upload_clicked), alignment=0)
+            signal_clicked=self._button_upload_clicked), alignment=0).set_width(150)
         self.button_upload.set_style(self.style_fancybutton)
-        self.button_upload = self.grid_go.add(egg.gui.Button(
-            'Skins only!', tip='Skips Config, Clean Server, Restart Server, Restart Monitor, and only collects skins during Content.', 
-            signal_clicked=self._button_skins_clicked), alignment=0)
-        self.button_upload.set_style(self.style_fancybutton)
-        
+
+        self.button_skins = self.grid_go.add(egg.gui.Button(
+            'Skins Only!', tip='Skips Config, Clean Server, Restart Server, Restart Monitor, and only collects skins during Content.',
+            signal_clicked=self._button_skins_clicked), alignment=0).set_width(150)
+        self.button_skins.set_style(self.style_fancybutton)
+
+        self.grid_spacer = self.grid_go.add(egg.gui.GridLayout())
+        self.grid_go.set_column_stretch(2)
+
+        self.button_send_to = self.grid_go.add(egg.gui.Button(
+            'Send To:',
+            tip='Skips Config, Clean Server, Restart Server, Restart Monitor, and only collects skins during Content.',
+            signal_clicked=self._button_send_to_clicked), alignment=0).set_width(80)
+        self.button_send_to.set_style(self.style_fancybutton)
+        self.combo_send_to = self.grid_go.add(egg.gui.ComboBox([])).set_width(150)
+
         # List of items to save associated with each "server" entry in the top combo
         self._server_keys = [
             'combo_mode',
@@ -381,6 +400,30 @@ class Uploader:
         ######################
         # Show the window; no more commands below this.
         if show: self.window.show(blocking)
+
+    def _button_send_to_clicked(self, *a):
+        """
+        Sends the venue to the selected server
+        """
+        # Get the track, cars and carset
+        track  = self.combo_tracks.get_text()
+        layout = self.combo_layouts.get_text()
+        carset = self.combo_carsets.get_text()
+        cars   = self.get_selected_cars()
+
+        try:
+            # Now switch to the "send to" server
+            self.combo_server.set_text(self.combo_send_to.get_text())
+
+            # Track and layout
+            self.combo_tracks.set_text(track)
+            if len(self.combo_layouts.get_all_items()) > 0: self.combo_layouts.set_text(layout)
+
+            # If we have an unsaved carset, use the list, otherwise just choose the carset
+            if carset == _unsaved_carset: self.set_list_cars_selection(cars)
+            self.combo_carsets.set_text(carset)
+
+        except Exception as e: print('_button_send_to_clicked', e)
 
     def _button_go_url_clicked(self, *a):
         """
@@ -429,7 +472,7 @@ class Uploader:
         
         # Clear existing
         self.combo_server.clear()
-        self.combo_server.add_item('[Create Server Profile]')
+        self.combo_server.add_item(_create_new_profile)
 
         if not os.path.exists('servers'): os.makedirs('servers')
         paths = glob.glob(os.path.join('servers','*.json'))
@@ -507,6 +550,33 @@ class Uploader:
         self.combo_server.add_item(name)
         self.combo_server.set_text(name)
 
+    def _button_rename_server_clicked(self, *a):
+        """
+        Pops up a dialog and adds a new server with the same settings.
+        """
+        if self.combo_server() == 0: return
+
+        name, ok = egg.pyqtgraph.QtGui.QInputDialog.getText(egg.pyqtgraph.QtGui.QWidget(), 'Rename Server Profile', 'Rename your server profile:')
+        name = name.strip()
+
+        # If someone cancels out do nothing
+        if not ok or name == '': return
+
+        # Otherwise, copy the current selection
+        print('Renaming')
+        old_path = os.path.join('servers', self.combo_server.get_text()+'.json')
+        new_path = os.path.join('servers', name+'.json')
+        os.rename(old_path, new_path)
+
+        # Add it to the list and select it
+        self.combo_server.add_item(name)
+
+        # Remove the currently selected one
+        self.combo_server.remove_item(self.combo_server())
+
+        # Now update the selected server to the new one.
+        self.combo_server.set_text(name)
+
     def _button_load_server_clicked(self, *a): 
         """
         Load the selected server.
@@ -523,6 +593,13 @@ class Uploader:
 
         # Refresh the content based on the assetto path
         self._button_refresh_clicked()
+
+        # Populate the send to combo
+        self.combo_send_to.clear()
+        for item in self.combo_server.get_all_items():
+            if item not in [self.combo_server.get_text(), _create_new_profile]:
+                self.combo_send_to.add_item(item)
+
 
     def _load_server_settings(self):
         """
@@ -615,7 +692,6 @@ class Uploader:
         
         # Make sure it's selected.
         self.combo_server.set_text(name)
-
     
     def _button_delete_server_clicked(self, *a): 
         """
@@ -648,17 +724,20 @@ class Uploader:
 
     def save_server_gui(self):
         """
-        Saves the GUI config that isn't auto-saved already. This includes both server and uploader.
+        Saves which server profile is selected, and the send_to selection.
         """
         if self._init: return
         
-        gui = dict(combo_server=self.combo_server.get_text())
+        gui = dict(
+            combo_server=self.combo_server.get_text(),
+            combo_send_to=self.combo_send_to.get_text()
+        )
         print('save_server_gui')
         json.dump(gui, open('server.json', 'w'), indent=2)
 
     def load_server_gui(self):
         """
-        Loads server.json to fill in the config that is not auto-saved already.
+        Loads the previously selected profile and send to.
         """
         print('load_server_gui')
         gui = load_json('server.json')
@@ -666,6 +745,9 @@ class Uploader:
 
         try: self.combo_server.set_text(gui['combo_server'])
         except Exception as e: print('load_server_gui combo_server', e)
+
+        try: self.combo_send_to.set_text(gui['combo_send_to'])
+        except Exception as e: print('load_server_gui combo_send_to', e)
 
     def _checkbox_clean_changed(self, e=None):
         """
@@ -1520,7 +1602,7 @@ class Uploader:
 
         # Clear existing
         self.combo_carsets.clear()
-        self.combo_carsets.add_item('[New Carset]')
+        self.combo_carsets.add_item(_unsaved_carset)
 
         if not os.path.exists('carsets'): os.makedirs('carsets')
         paths = glob.glob(os.path.join('carsets','*'))
