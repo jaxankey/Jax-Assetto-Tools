@@ -851,12 +851,12 @@ class Monitor():
         track_name = self.state['track_name']
         if not track_name: track_name = self.state['track']
         if not track_name: track_name = 'track name not found'
-        if track_name: body1 = body1 + track_name + ']('+url_event_info+')'
+        if track_name: body1 = body1 + track_name
 
         # Add the registrants
         if self['number_registered'] and self['number_slots']:
             body1 = body1 + ' ('+str(self['number_registered'])+'/'+str(self['number_slots'])+' registered)'
-        body1 = body1+'**'
+        body1 = body1+']('+url_event_info+')**'
 
         # If we have qual / race timestamps, put those in
         if self['race_timestamp']:
