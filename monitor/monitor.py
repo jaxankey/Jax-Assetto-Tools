@@ -855,7 +855,7 @@ class Monitor():
 
         # Add the registrants
         if self['number_registered'] and self['number_slots']:
-            body1 = body1 + ' ('+str(self['number_registered'])+'/'+self['number_slots']+' registered)'
+            body1 = body1 + ' ('+str(self['number_registered'])+'/'+str(self['number_slots'])+' registered)'
         body1 = body1+'**'
 
         # If we have qual / race timestamps, put those in
