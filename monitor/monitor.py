@@ -336,7 +336,11 @@ class Monitor():
                     event_timestamp_changed = True
                     self['qual_timestamp'] = tq
                     self['race_timestamp'] = tr
-            
+
+                # Now look for SignUpForm:Responses list length and Stats:NumEntrants
+                self['number_registered'] = len(c['SignUpForm']['Responses'])
+                self['number_slots']      = c['Stats']['NumEntrants']
+
             except Exception as e: print('ERROR with championship.json:', e)
 
         # Finally, if ANYTHING changed, we need to update the messages
@@ -357,6 +361,8 @@ class Monitor():
             timestamp         = None,   # Timestamp of the first observation of this venue.
             qual_timestamp    = None,   # Timestamp of the qual
             race_timestamp    = None,   # Timestamp of the race
+            number_slots      = None,   # Number of slots in championship
+            number_registered = None,   # Number of people registered in championship
             track_name        = None,   # Track / layout name
             track             = None,   # Directory name of the track
             layout            = None,   # Layout name
@@ -845,7 +851,12 @@ class Monitor():
         track_name = self.state['track_name']
         if not track_name: track_name = self.state['track']
         if not track_name: track_name = 'track name not found'
-        if track_name: body1 = body1 + track_name + ']('+url_event_info+')**'
+        if track_name: body1 = body1 + track_name + ']('+url_event_info+')'
+
+        # Add the registrants
+        if self['number_registered'] and self['number_slots']:
+            body1 = body1 + ' ('+str(self['number_registered'])+'/'+self['number_slots']+' registered)'
+        body1 = body1+'**'
 
         # If we have qual / race timestamps, put those in
         if self['race_timestamp']:
