@@ -11,6 +11,7 @@ print(os.getcwd())
 
 import spinmob.egg as egg
 
+_default_layout = '[default layout]'
 _unsaved_carset = '[Unsaved Carset]'
 _create_new_profile = '[Create New Profile]'
 
@@ -354,7 +355,7 @@ class Uploader:
 
         self.button_send_to = self.grid_go.add(egg.gui.Button(
             'Send To:',
-            tip='Skips Config, Clean Server, Restart Server, Restart Monitor, and only collects skins during Content.',
+            tip='Send the track, layout, and car selection to the selected server profile and switch to that profile.',
             signal_clicked=self._button_send_to_clicked), alignment=0).set_width(80)
         self.button_send_to.set_style(self.style_fancybutton)
         self.combo_send_to = self.grid_go.add(egg.gui.ComboBox([])).set_width(150)
@@ -1116,6 +1117,10 @@ class Uploader:
         self._refilling_layouts = True
         self.combo_layouts.clear()
 
+        # Search for the default layout if it exists
+        if os.path.exists(os.path.join(self.text_local(),'content','tracks',track,'models.ini')):
+            self.combo_layouts.add_item(_default_layout)
+
         # Search for models_*.ini
         root = os.path.join(self.text_local(), 'content', 'tracks', track, 'models_*.ini')
         print(root)
@@ -1145,8 +1150,8 @@ class Uploader:
         layout = self.combo_layouts.get_text()
 
         # Path to ui.json
-        if layout == '': p = os.path.join(local,'content','tracks',track,'ui',       'ui_track.json')
-        else:            p = os.path.join(local,'content','tracks',track,'ui',layout,'ui_track.json')
+        if layout == _default_layout: p = os.path.join(local,'content','tracks',track,'ui',       'ui_track.json')
+        else:                         p = os.path.join(local,'content','tracks',track,'ui',layout,'ui_track.json')
         if not os.path.exists(p): return
 
         # Load it and get the pit number
@@ -1380,18 +1385,23 @@ class Uploader:
         e['RaceSetup']['Cars']  = ';'.join(self.get_selected_cars())
         track  = self.combo_tracks.get_text()
         layout = self.combo_layouts.get_text()
-        if e['RaceSetup']['Track']       != track \
-        or e['RaceSetup']['TrackLayout'] != layout: 
-            print('VENUE Track or Layout change.')
-            new_venue = True
+        if layout == _default_layout: layout = ''
+
+        # For this new_venue stuff to work, we'd have to download the entrants
+        # From the championship, but we cannot ALWAYS download the championship because
+        # it becomes irreparably mutilated after an event.
+        # if e['RaceSetup']['Track']       != track \
+        # or e['RaceSetup']['TrackLayout'] != layout:
+        #     print('VENUE Track or Layout change.')
+        #     new_venue = True
         e['RaceSetup']['Track'] = track
         e['RaceSetup']['TrackLayout'] = layout
         e['RaceSetup']['LegalTyres'] = "V;H;M;S;ST;SM;SV" # JACK: UNPACK AND SCRAPE DATA.ACD? GROSS!!
         
         # Reset the signup form, but only if the venue has changed.
-        # if new_venue: 
+        # if new_venue:
         #     self.log('New venue detected, clearing signup.')
-        # JACK: 
+        # JACK:
         c['SignUpForm']['Responses'] = []
         
         # Now that we know if there are still responses, 
@@ -1410,7 +1420,7 @@ class Uploader:
         # Now fill the pitboxes
         # JACK: Classes,Entrants must have an entry for everyone in
         #       the SignupForm Responses
-        R = c['SignUpForm']['Responses']
+        #R = c['SignUpForm']['Responses']
         for n in range(N):
             x['Entrants']['CAR_'+str(n+1)] = {
                 "InternalUUID": "%08d-0000-0000-0000-000000000000" % (n+1),
@@ -1434,13 +1444,13 @@ class Uploader:
                 'Model' : selected_cars[n%len(selected_cars)], })
      
             # If we have a response in the sign-up form, modify the entrants
-            if n < len(R):
-                x['Entrants']['CAR_'+str(n+1)].update({
-                    'Name' : R[n]['Name'],
-                    'GUID' : R[n]['GUID'],
-                    'Team' : R[n]['Team'],
-                    'Model': R[n]['Car'],
-                    'Skin' : R[n]['Skin'], })
+            # if n < len(R):
+            #     x['Entrants']['CAR_'+str(n+1)].update({
+            #         'Name' : R[n]['Name'],
+            #         'GUID' : R[n]['GUID'],
+            #         'Team' : R[n]['Team'],
+            #         'Model': R[n]['Car'],
+            #         'Skin' : R[n]['Skin'], })
 
         # Finally, update the schedule, but only if we're in ACSM mode (we must be for this
         # function to have been called!) and the key exists
@@ -1545,7 +1555,8 @@ class Uploader:
             elif key == 'TRACK': ls[n] = 'TRACK='+track+'\n'
 
             # Layout
-            elif key == 'CONFIG_TRACK': ls[n] = 'CONFIG_TRACK='+self.combo_layouts.get_text()+'\n'
+            elif key == 'CONFIG_TRACK': ls[n] = 'CONFIG_TRACK=' \
+                +self.combo_layouts.get_text() if self.combo_layouts.get_text() != _default_layout else ''+'\n'
 
             # Slots
             elif key == 'MAX_CLIENTS': ls[n] = 'MAX_CLIENTS='+str(N)+'\n'
