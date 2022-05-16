@@ -853,9 +853,6 @@ class Monitor():
         if not track_name: track_name = 'track name not found'
         if track_name: body1 = body1 + track_name
 
-        # Add the registrants
-        if self['number_registered'] and self['number_slots']:
-            body1 = body1 + ' ('+str(self['number_registered'])+'/'+str(self['number_slots'])+' registered)'
         body1 = body1+']('+url_event_info+')**'
 
         # If we have qual / race timestamps, put those in
@@ -878,6 +875,10 @@ class Monitor():
         else:
             body2 = ''
             color = 0
+
+        # Add the registrants
+        if self['number_registered'] and self['number_slots']:
+            body1 = body1 + '\n**' + str(self['number_registered']) + '/' + str(self['number_slots']) + ' registered**'
 
         # Send the main info message
         self.state['laps_message_id'] = self.send_message(self.webhook_info, body1, body2, '\n\n'+laps_footer, self.state['laps_message_id'], color=color)
