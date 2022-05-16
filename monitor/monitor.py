@@ -27,6 +27,7 @@ path_log = ''
 server_manager_premium_mode = False
 url_INFO          = None
 url_api_details   = None
+no_down_warning   = False
 path_live_timings = None
 path_championship = None
 
@@ -202,14 +203,15 @@ class Monitor():
 
         # Grab the "details" from 8081/API/details. If this fails, the "server is down"
         # because we can't get basic information like carset.
-        try: self.details = json.loads(urllib.request.urlopen(url_api_details,  timeout=5).read(), strict=False)
+        try: self.details = json.loads(urllib.request.urlopen(url_api_details, timeout=5).read(), strict=False)
         except:
-            print('ERROR: Could not open ' + url_api_details)
-            if not self['down_message_id']: 
-                self['down_message_id'] = self.send_message(self.webhook_info, 'Server is down. I need an adult! :(', '', '')
-                self.save_and_archive_state()
+            if not no_down_warning:
+                print('ERROR: Could not open ' + url_api_details)
+                if not self['down_message_id']: 
+                    self['down_message_id'] = self.send_message(self.webhook_info, 'Server is down. I need an adult! :(', '', '')
+                    self.save_and_archive_state()
             return
-        
+
         # Print the debug info
         if first_run and debug:
             print('\n----First run self.details:')
