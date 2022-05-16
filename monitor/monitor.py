@@ -878,11 +878,10 @@ class Monitor():
 
         # Add the registrants
         if self['number_registered'] and self['number_slots']:
-            registrants = '\n**' + str(self['number_registered']) + '/' + str(self['number_slots']) + ' registered**'
-        else: registrants = ''
+            body1 = body1 + '\n**' + str(self['number_registered']) + '/' + str(self['number_slots']) + ' registered**'
 
         # Send the main info message
-        self.state['laps_message_id'] = self.send_message(self.webhook_info, body1, body2, '\n\n'+laps_footer+registrants, self.state['laps_message_id'], color=color)
+        self.state['laps_message_id'] = self.send_message(self.webhook_info, body1, body2, '\n\n'+laps_footer, self.state['laps_message_id'], color=color)
         if self.state['laps_message_id'] is None: print('DID NOT EDIT OR SEND LAPS MESSAGE')
 
 
