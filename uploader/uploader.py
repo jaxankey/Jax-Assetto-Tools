@@ -795,9 +795,8 @@ class Uploader:
         self.text_monitor       .show(premium)
 
         # Uploader tab
-        self.checkbox_restart         .show(premium)
-        self.checkbox_monitor         .show(premium)
-        self.checkbox_autoweek        .hide(premium)
+        self.checkbox_restart .show(premium)
+        self.checkbox_autoweek.hide(premium)
 
         self._any_server_setting_changed()
 
@@ -1005,6 +1004,10 @@ class Uploader:
         
         # Back to the upload process
         if os.path.exists('uploads'):
+
+            # Remove the carsets folder
+            self.log('Removing remote carsets')
+            if self.system(['ssh', '-T', '-p', port,'-i',pem,login, 'rm -rf '+remote+'/carsets']): return True
             
             # Remote extract
             self.log('Extracting remote uploads.7z...')

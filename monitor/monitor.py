@@ -861,12 +861,16 @@ class Monitor():
         if laps: body1 = body1 + '\n' + laps
 
         # Separate body for who's online (laps get cut first)
-        if onlines: body2 = '\n\n' + online_header + '\n' + onlines
-        else:       body2 = ''
+        if onlines:
+            body2 = '\n\n' + online_header + '\n' + onlines
+            color = 15548997
+        else:
+            body2 = ''
+            color = 0
 
         # Send the main info message
-        self.state['laps_message_id'] = self.send_message(self.webhook_info, body1, body2, '\n\n'+laps_footer, self.state['laps_message_id'])
-        if self.state['laps_message_id'] == None: print('DID NOT EDIT OR SEND LAPS MESSAGE')
+        self.state['laps_message_id'] = self.send_message(self.webhook_info, body1, body2, '\n\n'+laps_footer, self.state['laps_message_id'], color=color)
+        if self.state['laps_message_id'] is None: print('DID NOT EDIT OR SEND LAPS MESSAGE')
 
 
         #########################################
