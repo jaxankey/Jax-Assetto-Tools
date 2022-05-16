@@ -1458,9 +1458,13 @@ class Uploader:
 
         # Write the new file.
         self.log('Saving championship')
-        # f = open('championship.json','w', encoding="utf8")
-        # json.dump(c, f, indent=2)
-        # f.close()
+
+        # Save it also for uploading...
+        f = open('championship.json','w', encoding="utf8")
+        json.dump(c, f, indent=2)
+        f.close()
+
+        # And save it to the server config!
         self.button_save_server.click()
         return False
 
