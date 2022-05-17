@@ -872,8 +872,10 @@ class Monitor():
 
         # If we have qual / race timestamps, put those in
         if self['race_timestamp']:
-            if type(self['race_timestamp']) is not list: self['race_timestamp'] = [0]*len(path_championship)
-            if type(self['qual_timestamp']) is not list: self['qual_timestamp'] = [0]*len(path_championship)
+            if type(self['race_timestamp'])    is not list: self['race_timestamp'] = [0]*len(path_championship)
+            if type(self['qual_timestamp'])    is not list: self['qual_timestamp'] = [0]*len(path_championship)
+            if type(self['number_registered']) is not list: self['number_registered'] = [0]*len(path_championship)
+            if type(self['number_slots'])      is not list: self['number_slots']      = [0]*len(path_championship)
 
             for n in range(len(self['race_timestamp'])):
                 body1 = body1 + '\n**'
