@@ -883,11 +883,11 @@ class Monitor():
 
                 # If we have a registration link
                 if url_registration not in ['', None, []]:
-                    body1 = body1 + '[Register]('+url_registration[n]+') for '
+                    body1 = body1 + '[Register for
 
                 # Now add the time stamp for this race
                 ts = str(int(self['race_timestamp'][n]))
-                body1 = body1 + '<t:'+ts+':F>'# (<t:'+ts+':R>)'
+                body1 = body1 + '<t:'+ts+':F>]('+url_registration[n]+')'# (<t:'+ts+':R>)'
 
                 # There should be registration numbers since we have the championship.json
                 body1 = body1 + ' ('+str(self['number_registered'][n])+'/'+str(self['number_slots'][n])+')**'
