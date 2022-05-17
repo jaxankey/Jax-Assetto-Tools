@@ -878,8 +878,8 @@ class Monitor():
                 ts = str(int(self['race_timestamp'][n]))
 
                 # Registration link
-                if reg: reg_string = reg_string + '\n\ \ **[<t:' + ts + ':F>](' + url_registration[n] + ')'
-                else:   reg_string = reg_string + '\n\ \ **<t:' + ts + ':F>'
+                if reg: reg_string = reg_string + '\n:point_right: **[<t:' + ts + ':F>](' + url_registration[n] + ')'
+                else:   reg_string = reg_string + '\n:point_right: **<t:' + ts + ':F>'
 
                 # There should be registration numbers since we have the championship.json
                 reg_string = reg_string + ' (' + str(self['number_registered'][n]) + '/' + str(
@@ -898,7 +898,7 @@ class Monitor():
         if track_name: body1 = body1 + track_name+']('+url_event_info+')**'
 
         # Subheader
-        body1 = body1 + '\n' + reg_string + venue_subheader
+        body1 = body1 + reg_string + venue_subheader
 
         # Below the venue and above laps
         if laps: body1 = body1 + '\n' + laps
