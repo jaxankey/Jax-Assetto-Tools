@@ -886,16 +886,16 @@ class Monitor():
                     self['number_slots'][n]) + ')'
 
         # Assemble the message body
-        body1 = venue_header + '**['
+        body1 = venue_header + '**__['
 
         # If we have a carset, start with that
-        if self.state['carset']: body1 = body1 + str(self.state['carset'])+' at '
+        if self.state['carset']: body1 = body1 + str(self.state['carset']).upper()+' @ '
 
         # Track name
         track_name = self.state['track_name']
         if not track_name: track_name = self.state['track']
-        if not track_name: track_name = 'track name not found'
-        if track_name: body1 = body1 + track_name+']('+url_event_info+')**'
+        if not track_name: track_name = 'Unknown Track?'
+        if track_name: body1 = body1 + track_name.upper()+']('+url_event_info+')__**'
 
         # Subheader
         body1 = body1 + reg_string + venue_subheader
