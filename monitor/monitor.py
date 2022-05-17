@@ -878,16 +878,17 @@ class Monitor():
             if type(self['number_slots'])      is not list: self['number_slots']      = [0]*len(path_championship)
 
             body1 = body1+'\n'
+            reg = url_registration not in ['', None, []]
+            if reg: body1 = body1 + '\n**Registration:\n'
+            else:   body1 = body1 + '\n**'
+
             for n in range(len(self['race_timestamp'])):
-                body1 = body1 + '\n**'
-
-                # If we have a registration link
-                if url_registration not in ['', None, []]:
-                    body1 = body1 + '[Register for '
-
                 # Now add the time stamp for this race
                 ts = str(int(self['race_timestamp'][n]))
-                body1 = body1 + '<t:'+ts+':F>]('+url_registration[n]+')'# (<t:'+ts+':R>)'
+
+                # Registration link
+                if reg: body1 = body1 + '  [<t:'+ts+':F>]('+url_registration[n]+')'
+                else  : body1 = body1 +  '  <t:'+ts+':F>'
 
                 # There should be registration numbers since we have the championship.json
                 body1 = body1 + ' ('+str(self['number_registered'][n])+'/'+str(self['number_slots'][n])+')**'
