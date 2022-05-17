@@ -330,7 +330,7 @@ class Monitor():
                         laps_or_onlines_changed = True
         
         # See if we can get an event timestamp
-        if path_championship not in ['', None] and os.path.exists(path_championship):
+        if path_championship not in ['', None]:
 
             # If we don't have a qual or race timestamp list, make them with the right number of elements
             if not self['qual_timestamp']: self['qual_timestamp'] = [0]*len(path_championship)
