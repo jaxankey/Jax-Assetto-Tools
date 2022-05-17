@@ -883,7 +883,6 @@ class Monitor():
 
                 # If we have a registration link
                 if url_registration not in ['', None, []]:
-                    body1 = body1 + '[Register]('+url_registration[n]+') for:'
 
                 # Now add the time stamp for this race
                 ts = str(int(self['race_timestamp'][n]))
