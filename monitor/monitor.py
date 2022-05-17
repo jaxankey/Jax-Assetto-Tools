@@ -913,7 +913,7 @@ class Monitor():
                 subfooter = subfooter + ' (' + str(self['number_registered'][n]) + '/' + str(self['number_slots'][n]) + ')**'
 
         # Send the main info message
-        self.state['laps_message_id'] = self.send_message(self.webhook_info, body1, body2, '\n\n'+laps_footer+'\n'+subfooter, self.state['laps_message_id'], color=color)
+        self.state['laps_message_id'] = self.send_message(self.webhook_info, body1, body2, subfooter+'\n\n'+laps_footer, self.state['laps_message_id'], color=color)
         if self.state['laps_message_id'] is None: print('DID NOT EDIT OR SEND LAPS MESSAGE')
 
 
