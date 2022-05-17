@@ -30,6 +30,7 @@ url_api_details   = None
 no_down_warning   = False
 path_live_timings = None
 path_championship = None
+url_registration  = None
 
 # Path to assettocorsa for scrapping ...ui.json data.
 path_ac = None
@@ -56,6 +57,10 @@ debug               = False
 if os.path.exists('monitor.ini.private'): p = 'monitor.ini.private'
 else                                    : p = 'monitor.ini'
 exec(open(p, 'r', encoding="utf8").read())
+
+# Tweak
+if type(path_championship) is str: path_championship = [path_championship]
+if type(url_registration)  is str: url_registration  = [url_registration]
 
 def get_unix_timestamp(y,M,d,h,m):
     """
@@ -197,7 +202,7 @@ class Monitor():
 
         # Flag for information that changed
         laps_or_onlines_changed = False # laps or onlines for sending messages
-        event_timestamp_changed = False # If the scheduled timestamp changes
+        event_time_slots_changed = False # If the scheduled timestamp changes
         track_changed           = False # for making new venue
         carset_fully_changed    = False # for making new venue
 
@@ -326,22 +331,32 @@ class Monitor():
         
         # See if we can get an event timestamp
         if path_championship not in ['', None] and os.path.exists(path_championship):
+
+            # If we don't have a qual or race timestamp list, make them with the right number of elements
+            if not self['qual_timestamp']: self['qual_timestamp'] = [0]*len(path_championship)
+            if not self['race_timestamp']: self['race_timestamp'] = [0]*len(path_championship)
+            if not self['number_registered']: self['number_registered'] = [0]*len(path_championship)
+            if not self['number_slots']     : self['number_slots']      = [0]*len(path_championship)
+
             try:
-                c = load_json(path_championship)
+                # Loop over the championships to get time stamps
+                for n in range(len(path_championship)):
+                    c = load_json(path_championship[n])
 
-                # Parse the scheduled timestamp and add the qualifying time.
-                tq = dateutil.parser.parse(c['Events'][0]['Scheduled']).timestamp()
-                tr = tq + c['Events'][0]['RaceSetup']['Sessions']['QUALIFY']['Time']*60
+                    # Parse the scheduled timestamp and add the qualifying time, and registered
+                    tq = dateutil.parser.parse(c['Events'][0]['Scheduled']).timestamp()
+                    tr = tq + c['Events'][0]['RaceSetup']['Sessions']['QUALIFY']['Time']*60
+                    nr = len(c['SignUpForm']['Responses'])
+                    ns = c['Stats']['NumEntrants']
 
-                # If it's different, update the state and send messages
-                if tq != self['qual_timestamp'] or tr != self['race_timestamp']:
-                    event_timestamp_changed = True
-                    self['qual_timestamp'] = tq
-                    self['race_timestamp'] = tr
-
-                # Now look for SignUpForm:Responses list length and Stats:NumEntrants
-                self['number_registered'] = len(c['SignUpForm']['Responses'])
-                self['number_slots']      = c['Stats']['NumEntrants']
+                    # If it's different, update the state and send messages
+                    if tq != self['qual_timestamp'][n]    or tr != self['race_timestamp'][n] \
+                    or nr != self['number_registered'][n] or ns != self['number_slots'][n]:
+                        event_time_slots_changed = True
+                        self['qual_timestamp'][n]    = tq
+                        self['race_timestamp'][n]    = tr
+                        self['number_registered'][n] = nr
+                        self['number_slots'][n]      = ns
 
             except Exception as e: print('ERROR with championship.json:', e)
 
@@ -350,7 +365,7 @@ class Monitor():
         or laps_or_onlines_changed \
         or track_changed \
         or carset_fully_changed \
-        or event_timestamp_changed: self.send_state_messages()
+        or event_time_slots_changed: self.send_state_messages()
 
     def reset_state(self):
         """
@@ -853,19 +868,23 @@ class Monitor():
         track_name = self.state['track_name']
         if not track_name: track_name = self.state['track']
         if not track_name: track_name = 'track name not found'
-        if track_name: body1 = body1 + track_name
-
-        # Add the registrants
-        if self['number_registered'] and self['number_slots']:
-            body1 = body1 + ' ('+str(self['number_registered'])+'/'+str(self['number_slots'])+' registered)'
-        body1 = body1+']('+url_event_info+')**'
+        if track_name: body1 = body1 + track_name+']('+url_event_info+')**'
 
         # If we have qual / race timestamps, put those in
         if self['race_timestamp']:
-            ts = str(int(self['race_timestamp']))
-            body1 = body1 + '\n**<t:'+ts+':F> (<t:'+ts+':R>)**'
-#            if self['qual_timestamp']:
-#                body1 = body1 + '**(Qual opens <t:'+str(int(self['qual_timestamp']))+'>**'
+            for n in range(len(self['race_timestamp'])):
+                body1 = body1 + '\n**'
+
+                # If we have a registration link
+                if url_registration not in ['', None, []]:
+                    body1 = body1 + '[Register for:]('+url_registration[n]+') '
+
+                # Now add the time stamp for this race
+                ts = str(int(self['race_timestamp'][n]))
+                body1 = body1 + '<t:'+ts+':F> (<t:'+ts+':R>)'
+
+                # There should be registration numbers since we have the championship.json
+                body1 = body1 + ' ('+str(self['number_registered'][n])+'/'+str(self['number_slots'][n])+' registered)**'
 
         # Subheader
         body1 = body1 + '\n' + venue_subheader
