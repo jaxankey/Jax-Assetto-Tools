@@ -870,29 +870,6 @@ class Monitor():
         if not track_name: track_name = 'track name not found'
         if track_name: body1 = body1 + track_name+']('+url_event_info+')**'
 
-        # If we have qual / race timestamps, put those in
-        if self['race_timestamp']:
-            if type(self['race_timestamp'])    is not list: self['race_timestamp'] = [0]*len(path_championship)
-            if type(self['qual_timestamp'])    is not list: self['qual_timestamp'] = [0]*len(path_championship)
-            if type(self['number_registered']) is not list: self['number_registered'] = [0]*len(path_championship)
-            if type(self['number_slots'])      is not list: self['number_slots']      = [0]*len(path_championship)
-
-            body1 = body1+'\n'
-            reg = url_registration not in ['', None, []]
-            if reg: body1 = body1 + '\n**Registration:**'
-            else:   body1 = body1 + '\n'
-
-            for n in range(len(self['race_timestamp'])):
-                # Now add the time stamp for this race
-                ts = str(int(self['race_timestamp'][n]))
-
-                # Registration link
-                if reg: body1 = body1 + '\n  **[<t:'+ts+':F>]('+url_registration[n]+')'
-                else  : body1 = body1 + '\n  **<t:'+ts+':F>'
-
-                # There should be registration numbers since we have the championship.json
-                body1 = body1 + ' ('+str(self['number_registered'][n])+'/'+str(self['number_slots'][n])+')**'
-
         # Subheader
         body1 = body1 + '\n' + venue_subheader
 
@@ -907,8 +884,36 @@ class Monitor():
             body2 = ''
             color = 0
 
+        subfooter = ''
+        # If we have qual / race timestamps, put those in
+        if self['race_timestamp']:
+            if type(self['race_timestamp']) is not list: self['race_timestamp'] = [0] * len(path_championship)
+            if type(self['qual_timestamp']) is not list: self['qual_timestamp'] = [0] * len(path_championship)
+            if type(self['number_registered']) is not list: self['number_registered'] = [0] * len(path_championship)
+            if type(self['number_slots']) is not list: self['number_slots'] = [0] * len(path_championship)
+
+            subfooter = subfooter + '\n'
+            reg = url_registration not in ['', None, []]
+            if reg:
+                subfooter = subfooter + '\n**Registration:**'
+            else:
+                subfooter = subfooter + '\n'
+
+            for n in range(len(self['race_timestamp'])):
+                # Now add the time stamp for this race
+                ts = str(int(self['race_timestamp'][n]))
+
+                # Registration link
+                if reg:
+                    subfooter = subfooter + '\n  **[<t:' + ts + ':F>](' + url_registration[n] + ')'
+                else:
+                    subfooter = subfooter + '\n  **<t:' + ts + ':F>'
+
+                # There should be registration numbers since we have the championship.json
+                subfooter = subfooter + ' (' + str(self['number_registered'][n]) + '/' + str(self['number_slots'][n]) + ')**'
+
         # Send the main info message
-        self.state['laps_message_id'] = self.send_message(self.webhook_info, body1, body2, '\n\n'+laps_footer, self.state['laps_message_id'], color=color)
+        self.state['laps_message_id'] = self.send_message(self.webhook_info, body1, body2, '\n\n'+laps_footer+'\n'+subfooter, self.state['laps_message_id'], color=color)
         if self.state['laps_message_id'] is None: print('DID NOT EDIT OR SEND LAPS MESSAGE')
 
 
