@@ -877,6 +877,7 @@ class Monitor():
             if type(self['number_registered']) is not list: self['number_registered'] = [0]*len(path_championship)
             if type(self['number_slots'])      is not list: self['number_slots']      = [0]*len(path_championship)
 
+            body1 = body1+'\n'
             for n in range(len(self['race_timestamp'])):
                 body1 = body1 + '\n**'
 
@@ -886,10 +887,10 @@ class Monitor():
 
                 # Now add the time stamp for this race
                 ts = str(int(self['race_timestamp'][n]))
-                body1 = body1 + '<t:'+ts+':F> (<t:'+ts+':R>)'
+                body1 = body1 + '<t:'+ts+':F>'# (<t:'+ts+':R>)'
 
                 # There should be registration numbers since we have the championship.json
-                body1 = body1 + ' ('+str(self['number_registered'][n])+'/'+str(self['number_slots'][n])+' registered)**'
+                body1 = body1 + ' ('+str(self['number_registered'][n])+'/'+str(self['number_slots'][n])+')**'
 
         # Subheader
         body1 = body1 + '\n' + venue_subheader
