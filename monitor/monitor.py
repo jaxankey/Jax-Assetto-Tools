@@ -869,7 +869,7 @@ class Monitor():
             reg_string = reg_string + '\n'
             reg = url_registration not in ['', None, []]
             if reg:
-                reg_string = reg_string + '\n**Registration:**'
+                reg_string = reg_string + '\n**Registration**'
             else:
                 reg_string = reg_string + '\n'
 
@@ -878,12 +878,12 @@ class Monitor():
                 ts = str(int(self['race_timestamp'][n]))
 
                 # Registration link
-                if reg: reg_string = reg_string + '\n:point_right: **[<t:' + ts + ':F>](' + url_registration[n] + ')'
-                else:   reg_string = reg_string + '\n:point_right: **<t:' + ts + ':F>'
+                if reg: reg_string = reg_string + '\n:point_right: [<t:' + ts + ':F>](' + url_registration[n] + ')'
+                else:   reg_string = reg_string + '\n:point_right: <t:' + ts + ':F>'
 
                 # There should be registration numbers since we have the championship.json
                 reg_string = reg_string + ' (' + str(self['number_registered'][n]) + '/' + str(
-                    self['number_slots'][n]) + ')**'
+                    self['number_slots'][n]) + ')'
 
         # Assemble the message body
         body1 = venue_header + '**['
