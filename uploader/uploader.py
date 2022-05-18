@@ -304,6 +304,13 @@ class Uploader:
         self.list_cars.setSelectionMode(egg.pyqtgraph.QtGui.QAbstractItemView.ExtendedSelection)
         self.list_cars.itemSelectionChanged.connect(self._list_cars_changed)
 
+        self.tab_uploader.new_autorow()
+        self.grid_tyres = self.tab_uploader.add(egg.gui.GridLayout(False))
+        self.grid_tyres.add(egg.gui.Label('Allowed Tyres:'))
+        self.text_tyres = self.grid_tyres.add(egg.gui.TextBox('V;H;M;S;ST;SM;SV',
+            tip='Allowed tyres list, usually one or two capital characters, separated by semicolons.',
+            signal_changed=self._any_server_setting_changed))
+
         # Server stuff
         self.tab_uploader.new_autorow()
         self.tab_uploader.add(egg.gui.Label('\nServer').set_style(self.style_category))
@@ -387,6 +394,7 @@ class Uploader:
             'text_precommand',
             'text_url',
             'text_url2',
+            'text_tyres',
             'number_slots',
             'checkbox_pre',
             'checkbox_modify',
@@ -1418,7 +1426,7 @@ class Uploader:
         #     new_venue = True
         e['RaceSetup']['Track'] = track
         e['RaceSetup']['TrackLayout'] = layout
-        e['RaceSetup']['LegalTyres'] = "V;H;M;S;ST;SM;SV" # JACK: UNPACK AND SCRAPE DATA.ACD? GROSS!!
+        e['RaceSetup']['LegalTyres'] = self.text_tyres() # JACK: UNPACK AND SCRAPE DATA.ACD? GROSS!!
         
         # Reset the signup form, but only if the venue has changed.
         # if new_venue:
