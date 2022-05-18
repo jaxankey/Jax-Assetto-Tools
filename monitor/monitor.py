@@ -1034,12 +1034,15 @@ class Monitor():
             if message_id:
                 try:
                     webhook.edit_message(message_id, embeds=[e])
-                except:
-                    print('Whoops could not edit message', message_id, e)
-                    message_id = webhook.send('', embeds=[e], wait=True).id
+                except Exception as x:
+                    print('Whoops could not edit message', message_id, e, x)
+                    try: message_id = webhook.send('', embeds=[e], wait=True).id
+                    except Exception as x: print('ERROR: DISCORD DOWN OR BAD WEBHOOK?', x)
             else:
                 try:    message_id = webhook.send('', embeds=[e], wait=True).id
-                except: message_id = None
+                except Exception as x:
+                    print('Whoops could not send message', message_id, e, x)
+                    message_id = None
 
         # Return it.
         return message_id

@@ -207,13 +207,24 @@ class Uploader:
         self.tab_settings.set_row_stretch(20)
 
         self.tab_settings.new_autorow()
-        self.tab_settings.add(egg.gui.Label('Post-Upload URL:'))
+        self.tab_settings.add(egg.gui.Label('Post-Upload URL 1:'))
         self.text_url = self.tab_settings.add(egg.gui.TextBox('',
-            tip='Optional website to open after upload (e.g., the reservation sheet or the site that re-indexes server manager).',
+            tip='Optional website to open after upload (e.g., the reservation sheet or the site that re-indexes server manager / starts practice).',
             signal_changed=self._any_server_setting_changed), alignment=0)
         self.button_go_url = self.tab_settings.add(egg.gui.Button(
             'Go to URL', tip='Open the supplied URL in your browser.',
             signal_clicked=self._button_go_url_clicked
+        ))
+
+        self.tab_settings.new_autorow()
+        self.tab_settings.add(egg.gui.Label('Post-Upload URL 2:'))
+        self.text_url2 = self.tab_settings.add(egg.gui.TextBox('',
+             tip='Optional website to open after upload (e.g., the reservation sheet or the site that re-indexes server manager / starts practice).',
+             signal_changed=self._any_server_setting_changed),
+             alignment=0)
+        self.button_go_url2 = self.tab_settings.add(egg.gui.Button(
+            'Go to URL', tip='Open the supplied URL in your browser.',
+            signal_clicked=self._button_go_url2_clicked
         ))
 
         self.tab_settings.new_autorow()
@@ -375,6 +386,7 @@ class Uploader:
             'text_postcommand',
             'text_precommand',
             'text_url',
+            'text_url2',
             'number_slots',
             'checkbox_pre',
             'checkbox_modify',
@@ -431,8 +443,16 @@ class Uploader:
         Opens the URL in browser.+++
         """
         if self.text_url() != '':
-            self.log('Opening supplied URL...')
+            self.log('Opening URL 1...')
             webbrowser.open(self.text_url())
+
+    def _button_go_url2_clicked(self, *a):
+        """
+        Opens the URL in browser.+++
+        """
+        if self.text_url2() != '':
+            self.log('Opening URL 2...')
+            webbrowser.open(self.text_url2())
 
     # else: self.log('*Skipping URL')
     def _button_download_championship_clicked(self, *a):
@@ -906,7 +926,9 @@ class Uploader:
             self.log('List copied to clipboard')
             
         # Forward to the supplied URL
-        if self.checkbox_url(): self.button_go_url.click()
+        if self.checkbox_url():
+            self.button_go_url.click()
+            self.button_go_url2.click()
 
         # Post-command
         if self.checkbox_post() and self.text_postcommand().strip() != '':
