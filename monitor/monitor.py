@@ -198,20 +198,21 @@ class Monitor():
         if debug: print('\n_premium_get_latest_data')
 
         # If self.live_timings == None, we consider this a "first run" for the venue, printing details.
-        first_run = (self.live_timings == None)
+        first_run = self.live_timings is None
 
         # Flag for information that changed
         laps_or_onlines_changed = False # laps or onlines for sending messages
         event_time_slots_changed = False # If the scheduled timestamp changes
         track_changed           = False # for making new venue
         carset_fully_changed    = False # for making new venue
+        session_changed         = False # If the session changes
 
         # Grab the "details" from 8081/API/details. If this fails, the "server is down"
         # because we can't get basic information like carset.
         try: self.details = json.loads(urllib.request.urlopen(url_api_details, timeout=5).read(), strict=False)
-        except:
+        except Exception as e:
             if not no_down_warning:
-                print('ERROR: Could not open ' + url_api_details)
+                print('ERROR: Could not open ' + url_api_details+'\n', e)
                 if not self['down_message_id']: 
                     self['down_message_id'] = self.send_message(self.webhook_info, 'Server is down. I need an adult! :(', '', '')
                     self.save_and_archive_state()
@@ -230,6 +231,17 @@ class Monitor():
 
         # Data from website.
         if self.details:
+
+            # UPDATE SESSION INFO
+            try:
+                # Get the integer for the current session
+                x = self.details['sessiontypes'][self.details['session']]
+                s = {0:'B', 1:'P', 2:'Q', 3:'R'}[x]
+                if s != self['session_type']:
+                    session_changed = True
+                    self['session_type'] = s
+
+            except Exception as e: print('Could not get session', e)
 
             # UPDATE ONLINES
 
@@ -365,7 +377,8 @@ class Monitor():
         or laps_or_onlines_changed \
         or track_changed \
         or carset_fully_changed \
-        or event_time_slots_changed: self.send_state_messages()
+        or event_time_slots_changed \
+        or session_changed: self.send_state_messages()
 
     def reset_state(self):
         """
@@ -396,7 +409,9 @@ class Monitor():
             carnames          = dict(), # Dictionary converting car dirnames to fancy names for everything in the venue.
         
             seen_namecars     = [], # Set of people/cars seen online for this session.
-            session_end_time  = 0, 
+            session_end_time  = 0,
+
+            session_type = None,
         )
 
         # # Reset the other info that's hanging around.
@@ -895,7 +910,7 @@ class Monitor():
         track_name = self.state['track_name']
         if not track_name: track_name = self.state['track']
         if not track_name: track_name = 'Unknown Track?'
-        if track_name: body1 = body1 + track_name.upper()+']('+url_event_info+')__**'
+        if track_name: body1 = body1 + track_name.upper()+']('+url_event_info+')__**'  +' '+str(self['session_type'])
 
         # Subheader
         body1 = body1 + reg_string + venue_subheader
