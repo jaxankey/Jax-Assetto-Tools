@@ -897,8 +897,7 @@ class Monitor():
                 else:   reg_string = reg_string + '\n:point_right: <t:' + ts + ':F>'
 
                 # There should be registration numbers since we have the championship.json
-                reg_string = reg_string + ' (' + str(self['number_registered'][n]) + '/' + str(
-                    self['number_slots'][n]) + ')'
+                reg_string = reg_string + ' (' + str(self['number_registered'][n]) + '/' + str(self['number_slots'][n]) + ')'
 
         # Assemble the message body
         body1 = venue_header + '**__['
@@ -910,7 +909,7 @@ class Monitor():
         track_name = self.state['track_name']
         if not track_name: track_name = self.state['track']
         if not track_name: track_name = 'Unknown Track?'
-        if track_name: body1 = body1 + track_name.upper()+']('+url_event_info+')__**'  +' '+str(self['session_type'])
+        if track_name: body1 = body1 + track_name.upper()+']('+url_event_info+')__**'
 
         # Subheader
         body1 = body1 + reg_string + venue_subheader
@@ -959,7 +958,7 @@ class Monitor():
 
             # Send the message
             self.state['online_message_id'] = self.send_message(self.webhook_online, body1, '', '\n\n'+online_footer, self.state['online_message_id'])
-            if self.state['online_message_id'] == None: print('DID NOT EDIT OR SEND ONLINES')
+            if self.state['online_message_id'] is None: print('DID NOT EDIT OR SEND ONLINES')
 
         # No one is currently online. 
         else: self.end_session() 
