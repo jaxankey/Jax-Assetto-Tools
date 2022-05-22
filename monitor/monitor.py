@@ -899,7 +899,7 @@ class Monitor():
                 if reg: nametime = '['+nametime+']('+url_registration[n]+')'
 
                 # Registration link
-                reg_string = '\n:point_right: '+nametime
+                reg_string = reg_string + '\n:point_right: '+nametime
 
                 # There should be registration numbers since we have the championship.json
                 if reg: reg_string = reg_string + ' (' + str(self['number_registered'][n]) + '/' + str(self['number_slots'][n]) + ')'
