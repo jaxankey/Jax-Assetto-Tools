@@ -917,7 +917,8 @@ class Monitor():
         if track_name: body1 = body1 + track_name.upper()+']('+url_event_info+')__**'
 
         # Subheader
-        body1 = body1 + reg_string + venue_subheader
+        #body1 = body1 + reg_string + venue_subheader
+        body1 = body1 + venue_subheader
 
         # Below the venue and above laps
         if laps: body1 = body1 + '\n' + laps
@@ -931,7 +932,7 @@ class Monitor():
             color = 0
 
         # Send the main info message
-        self.state['laps_message_id'] = self.send_message(self.webhook_info, body1, body2, '\n\n'+laps_footer, self.state['laps_message_id'], color=color)
+        self.state['laps_message_id'] = self.send_message(self.webhook_info, body1, body2, '\n\n'+reg_string+laps_footer, self.state['laps_message_id'], color=color)
         if self.state['laps_message_id'] is None: print('DID NOT EDIT OR SEND LAPS MESSAGE')
 
 
