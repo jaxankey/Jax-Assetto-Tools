@@ -896,7 +896,7 @@ class Monitor():
 
                 # Registration link
                 reg_string = '\n:point_right: '
-                if registration_name: reg_string = reg_string + registration_name + ' at '
+                if registration_name: reg_string = reg_string + registration_name[n] + ' at '
                 if reg: reg_string = reg_string + '[<t:' + ts + ':F>](' + url_registration[n] + ')'
                 else:   reg_string = reg_string + '<t:' + ts + ':F>'
 
