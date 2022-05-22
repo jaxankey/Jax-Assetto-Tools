@@ -894,14 +894,15 @@ class Monitor():
                 # Now add the time stamp for this race
                 ts = str(int(self['race_timestamp'][n]))
 
+                if registration_name: nametime = registration_name[n] + ' <t:' + ts + ':F>'
+                else:                 nametime = '<t:' + ts + ':F>'
+                if reg: nametime = '['+nametime+']('+url_registration[n]+')'
+
                 # Registration link
-                reg_string = '\n:point_right: '
-                if registration_name: reg_string = reg_string + registration_name[n] + ' at '
-                if reg: reg_string = reg_string + '[<t:' + ts + ':F>](' + url_registration[n] + ')'
-                else:   reg_string = reg_string + '<t:' + ts + ':F>'
+                reg_string = '\n:point_right: '+nametime
 
                 # There should be registration numbers since we have the championship.json
-                reg_string = reg_string + ' (' + str(self['number_registered'][n]) + '/' + str(self['number_slots'][n]) + ')'
+                if reg: reg_string = reg_string + ' (' + str(self['number_registered'][n]) + '/' + str(self['number_slots'][n]) + ')'
 
         # Assemble the message body
         body1 = venue_header + '**__['
