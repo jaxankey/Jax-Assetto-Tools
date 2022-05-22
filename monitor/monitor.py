@@ -31,6 +31,7 @@ no_down_warning   = False
 path_live_timings = None
 path_championship = None
 url_registration  = None
+registration_name = None
 
 # Path to assettocorsa for scrapping ...ui.json data.
 path_ac = None
@@ -61,6 +62,7 @@ exec(open(p, 'r', encoding="utf8").read())
 # Tweak
 if type(path_championship) is str: path_championship = [path_championship]
 if type(url_registration)  is str: url_registration  = [url_registration]
+if type(registration_name) is str: registration_name = [registration_name]
 
 def get_unix_timestamp(y,M,d,h,m):
     """
@@ -893,8 +895,10 @@ class Monitor():
                 ts = str(int(self['race_timestamp'][n]))
 
                 # Registration link
-                if reg: reg_string = reg_string + '\n:point_right: [<t:' + ts + ':F>](' + url_registration[n] + ')'
-                else:   reg_string = reg_string + '\n:point_right: <t:' + ts + ':F>'
+                reg_string = '\n:point_right: '
+                if registration_name: reg_string = reg_string + registration_name + ' at '
+                if reg: reg_string = reg_string + '[<t:' + ts + ':F>](' + url_registration[n] + ')'
+                else:   reg_string = reg_string + '<t:' + ts + ':F>'
 
                 # There should be registration numbers since we have the championship.json
                 reg_string = reg_string + ' (' + str(self['number_registered'][n]) + '/' + str(self['number_slots'][n]) + ')'
