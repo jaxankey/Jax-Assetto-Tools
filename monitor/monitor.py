@@ -884,8 +884,8 @@ class Monitor():
             if type(self['number_registered']) is not list: self['number_registered'] = [0] * len(path_championship)
             if type(self['number_slots']) is not list: self['number_slots'] = [0] * len(path_championship)
 
-            reg_string1 = reg_string1 + '\n'
-            reg_string2 = reg_string2 + '\n'
+            #reg_string1 = reg_string1 + '\n'
+            #reg_string2 = reg_string2 + '\n'
 
             reg = url_registration not in ['', None, []]
             if reg: reg_string1 = reg_string1 + '\n**Registration**'
@@ -904,7 +904,7 @@ class Monitor():
                 # Linkify it
                 if reg:
                     nametime1 = '['+nametime1+']('+url_registration[n]+') (' + str(self['number_registered'][n]) + '/' + str(self['number_slots'][n]) + ')'
-                    nametime2 = '['+nametime2+']('+url_registration[n]+')'
+                    #nametime2 = '['+nametime2+']('+url_registration[n]+')'
 
                 # Stylize the registration link
                 reg_string1 = reg_string1 + '\n:point_right: '+nametime1
