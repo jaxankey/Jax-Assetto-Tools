@@ -888,7 +888,7 @@ class Monitor():
             #reg_string2 = reg_string2 + '\n'
 
             reg = url_registration not in ['', None, []]
-            if reg: reg_string1 = reg_string1 + '\n**Registration**'
+            if reg: reg_string1 = reg_string1 + '**Registration**'
 
             for n in range(len(self['race_timestamp'])):
                 # Now add the time stamp for this race
