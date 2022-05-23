@@ -203,11 +203,11 @@ class Monitor():
         first_run = self.live_timings is None
 
         # Flag for information that changed
-        laps_or_onlines_changed = False # laps or onlines for sending messages
-        event_time_slots_changed = False # If the scheduled timestamp changes
-        track_changed           = False # for making new venue
-        carset_fully_changed    = False # for making new venue
-        session_changed         = False # If the session changes
+        laps_or_onlines_changed  = False # laps or onlines for sending messages
+        event_time_slots_changed = False # If the scheduled timestamp or registrants changes
+        track_changed            = False # for making new venue
+        carset_fully_changed     = False # for making new venue
+        session_changed          = False # If the session changes
 
         # Grab the "details" from 8081/API/details. If this fails, the "server is down"
         # because we can't get basic information like carset.
@@ -875,7 +875,8 @@ class Monitor():
         ###################################
         # INFO MESSAGE WITH LAPS AND ONLINE
 
-        reg_string = ''
+        reg_string1 = '' # Shorter bottom one
+        reg_string2 = '' # Longer top one
         # If we have qual / race timestamps, put those in
         if self['race_timestamp']:
             if type(self['race_timestamp']) is not list: self['race_timestamp'] = [0] * len(path_championship)
@@ -883,26 +884,31 @@ class Monitor():
             if type(self['number_registered']) is not list: self['number_registered'] = [0] * len(path_championship)
             if type(self['number_slots']) is not list: self['number_slots'] = [0] * len(path_championship)
 
-            reg_string = reg_string + '\n'
+            reg_string1 = reg_string1 + '\n'
+            reg_string2 = reg_string2 + '\n'
+
             reg = url_registration not in ['', None, []]
-            if reg:
-                reg_string = reg_string + '\n**Registration**'
-            else:
-                reg_string = reg_string + '\n'
+            if reg: reg_string1 = reg_string1 + '\n**Registration**'
 
             for n in range(len(self['race_timestamp'])):
                 # Now add the time stamp for this race
                 ts = str(int(self['race_timestamp'][n]))
 
-                if registration_name: nametime = registration_name[n] + ' <t:' + ts + ':F>'
-                else:                 nametime = '<t:' + ts + ':F>'
-                if reg: nametime = '['+nametime+']('+url_registration[n]+')'
+                # Create the full timestamp, optionally with name
+                nametime1 = '<t:' + ts + ':F>'
+                if registration_name: nametime1 = registration_name[n] + ' '+nametime1
 
-                # Registration link
-                reg_string = reg_string + '\n:point_right: '+nametime
+                # nametime2 also has the relative time
+                nametime2 = nametime1 + ' (<t:' + ts + ':R>)'
 
-                # There should be registration numbers since we have the championship.json
-                if reg: reg_string = reg_string + ' (' + str(self['number_registered'][n]) + '/' + str(self['number_slots'][n]) + ')'
+                # Linkify it
+                if reg:
+                    nametime1 = '['+nametime1+']('+url_registration[n]+') (' + str(self['number_registered'][n]) + '/' + str(self['number_slots'][n]) + ')'
+                    nametime2 = '['+nametime2+']('+url_registration[n]+')'
+
+                # Stylize the registration link
+                reg_string1 = reg_string1 + '\n:point_right: '+nametime1
+                reg_string2 = reg_string2 + '\n'+nametime2
 
         # Assemble the message body
         body1 = venue_header + '**__['
@@ -917,8 +923,7 @@ class Monitor():
         if track_name: body1 = body1 + track_name.upper()+']('+url_event_info+')__**'
 
         # Subheader
-        #body1 = body1 + reg_string + venue_subheader
-        body1 = body1 + venue_subheader
+        body1 = body1 + reg_string2 + venue_subheader
 
         # Below the venue and above laps
         if laps: body1 = body1 + '\n' + laps
@@ -932,7 +937,7 @@ class Monitor():
             color = 0
 
         # Send the main info message
-        self.state['laps_message_id'] = self.send_message(self.webhook_info, body1, body2, '\n\n'+reg_string+'\n'+laps_footer, self.state['laps_message_id'], color=color)
+        self.state['laps_message_id'] = self.send_message(self.webhook_info, body1, body2, '\n\n'+reg_string1+'\n'+laps_footer, self.state['laps_message_id'], color=color)
         if self.state['laps_message_id'] is None: print('DID NOT EDIT OR SEND LAPS MESSAGE')
 
 
