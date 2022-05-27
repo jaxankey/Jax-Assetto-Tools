@@ -56,11 +56,11 @@ class Uploader:
 
         # If we're in executable mode, close the splash screen
         if '_PYIBoot_SPLASH' in os.environ and importlib.util.find_spec("pyi_splash"):
-            import pyi_splash # Warning should be ok; we don't get here outside of executable mode.
+            import pyi_splash # Warning is ok; we don't get here outside of executable mode.
             pyi_splash.update_text('UI Loaded ...')
             pyi_splash.close()
 
-        # For troubleshooting.
+        # For troubleshooting; may not work
         # self.timer_exceptions = egg.gui.TimerExceptions()
         # self.timer_exceptions.signal_new_exception.connect(self._signal_new_exception)
         # self.timer_exceptions.start()
@@ -263,14 +263,14 @@ class Uploader:
 
 
         self.tab_settings.new_autorow()
-        self.tab_settings.add(egg.gui.Label('Custom Liveries Directory:'))
-        self.text_liveries = self.tab_settings.add(egg.gui.TextBox('',
-            tip='Optional path to a custom liveries folder (containing a content folder).\n' +\
-                'Setting this will package the selected carset liveries in content folder.',
+        self.tab_settings.add(egg.gui.Label('Custom Skins:'))
+        self.text_skins = self.tab_settings.add(egg.gui.TextBox('',
+            tip='Optional path to a custom skins folder (containing a content folder).\n' +\
+                'Setting this will package the selected carset skins in content folder.',
             signal_changed=self._any_server_setting_changed), alignment=0)
-        self.button_browse_liveries = self.tab_settings.add(egg.gui.Button('Browse',
-            tip='Opens a dialog to let you select the liveries directory.',
-            signal_clicked=self._button_browse_liveries_clicked))
+        self.button_browse_skins = self.tab_settings.add(egg.gui.Button('Browse',
+            tip='Opens a dialog to let you select the custom skins directory.',
+            signal_clicked=self._button_browse_skins_clicked))
 
 
 
@@ -384,12 +384,12 @@ class Uploader:
         self.grid_go = self.tab_uploader.add(egg.gui.GridLayout(False), alignment=0)
 
         self.button_upload = self.grid_go.add(egg.gui.Button(
-            'Go!', tip='Packages the required server data, uploads, restarts the server, cleans up the local files.',
+            'FULL UPLOAD', tip='Packages the required server data, uploads, restarts the server, cleans up the local files.',
             signal_clicked=self._button_upload_clicked), alignment=0).set_width(100)
         self.button_upload.set_style(self.style_fancybutton)
 
         self.button_skins = self.grid_go.add(egg.gui.Button(
-            'Skins Only!', tip='Skips Config, Clean Server, Restart Server, Restart Monitor, and only collects skins during Content.',
+            'Skins Only', tip='Skips Config, Clean Server, Restart Server, Restart Monitor, and only collects skins during Content.',
             signal_clicked=self._button_skins_clicked), alignment=0).set_width(100)
         self.button_skins.set_style(self.style_fancybutton)
 
@@ -419,7 +419,7 @@ class Uploader:
             'text_precommand',
             'text_url',
             'text_url2',
-            'text_liveries',
+            'text_skins',
             'text_tyres',
             'number_slots',
             'checkbox_pre',
@@ -460,12 +460,68 @@ class Uploader:
         # Show the window; no more commands below this.
         elif show: self.window.show(blocking)
 
-    def _button_browse_liveries_clicked(self, *a):
+    def import_and_package_skins(self):
         """
-        Opens a directory selection dialog for the liveries path.
+        Copies all the custom skins associated with the currently selected
+        carset into the actual assetto content folder, and zips them up for
+        distribution.
+        """
+        skins = self.text_skins()
+        local    = self.text_local()
+        carset   = self.combo_carsets.get_text()
+        cars     = self.get_selected_cars()
+        if skins == '' or local == '' or carset == _unsaved_carset or len(cars)==0: return
+
+        self.log('Packaging Carset Skins')
+
+        # Tidy up the carset
+        naughties = ['<', '>', ':', '"', '/', '\\', '|', '?', '*']
+        carset_safe = carset
+        for naughty in naughties: carset_safe.replace(naughty,'')
+
+        # Get the path to the zip and delete it if it exists
+        packs_path = os.path.join(skins,'Livery Packs')
+        if not os.path.exists(packs_path): os.mkdir(packs_path)
+        zip_path = os.path.join(packs_path, carset_safe + '.7z')
+        if os.path.exists(zip_path): os.remove(zip_path)
+
+        # Permissions hack
+        # _orig_copystat = shutil.copystat
+        # shutil.copystat = lambda x, y: x
+
+        # Loop over the selected cars and copy them into the main folder
+        # Also assemble the zip command
+        command = ['start', '"Compressing Skins"', '7z', '-mx4', '-xr!*desktop.ini', 'a', '"'+zip_path+'"']
+        for car in cars:
+            source   = os.path.join(skins,'content','cars',car)
+            destination = os.path.join(local,'content','cars',car)
+            if os.path.exists(source):
+                print('Copying', source,'\n  ->',destination)
+                try: shutil.copytree(source, destination, dirs_exist_ok=True, copy_function=shutil.copy, ignore=shutil.ignore_patterns('desktop.ini'))
+                except Exception as e:
+                    self.log('ERROR COPYING', car)
+                    try:
+                        for x in e.args[0]: self.log(x[-1])
+                    except Exception as f:
+                        print('I need an adult!', f)
+
+            # Add this to the zip command.
+            command.append('"' + source + '"')
+
+        # Undo hack
+        #shutil.copystat = _orig_copystat
+
+        # Now in a separate thread, start the zip process
+        command_string = ' '.join(command)
+        print(command_string)
+        os.system(command_string)
+
+    def _button_browse_skins_clicked(self, *a):
+        """
+        Opens a directory selection dialog for the skins path.
         """
         d = egg.dialogs.select_directory()
-        if d: self.text_liveries.set_text(d)
+        if d: self.text_skins.set_text(d)
 
     def _button_send_to_clicked(self, *a):
         """
@@ -914,6 +970,8 @@ class Uploader:
             self.log('Running pre-command')
             if self.system([self.text_precommand()]): return
 
+
+
         # Generate the appropriate config files
         if self.checkbox_modify() and not skins_only: 
             if self.combo_mode() == 0: self.generate_acserver_cfg()
@@ -1001,7 +1059,10 @@ class Uploader:
         """
         Packages all the content. Or just the skins.
         """
-        
+
+        # If we're importing / packaging the skins as well (this function does nothing if no skins folder is supplied)
+        self.import_and_package_skins()
+
         # Make sure it's clean
         if os.path.exists('uploads'): rmtree('uploads')
         if os.path.exists('uploads.7z'): os.remove('uploads.7z')
@@ -1039,8 +1100,9 @@ class Uploader:
 
     def upload_content(self, skins_only=False):
         """
-        Uploads uploads.7z and unpacks it remotely.
+        Uploads uploads.7z and unpacks it remotely (if checked).
         """
+
         # Server info
         login   = self.text_login.get_text()
         port    = self.text_port .get_text()
@@ -1780,9 +1842,12 @@ class Uploader:
             if self.system([self.text_precommand()]): return True
 
         self.log('\n------- UPDATING SKINS -------')
-        if self.package_content(True) == 'no cars': return True
-        if self.upload_content(True): return True
-        if self.unpack_uploaded_content(True): return True
+        if self.checkbox_package():
+            if self.package_content(True) == 'no cars': return True
+
+        if self.checkbox_upload():
+            if self.upload_content(True): return True
+            if self.unpack_uploaded_content(True): return True
         
         # Post-command
         if self.text_postcommand().strip() != '':
