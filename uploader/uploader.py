@@ -355,8 +355,8 @@ class Uploader:
             'Config', signal_changed=self._any_server_setting_changed,
             tip='Modify the server files with the above profile.'))
         self.checkbox_autoweek = self.grid2s.add(egg.gui.CheckBox(
-            'Auto-Week', signal_changed=self._any_server_setting_changed,
-            tip='Automatically increment the race time\'s week until the next available date.'))
+            'Week', signal_changed=self._any_server_setting_changed,
+            tip='Automatically increment the race time\'s week to the next available date from today.'))
         self.checkbox_package = self.grid2s.add(egg.gui.CheckBox(
             'Content', signal_changed=self._any_server_setting_changed,
             tip='Package up all the local files for upload.'))
