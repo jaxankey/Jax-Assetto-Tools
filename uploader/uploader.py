@@ -384,7 +384,7 @@ class Uploader:
         self.grid_go = self.tab_uploader.add(egg.gui.GridLayout(False), alignment=0)
 
         self.button_upload = self.grid_go.add(egg.gui.Button(
-            'FULL UPLOAD', tip='Packages the required server data, uploads, restarts the server, cleans up the local files.',
+            'Full Upload', tip='Packages the required server data, uploads, restarts the server, cleans up the local files.',
             signal_clicked=self._button_upload_clicked), alignment=0).set_width(100)
         self.button_upload.set_style(self.style_fancybutton)
 
@@ -454,25 +454,25 @@ class Uploader:
                 self.combo_server.set_text(server)
 
                 print('UPLOADING SKINS')
-                self.button_skins.click()
+                self.update_skins(True)
 
         ######################
         # Show the window; no more commands below this.
         elif show: self.window.show(blocking)
 
-    def import_and_package_skins(self):
+    def import_and_package_skins(self, wait_for_zip=False):
         """
         Copies all the custom skins associated with the currently selected
         carset into the actual assetto content folder, and zips them up for
         distribution.
         """
-        skins = self.text_skins()
-        local    = self.text_local()
-        carset   = self.combo_carsets.get_text()
-        cars     = self.get_selected_cars()
+        skins  = self.text_skins()
+        local  = self.text_local()
+        carset = self.combo_carsets.get_text()
+        cars   = self.get_selected_cars()
         if skins == '' or local == '' or carset == _unsaved_carset or len(cars)==0: return
 
-        self.log('Packaging Carset Skins')
+        self.log('Packaging carset skins')
 
         # Tidy up the carset
         naughties = ['<', '>', ':', '"', '/', '\\', '|', '?', '*']
@@ -491,7 +491,8 @@ class Uploader:
 
         # Loop over the selected cars and copy them into the main folder
         # Also assemble the zip command
-        command = ['start', '"Compressing Skins"', '7z', '-mx4', '-xr!*desktop.ini', 'a', '"'+zip_path+'"']
+        command = ['7z', '-mx4', '-xr!*desktop.ini', 'a', '"'+zip_path+'"']
+        if not wait_for_zip: command = ['start', '"Compressing Skins"']+command
         for car in cars:
             source   = os.path.join(skins,'content','cars',car)
             destination = os.path.join(local,'content','cars',car)
@@ -962,7 +963,11 @@ class Uploader:
         """
         Uploads the current configuration to the server.
         """
-        
+        # Make sure! +++
+        qmb = egg.pyqtgraph.QtGui.QMessageBox
+        ret = qmb.question(self.window._window, '******* WARNING *******', "This action can clear the server and overwrite\nthe existing championship!", qmb.Ok | qmb.Cancel, qmb.Cancel)
+        if ret == qmb.Cancel: return
+
         self.log('\n------- GO TIME! --------')
 
         # Pre-command
@@ -1055,13 +1060,14 @@ class Uploader:
         self.log('------- DONE! -------\n')
 
 
-    def package_content(self, skins_only=False):
+    def package_content(self, skins_only=False, wait_for_zip=False):
         """
         Packages all the content. Or just the skins.
         """
+        print('package_content()', skins_only, wait_for_zip)
 
         # If we're importing / packaging the skins as well (this function does nothing if no skins folder is supplied)
-        self.import_and_package_skins()
+        self.import_and_package_skins(wait_for_zip)
 
         # Make sure it's clean
         if os.path.exists('uploads'): rmtree('uploads')
@@ -1151,8 +1157,9 @@ class Uploader:
         if os.path.exists('uploads'):
 
             # Remove the carsets folder
-            self.log('Removing remote carset lists...')
-            if self.system(['ssh', '-T', '-p', port,'-i',pem,login, 'rm -rf '+remote+'/carsets']): return True
+            if not skins_only:
+                self.log('Removing remote carset lists...')
+                if self.system(['ssh', '-T', '-p', port,'-i',pem,login, 'rm -rf '+remote+'/carsets']): return True
             
             # Remote extract
             self.log('Extracting remote uploads.7z...')
@@ -1433,7 +1440,7 @@ class Uploader:
         Refresh cars and tracks
         """
         print('_button_refresh_clicked')
-        self.log('Scanning content...')
+        self.log('\nScanning content...')
 
         # Load the carsets, tracks, and cars 
         self.update_cars()
@@ -1830,7 +1837,7 @@ class Uploader:
         # Reconnect
         self.list_cars.itemSelectionChanged.connect(self._list_cars_changed)
     
-    def update_skins(self):
+    def update_skins(self, wait_for_zip=False):
         """
         Runs the pre-script (presumably copies latest skins into local assetto),
         even if unchecked, provided it exists, then packages and uploads just 
@@ -1843,7 +1850,7 @@ class Uploader:
 
         self.log('\n------- UPDATING SKINS -------')
         if self.checkbox_package():
-            if self.package_content(True) == 'no cars': return True
+            if self.package_content(True, wait_for_zip) == 'no cars': return True
 
         if self.checkbox_upload():
             if self.upload_content(True): return True
