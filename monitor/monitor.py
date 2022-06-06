@@ -153,8 +153,8 @@ class Monitor():
                 self.load_ui_data()
 
 
-        except:
-            print('\n\n-------------\nError: corrupt state.json; deleting')
+        except Exception as e:
+            print('\n\n-------------\nError: corrupt state.json; deleting', e)
             os.remove(p)
 
         # Premium mode
@@ -705,14 +705,13 @@ class Monitor():
         # in the ui_*.json files for the track and cars.
 
         # Start by looking for the track and layout
-        if self.state['layout'] != None:
+        if not self.state['layout'] is None:
             path_ui_track = os.path.join(path_ac, 'content', 'tracks',
                 self.state['track'], 'ui',
                 self.state['layout'],'ui_track.json')
         else:
             path_ui_track = os.path.join(path_ac, 'content', 'tracks',
                 self.state['track'], 'ui', 'ui_track.json')
-
 
         # If the track/layout/ui_track.json exists, load the track name!
         if os.path.exists(path_ui_track):
@@ -764,8 +763,8 @@ class Monitor():
                     j = load_json(path_ui_car)
                     self.state['carnames'][car] = j['name']
                     print(' ', car, j['name'])
-                except:
-                    print('ERROR: loading', path_ui_car)
+                except Exception as e:
+                    print('ERROR: loading', path_ui_car, e)
                     self.state['carnames'][car] = car
                     print(' ', car, '(error)')
 
@@ -866,6 +865,9 @@ class Monitor():
         and a "hey!" post if people come online.
         """
         print('send_state_messages()')
+
+        # We update the ui data in case carsets etc have changed
+        self.load_ui_data()
 
         # Get the list of who is online
         onlines = self.get_onlines_string()
