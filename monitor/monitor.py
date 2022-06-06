@@ -301,7 +301,10 @@ class Monitor():
 
         # Try to grab the live_timings data; load_json returns None if the file was moved.
         if path_live_timings: self.live_timings = load_json(path_live_timings)
-    
+
+        # After this we switch live_timings to "False" so it doesn't seem like a first run.
+        if self.live_timings is None: self.live_timings = False
+
         # If we found and loaded live_timings, look for new laps.
         if self.live_timings:
 
