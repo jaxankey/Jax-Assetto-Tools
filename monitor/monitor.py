@@ -91,12 +91,12 @@ def tail(f, start_from_end=False):
         else:    time.sleep(1.0)
 
 # Function for loading a json at the specified path
-def load_json(path):
+def load_json(path, suppress_warning=False):
     """
     Load the supplied path with all the safety measures and encoding etc.
     """
     if not os.path.exists(path): 
-        print('load_json: could not find', path)
+        if not suppress_warning: print('load_json: could not find', path)
         return
     try:
         f = open(path, 'r', encoding='utf8', errors='replace')
@@ -300,9 +300,9 @@ class Monitor():
             os.rename(path_live_timings, path_live_timings+".backup")
 
         # Try to grab the live_timings data; load_json returns None if the file was moved.
-        if path_live_timings: self.live_timings = load_json(path_live_timings)
+        if path_live_timings: self.live_timings = load_json(path_live_timings, True)
 
-        # After this we switch live_timings to "False" so it doesn't seem like a first run.
+        # After this we switch live_timings to "False" so it doesn't seem like a first run any more.
         if self.live_timings is None: self.live_timings = False
 
         # If we found and loaded live_timings, look for new laps.
