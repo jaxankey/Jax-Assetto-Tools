@@ -867,7 +867,8 @@ class Monitor():
         print('send_state_messages()')
 
         # We update the ui data in case carsets etc have changed
-        self.load_ui_data()
+        # This happens when the venue changes anyway.
+        #self.load_ui_data()
 
         # Get the list of who is online
         onlines = self.get_onlines_string()
