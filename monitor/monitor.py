@@ -64,14 +64,15 @@ if type(path_championship) is str: path_championship = [path_championship]
 if type(url_registration)  is str: url_registration  = [url_registration]
 if type(registration_name) is str: registration_name = [registration_name]
 
-def get_unix_timestamp(y,M,d,h,m):
+
+def get_unix_timestamp(y, M, d, h, m):
     """
     Returns a unix timestamp for the specified year (y), month (M), day (d), 24hour (h), and minute (m)
     """
     dt = datetime.datetime(y, M, d, h, m)
     return time.mktime(dt.timetuple())
 
-# Tail function that starts from the top.
+
 def tail(f, start_from_end=False):
     """
     Function that tails the supplied file stream.
@@ -90,7 +91,7 @@ def tail(f, start_from_end=False):
         if line: yield line
         else:    time.sleep(1.0)
 
-# Function for loading a json at the specified path
+
 def load_json(path, suppress_warning=False):
     """
     Load the supplied path with all the safety measures and encoding etc.
@@ -107,8 +108,9 @@ def load_json(path, suppress_warning=False):
         print('ERROR: Could not load', path)
         print(e)
 
+
 # Class for monitoring ac log file and reacting to different events
-class Monitor():
+class Monitor:
 
     def __init__(self):
         """
@@ -116,7 +118,7 @@ class Monitor():
         """
         global url_webhook_online, path_log
 
-        # jsons from premium server manager
+        # json's from premium server manager
         self.details      = None
         self.info         = None
         self.live_timings = None
@@ -151,7 +153,6 @@ class Monitor():
                 # May as well update once at the beginning, in case something changed
                 # Note we cannot do this without state having track.
                 self.load_ui_data()
-
 
         except Exception as e:
             print('\n\n-------------\nError: corrupt state.json; deleting', e)
@@ -191,6 +192,45 @@ class Monitor():
 
     def __setitem__(self, key, value): self.state[key] = value
 
+    def reset_state(self):
+        """
+        Resets to state defaults (empty).
+        """
+        self.state = dict(
+            online=dict(),  # Dictionary of online user info, indexed by name = {car:'car_dir'}
+            online_message_id=None,  # List of message ids for the "who is online" messages
+
+            timestamp=None,  # Timestamp of the first observation of this venue.
+            qual_timestamp=None,  # Timestamp of the qual
+            race_timestamp=None,  # Timestamp of the race
+            number_slots=None,  # Number of slots in championship
+            number_registered=None,  # Number of people registered in championship
+            track_name=None,  # Track / layout name
+            track=None,  # Directory name of the track
+            layout=None,  # Layout name
+            laps_message_id=None,  # id of the discord message about laps to edit
+            down_message_id=None,  # id of the discord message about whether the server is down
+
+            archive_path=None,  # Path to the archive of state.json
+            laps=dict(),  # Dictionary by name of valid laps for this track / layout
+            naughties=dict(),  # Dictionary by name of cut laps
+            carset=None,  # carset if possible to determine
+            carsets=dict(),  # Dictionary of car lists by carset name for grouping laps
+            stesrac=dict(),  # Dictionary of carset name lists by car for grouping laps
+            cars=list(),  # List of car directories
+            carnames=dict(),  # Dictionary converting car dirnames to fancy names for everything in the venue.
+
+            seen_namecars=[],  # Set of people/cars seen online for this session.
+            session_end_time=0,
+
+            session_type=None,
+        )
+
+        # # Reset the other info that's hanging around.
+        # self.details      = None
+        # self.info         = None
+        # self.live_timings = None
+
 
     def premium_get_latest_data(self):
         """
@@ -203,12 +243,14 @@ class Monitor():
         first_run = self.live_timings is None
 
         # Flag for information that changed
-        laps_or_onlines_changed  = False # laps or onlines for sending messages
-        event_time_slots_changed = False # If the scheduled timestamp or registrants changes
-        track_changed            = False # for making new venue
-        carset_fully_changed     = False # for making new venue
-        session_changed          = False # If the session changes
+        laps_or_onlines_changed  = False  # laps or onlines for sending messages
+        event_time_slots_changed = False  # If the scheduled timestamp or registrants changes
+        track_changed            = False  # for making new venue
+        carset_fully_changed     = False  # for making new venue
+        session_changed          = False  # If the session changes
 
+        # JACK: Apparently sometimes this doesn't raise an exception? Randomly triggers send_state_messages()
+        #
         # Grab the "details" from 8081/API/details. If this fails, the "server is down"
         # because we can't get basic information like carset.
         try: self.details = json.loads(urllib.request.urlopen(url_api_details, timeout=5).read(), strict=False)
@@ -385,44 +427,6 @@ class Monitor():
         or event_time_slots_changed \
         or session_changed: self.send_state_messages()
 
-    def reset_state(self):
-        """
-        Resets to state defaults (empty).
-        """
-        self.state = dict(
-            online            = dict(), # Dictionary of online user info, indexed by name = {car:'car_dir'}
-            online_message_id = None,     # List of message ids for the "who is online" messages
-
-            timestamp         = None,   # Timestamp of the first observation of this venue.
-            qual_timestamp    = None,   # Timestamp of the qual
-            race_timestamp    = None,   # Timestamp of the race
-            number_slots      = None,   # Number of slots in championship
-            number_registered = None,   # Number of people registered in championship
-            track_name        = None,   # Track / layout name
-            track             = None,   # Directory name of the track
-            layout            = None,   # Layout name
-            laps_message_id   = None,   # id of the discord message about laps to edit
-            down_message_id   = None,   # id of the discord message about whether the server is down
-
-            archive_path      = None,   # Path to the archive of state.json
-            laps              = dict(), # Dictionary by name of valid laps for this track / layout
-            naughties         = dict(), # Dictionary by name of cut laps
-            carset            = None,   # carset if possible to determine
-            carsets           = dict(), # Dictionary of car lists by carset name for grouping laps
-            stesrac           = dict(), # Dictionary of carset name lists by car for grouping laps
-            cars              = list(), # List of car directories
-            carnames          = dict(), # Dictionary converting car dirnames to fancy names for everything in the venue.
-        
-            seen_namecars     = [], # Set of people/cars seen online for this session.
-            session_end_time  = 0,
-
-            session_type = None,
-        )
-
-        # # Reset the other info that's hanging around.
-        # self.details      = None
-        # self.info         = None
-        # self.live_timings = None
 
 
     def vanilla_parse_lines(self, lines, init=False):
@@ -1077,7 +1081,6 @@ class Monitor():
 
         # Return it.
         return message_id
-
 
 
 # Create the object
