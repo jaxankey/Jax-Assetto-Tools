@@ -12,7 +12,7 @@
 # The problem is that live_timings.json sticks around from the old venue (!). Let's add to monitor.ini the path to live_timings
 # and delete this on new venue.
 
-import os, json, discord, shutil, pprint, glob, time, datetime, urllib, dateutil.parser
+import os, json, discord, shutil, pprint, glob, time, datetime, urllib, dateutil.parser, socket
 
 # Change to the directory of this script
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
@@ -27,6 +27,7 @@ path_log = ''
 server_manager_premium_mode = False
 url_INFO          = None
 url_api_details   = None
+tcp_data_port     = None
 no_down_warning   = False
 path_live_timings = None
 path_championship = None
@@ -109,12 +110,25 @@ def load_json(path, suppress_warning=False):
         print(e)
 
 
-# Class for monitoring ac log file and reacting to different events
+def port_is_open(host, port, timeout=5):
+
+    # Try to connect
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.settimeout(timeout)
+        s.connect((host, port))
+        s.close()
+
+    except: return False
+
+    return True
+
+
 class Monitor:
 
     def __init__(self):
         """
-        Class for watching the AC log file and reacting to various events
+        Class for watching the AC server and reacting to various events
         """
         global url_webhook_online, path_log
 
@@ -239,6 +253,19 @@ class Monitor:
         """
         if debug: print('\n_premium_get_latest_data')
 
+        # If we have a data port, test to see if the server is even running
+        if not tcp_data_port is None:
+
+            # If the port is shut, send a warning message and quit out
+            if not port_is_open('localhost', tcp_data_port):
+                if not no_down_warning:
+                    print('ERROR: tcp_data_port', tcp_data_port,'is shut.')
+                    if not self['down_message_id']:
+                        self['down_message_id'] = self.send_message(self.webhook_info,
+                            'Server is down. I need an adult! :(', '', '')
+                        self.save_and_archive_state()
+                return
+
         # If self.live_timings == None, we consider this a "first run" for the venue, printing details.
         first_run = self.live_timings is None
 
@@ -249,16 +276,15 @@ class Monitor:
         carset_fully_changed     = False  # for making new venue
         session_changed          = False  # If the session changes
 
-        # JACK: Apparently sometimes this doesn't raise an exception? Randomly triggers send_state_messages()
-        #
-        # Grab the "details" from 8081/API/details. If this fails, the "server is down"
-        # because we can't get basic information like carset.
+        # Grab the "details" from 8081/api/details. If this fails,
+        # we can't get basic information like carset.
         try: self.details = json.loads(urllib.request.urlopen(url_api_details, timeout=5).read(), strict=False)
         except Exception as e:
             if not no_down_warning:
-                print('ERROR: Could not open ' + url_api_details+'\n', e)
-                if not self['down_message_id']: 
-                    self['down_message_id'] = self.send_message(self.webhook_info, 'Server is down. I need an adult! :(', '', '')
+                print('ERROR: Could not open ' + url_api_details + '\n', e)
+                if not self['down_message_id']:
+                    self['down_message_id'] = self.send_message(self.webhook_info,
+                        'Server is down. I need an adult! :(', '', '')
                     self.save_and_archive_state()
             return
 
