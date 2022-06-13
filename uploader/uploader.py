@@ -542,6 +542,7 @@ class Uploader:
             self.combo_tracks.set_text(track)
             if len(self.combo_layouts.get_all_items()) > 0: self.combo_layouts.set_text(layout)
 
+            # +++JACK: Some problem here if we overwrite a carset
             # If we have an unsaved carset, use the list, otherwise just choose the carset
             if carset == _unsaved_carset: self.set_list_cars_selection(cars)
             self.combo_carsets.set_text(carset)
@@ -1365,7 +1366,7 @@ class Uploader:
         # Special case: first element in combo box is new carset
         if self.combo_carsets.get_index() == 0: return
 
-        # Get teh path associated with this
+        # Get the path associated with this
         path = os.path.join('carsets', self.combo_carsets.get_text())
         if not os.path.exists(path) or os.path.isdir(path): return
         

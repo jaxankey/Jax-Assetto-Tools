@@ -253,6 +253,10 @@ class Monitor:
         """
         if debug: print('\n_premium_get_latest_data')
 
+        # If self.live_timings == None, we consider this a "first run" for the venue, printing details.
+        # self.live_timings will be switched to False after the first run.
+        first_run = self.live_timings is None
+
         # If we have a data port, test to see if the server is even running
         if not tcp_data_port is None:
 
@@ -264,10 +268,7 @@ class Monitor:
                         self['down_message_id'] = self.send_message(self.webhook_info,
                             'Server is down. I need an adult! :(', '', '')
                         self.save_and_archive_state()
-                return
-
-        # If self.live_timings == None, we consider this a "first run" for the venue, printing details.
-        first_run = self.live_timings is None
+                if not first_run: return
 
         # Flag for information that changed
         laps_or_onlines_changed  = False  # laps or onlines for sending messages
@@ -286,7 +287,9 @@ class Monitor:
                     self['down_message_id'] = self.send_message(self.webhook_info,
                         'Server is down. I need an adult! :(', '', '')
                     self.save_and_archive_state()
-            return
+
+            # We still want to send the empty server post the first time.
+            if not first_run: return
 
         # Print the debug info
         if first_run and debug:
@@ -370,7 +373,7 @@ class Monitor:
         # Try to grab the live_timings data; load_json returns None if the file was moved.
         if path_live_timings: self.live_timings = load_json(path_live_timings, True)
 
-        # After this we switch live_timings to "False" so it doesn't seem like a first run any more.
+        # After this we switch live_timings to "False" so it doesn't seem like a first run next time.
         if self.live_timings is None: self.live_timings = False
 
         # If we found and loaded live_timings, look for new laps.
