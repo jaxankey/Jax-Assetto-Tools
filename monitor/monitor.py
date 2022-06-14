@@ -912,12 +912,12 @@ class Monitor:
 
                 # Linkify it
                 if reg:
-                    nametime1 = '**[Register]('+url_registration[n]+')** for ' + nametime1+ ' (' + str(self['number_registered'][n]) + '/' + str(self['number_slots'][n]) + ')'
+                    nametime1 = '**[Register]('+url_registration[n]+') (' + str(self['number_registered'][n]) + '/' + str(self['number_slots'][n]) + ')**'
                     #nametime2 = '['+nametime2+']('+url_registration[n]+')'
 
                 # Stylize the registration link
-                reg_string1 = nametime1
-                reg_string2 = reg_string2 + '\n'+nametime2
+                reg_string1 = nametime1 # Bottom registration
+                reg_string2 = reg_string2 + '\n'+nametime2 # Top time stamp
 
 
         # Track name
@@ -949,7 +949,7 @@ class Monitor:
             color = 0
 
         # Send the main info message
-        self.state['laps_message_id'] = self.send_message(self.webhook_info, body1, body2, '\n\n'+reg_string1+'\n'+laps_footer, self.state['laps_message_id'], color=color)
+        self.state['laps_message_id'] = self.send_message(self.webhook_info, body1, body2, '\n\n'+reg_string1+laps_footer, self.state['laps_message_id'], color=color)
         if self.state['laps_message_id'] is None: print('DID NOT EDIT OR SEND LAPS MESSAGE')
 
 
