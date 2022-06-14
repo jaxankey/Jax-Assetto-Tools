@@ -912,7 +912,7 @@ class Monitor:
 
                 # Linkify it
                 if reg:
-                    nametime1 = '**[Register]('+url_registration[n]+') (' + str(self['number_registered'][n]) + '/' + str(self['number_slots'][n]) + ')**'
+                    nametime1 = '[**Register (' + str(self['number_registered'][n]) + '/' + str(self['number_slots'][n]) + ')**]('+url_registration[n]+')'
                     #nametime2 = '['+nametime2+']('+url_registration[n]+')'
 
                 # Stylize the registration link
