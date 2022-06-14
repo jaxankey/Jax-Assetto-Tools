@@ -919,21 +919,20 @@ class Monitor:
                 reg_string1 = nametime1
                 reg_string2 = reg_string2 + '\n'+nametime2
 
-        # Assemble the message body
-        body1 = venue_header + '**__'
-
-        # If we have a carset, start with that
-        if self.state['carset']: body1 = body1 + str(self.state['carset']).upper()+' @ '
 
         # Track name
         track_name = self.state['track_name']
         if not track_name: track_name = self.state['track']
         if not track_name: track_name = 'Unknown Track?'
-        if track_name:
-            if url_event_info not in [None, False, '']:
-                body1 = body1 + '[' + track_name.upper()+']('+url_event_info+')__**'
-            else:
-                body1 = body1 + track_name.upper() + '__**'
+
+        title = ''
+        if self.state['carset']: title = title + str(self.state['carset']).upper() + ' @ '
+        if track_name: title = title + track_name.upper()
+        if url_event_info not in [None, False, '']:
+            title = '[' + title +']('+url_event_info+')'
+
+        # Assemble the message body
+        body1 = venue_header + '**__'+title+'__**'
 
         # Subheader
         body1 = body1 + reg_string2 + venue_subheader
