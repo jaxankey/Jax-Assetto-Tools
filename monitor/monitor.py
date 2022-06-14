@@ -131,6 +131,9 @@ class Monitor:
         """
         global url_webhook_online, path_log
 
+        # Set to false after first messages sent
+        self.first_run = True
+
         # json's from premium server manager
         self.info          = None
         self.live_timings  = None
@@ -416,11 +419,14 @@ class Monitor:
 
 
         # Finally, if ANYTHING changed, we need to update the messages
-        if laps_or_onlines_changed \
+        if self.first_run \
+        or laps_or_onlines_changed \
         or track_changed \
         or carset_fully_changed \
         or event_time_slots_changed \
-        or session_changed: self.send_state_messages()
+        or session_changed:
+            self.send_state_messages()
+            self.first_run = False
 
 
 
