@@ -932,10 +932,10 @@ class Monitor:
             title = '[' + title +']('+url_event_info+')'
 
         # Assemble the message body
-        body1 = ':point_right: ' + venue_header + '**__'+title+'__** :point_left:'
+        body1 = venue_header + '**__'+title+'__**'
 
         # Subheader
-        body1 = body1 + reg_string2 + venue_subheader
+        body1 = body1 + ':point_right:' + reg_string2 + venue_subheader
 
         # Below the venue and above laps
         if laps: body1 = body1 + '\n' + laps
