@@ -888,6 +888,7 @@ class Monitor:
 
         reg_string1 = '' # Shorter bottom one
         reg_string2 = '' # Longer top one
+
         # If we have qual / race timestamps, put those in
         if self['race_timestamp']:
             if type(self['race_timestamp']) is not list: self['race_timestamp'] = [0] * len(path_championship)
@@ -895,13 +896,10 @@ class Monitor:
             if type(self['number_registered']) is not list: self['number_registered'] = [0] * len(path_championship)
             if type(self['number_slots']) is not list: self['number_slots'] = [0] * len(path_championship)
 
-            #reg_string1 = reg_string1 + '\n'
-            #reg_string2 = reg_string2 + '\n'
-
             reg = url_registration not in ['', None, []]
-            if reg: reg_string1 = reg_string1 + '**Registration**'
 
             for n in range(len(self['race_timestamp'])):
+
                 # Now add the time stamp for this race
                 ts = str(int(self['race_timestamp'][n]))
 
@@ -914,11 +912,11 @@ class Monitor:
 
                 # Linkify it
                 if reg:
-                    nametime1 = '['+nametime1+']('+url_registration[n]+') (' + str(self['number_registered'][n]) + '/' + str(self['number_slots'][n]) + ')'
+                    nametime1 = '**[Register for '+nametime1+']('+url_registration[n]+') (' + str(self['number_registered'][n]) + '/' + str(self['number_slots'][n]) + ')**'
                     #nametime2 = '['+nametime2+']('+url_registration[n]+')'
 
                 # Stylize the registration link
-                reg_string1 = reg_string1 + '\n:point_right: '+nametime1
+                reg_string1 = nametime1
                 reg_string2 = reg_string2 + '\n'+nametime2
 
         # Assemble the message body
