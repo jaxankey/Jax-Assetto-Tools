@@ -917,7 +917,7 @@ class Monitor:
 
                 # Stylize the registration link
                 reg_string1 = nametime1 # Bottom registration
-                reg_string2 = reg_string2 + '\n:point_right:'+nametime2 # Top time stamp
+                reg_string2 = reg_string2 + '\n'+nametime2 # Top time stamp
 
 
         # Track name
