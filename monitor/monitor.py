@@ -917,7 +917,7 @@ class Monitor:
 
                 # Stylize the registration link
                 reg_string1 = nametime1 # Bottom registration
-                reg_string2 = reg_string2 + '\n'+nametime2 # Top time stamp
+                reg_string2 = reg_string2 + ':point_right:' + '\n'+nametime2 # Top time stamp
 
 
         # Track name
@@ -935,7 +935,7 @@ class Monitor:
         body1 = venue_header + '**__'+title+'__**'
 
         # Subheader
-        body1 = body1 + ':point_right:' + reg_string2 + venue_subheader
+        body1 = body1 + reg_string2 + venue_subheader
 
         # Below the venue and above laps
         if laps: body1 = body1 + '\n' + laps
