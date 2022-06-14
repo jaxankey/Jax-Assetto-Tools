@@ -25,7 +25,6 @@ path_log = ''
 
 # ACSM premium settings
 server_manager_premium_mode = False
-url_INFO          = None
 url_api_details   = None
 tcp_data_port     = None
 no_down_warning   = False
@@ -133,9 +132,8 @@ class Monitor:
         global url_webhook_online, path_log
 
         # json's from premium server manager
-        self.details      = None
-        self.info         = None
-        self.live_timings = None
+        self.info          = None
+        self.live_timings  = None
 
         # Discord webhook objects
         self.webhook_online  = None # List of webhooks
@@ -240,12 +238,6 @@ class Monitor:
             session_type=None,
         )
 
-        # # Reset the other info that's hanging around.
-        # self.details      = None
-        # self.info         = None
-        # self.live_timings = None
-
-
     def premium_get_latest_data(self):
         """
         Grabs all the latest event information from the server, and 
@@ -253,22 +245,26 @@ class Monitor:
         """
         if debug: print('\n_premium_get_latest_data')
 
-        # If self.live_timings == None, we consider this a "first run" for the venue, printing details.
-        # self.live_timings will be switched to False after the first run.
-        first_run = self.live_timings is None
+        # Test if the server is up
+        server_is_up = port_is_open('localhost', tcp_data_port)
 
-        # If we have a data port, test to see if the server is even running
-        if not tcp_data_port is None:
+        # If we're down, send a message
+        if not server_is_up:
 
-            # If the port is shut, send a warning message and quit out
-            if not port_is_open('localhost', tcp_data_port):
-                if not no_down_warning:
-                    print('ERROR: tcp_data_port', tcp_data_port,'is shut.')
-                    if not self['down_message_id']:
-                        self['down_message_id'] = self.send_message(self.webhook_info,
-                            'Server is down. I need an adult! :(', '', '')
-                        self.save_and_archive_state()
-                if not first_run: return
+            # But only if we're supposed to and there isn't already one
+            if not no_down_warning and not self['down_message_id']:
+                self['down_message_id'] = self.send_message(self.webhook_info,
+                    'Server is down. I need an adult! :(', '', '')
+                self.save_and_archive_state()
+
+        # Otherwise, the server is up; if there is a down message, clear it
+        elif self.state['down_message_id']:
+            self.delete_message(self.webhook_info, self['down_message_id'])
+            self['down_message_id'] = None
+            self.save_and_archive_state()
+
+        # Regardless, we see what informationn is available and post it if something
+        # changed.
 
         # Flag for information that changed
         laps_or_onlines_changed  = False  # laps or onlines for sending messages
@@ -277,91 +273,99 @@ class Monitor:
         carset_fully_changed     = False  # for making new venue
         session_changed          = False  # If the session changes
 
-        # Grab the "details" from 8081/api/details. If this fails,
-        # we can't get basic information like carset.
-        try: self.details = json.loads(urllib.request.urlopen(url_api_details, timeout=5).read(), strict=False)
-        except Exception as e:
-            if not no_down_warning:
-                print('ERROR: Could not open ' + url_api_details + '\n', e)
-                if not self['down_message_id']:
-                    self['down_message_id'] = self.send_message(self.webhook_info,
-                        'Server is down. I need an adult! :(', '', '')
-                    self.save_and_archive_state()
+        # If the server is up, try to grab the "details" from 8081/api/details to learn who is online.
+        if server_is_up:
+            try: details = json.loads(urllib.request.urlopen(url_api_details, timeout=5).read(), strict=False)
+            except Exception as e:
+                print('\n\nERROR: Could not open', url_api_details, e)
+                details = None
 
-            # We still want to send the empty server post the first time.
-            if not first_run: return
+        # Sever is down, we don't know anything
+        else: details = None
 
-        # Print the debug info
-        if first_run and debug:
-            print('\n----First run self.details:')
-            pprint.pprint(self.details)
+        # Get the previous set of onlines
+        old = set()
+        for name in self.state['online']: old.add((name, self.state['online'][name]['car']))
 
-        # If we get this far, clear any existing down message.
-        if self.state['down_message_id']: 
-            self.delete_message(self.webhook_info, self['down_message_id'])
-            self['down_message_id'] = None
-            self.save_and_archive_state()
-
-        # Data from website.
-        if self.details:
-
-            # UPDATE SESSION INFO
-            try:
-                # Get the integer for the current session
-                x = self.details['sessiontypes'][self.details['session']]
-                s = {0:'B', 1:'P', 2:'Q', 3:'R'}[x]
-                if s != self['session_type']:
-                    session_changed = True
-                    self['session_type'] = s
-
-            except Exception as e: print('Could not get session', e)
-
-            # UPDATE ONLINES
-
-            # Compare last seen drivers (state) to the newly found set of drivers (details)
-            old = set()
-            new = set()
-            for name in self.state['online']: old.add((name, self.state['online'][name]['car']))
-            for car in self.details['players']['Cars']:
+        # Get the new set of onlines
+        new = set()
+        if details:
+            for car in details['players']['Cars']:
                 if car['IsConnected']: new.add((car['DriverName'], car['Model']))
+        # Otherwise, we know nothing, so assume no one is online.
 
-            # If they are not equal, update
-            if new != old:
-                print('Detected a difference in online drivers', new, old)
-                self.state['online'] = dict()
-                for item in new:
+        # If the sets are not equal, update
+        if new != old:
+            print('Detected a difference in online drivers', new, old)
 
-                    # Update state onlines
-                    self.state['online'][item[0]] = dict(car=item[1])
+            # remember to send the messages
+            laps_or_onlines_changed = True
 
-                    # Update namecar
-                    namecar = item[0]+' ('+self.get_carname(item[1])+')'
-                    if not namecar in self.state['seen_namecars']: self.state['seen_namecars'].append(namecar) 
+            # Update the state
+            self.state['online'] = dict()
+            for item in new:
 
-                laps_or_onlines_changed = True
+                # Update state onlines
+                self.state['online'][item[0]] = dict(car=item[1])
 
-            # Get the carset list from details and see if it changed
-            cars = list(self.details['content']['cars'].keys())
+                # Update namecar
+                namecar = item[0]+' ('+self.get_carname(item[1])+')'
+                if not namecar in self.state['seen_namecars']: self.state['seen_namecars'].append(namecar)
+
+
+        # JACK: THIS MAY BE THE CAUSE OF THE WEIRD STAMPS WHEN THE EVENT STARTS
+        # If we don't have a qual or race timestamp list, make them with the right number of elements
+        if not self['qual_timestamp']: self['qual_timestamp'] = [0] * len(path_championship)
+        if not self['race_timestamp']: self['race_timestamp'] = [0] * len(path_championship)
+        if not self['number_registered']: self['number_registered'] = [0] * len(path_championship)
+        if not self['number_slots']: self['number_slots'] = [0] * len(path_championship)
+
+        # Now load all the supplied championships
+        try:
+            # Loop over the championships to get time stamps
+            championships = []
+            for n in range(len(path_championship)):
+                c = load_json(path_championship[n])
+                championships.append(c)
+
+                # Parse the scheduled timestamp and add the qualifying time, and registered
+                tq = dateutil.parser.parse(c['Events'][0]['Scheduled']).timestamp()
+                tr = tq + c['Events'][0]['RaceSetup']['Sessions']['QUALIFY']['Time'] * 60
+                nr = len(c['SignUpForm']['Responses'])
+                ns = c['Stats']['NumEntrants']
+
+                # If it's different, update the state and send messages
+                if tq != self['qual_timestamp'][n] or tr != self['race_timestamp'][n] \
+                        or nr != self['number_registered'][n] or ns != self['number_slots'][n]:
+                    event_time_slots_changed = True
+                    self['qual_timestamp'][n]    = tq
+                    self['race_timestamp'][n]    = tr
+                    self['number_registered'][n] = nr
+                    self['number_slots'][n]      = ns
+
+            # Use the first championship event to get the track, layout, and available cars
+            rs = championships[0]['Events'][0]['RaceSetup']
+            cars   = rs['Cars'].split(';')
+            track  = rs['Track']
+            layout = rs['TrackLayout']
+
+            # See if the carset fully changed
             carset_fully_changed = len(set(cars).intersection(self.state['cars'])) == 0
             self.state['cars'] = cars
 
-            # Get the track/layout from details and see if it changed
-            s = self.details['track'].split('-')
-            track = s[0]
-            if len(s) > 1: layout = s[1]
-            else:          layout = ''
+            # See if the track or layout changed
             track_changed = (track != self.state['track'] or layout != self.state['layout'])
             self.state['track']  = track
             self.state['layout'] = layout
 
-        # This should never happen.
-        else: print('premium_get_latest_data: no self.details; this code should be unreachable')
+        except Exception as e:
+            print('ERROR with championship.json(s):', e)
 
         # If the venue changed, do the new venue stuff.
         if track_changed or carset_fully_changed:
             if track_changed:        print('premium_get_latest_data: track changed')
             if carset_fully_changed: print('premium_get_latest_data: carset fully changed')
-            
+
             # Resets state, sets track, layout, carset
             self.new_venue(self['track'], self['layout'], self['cars'])
             self.live_timings = None
@@ -373,84 +377,46 @@ class Monitor:
         # Try to grab the live_timings data; load_json returns None if the file was moved.
         if path_live_timings: self.live_timings = load_json(path_live_timings, True)
 
-        # After this we switch live_timings to "False" so it doesn't seem like a first run next time.
-        if self.live_timings is None: self.live_timings = False
-
         # If we found and loaded live_timings, look for new laps.
         if self.live_timings:
-
-            if debug and first_run:
-                print('\n----First run self.live_timings:')
-                pprint.pprint(self.live_timings)
 
             # UPDATE BEST LAPS
             for guid in self.live_timings['Drivers']:
                 name = self.live_timings['Drivers'][guid]['CarInfo']['DriverName']
-                
+
                 # Make sure this name is in the state
-                if not name in self['laps']: 
+                if not name in self['laps']:
                     print('New driver lap:', name)
                     self['laps'][name] = dict()
                     laps_or_onlines_changed = True
 
                 for car in self.live_timings['Drivers'][guid]['Cars']:
-                    
+
                     # Get the current best in ms (it was nanoseconds LULZ)
                     best = self.live_timings['Drivers'][guid]['Cars'][car]['BestLap']*1e-6
-                    
+
                     # self['laps'][name][car] = {'time': '12:32:032', 'time_ms':12345, 'cuts': 3}
                     if best and (car not in self['laps'][name] \
                     or best < self['laps'][name][car]['time_ms']):
-                            
+
                         # Get the string time
                         ts = self.from_ms(best)
-                        
+
                         print('Lap:', name, car, ts)
-                        
+
                         self['laps'][name][car] = dict(
-                            time    = ts, 
+                            time    = ts,
                             time_ms = best,
                             cuts    = 0)
-                        
+
                         print(self['laps'][name][car])
-                            
+
                         # Remember to update the messages
                         laps_or_onlines_changed = True
-        
-        # See if we can get an event timestamp
-        if path_championship not in ['', None]:
 
-            # If we don't have a qual or race timestamp list, make them with the right number of elements
-            if not self['qual_timestamp']: self['qual_timestamp'] = [0]*len(path_championship)
-            if not self['race_timestamp']: self['race_timestamp'] = [0]*len(path_championship)
-            if not self['number_registered']: self['number_registered'] = [0]*len(path_championship)
-            if not self['number_slots']     : self['number_slots']      = [0]*len(path_championship)
-
-            try:
-                # Loop over the championships to get time stamps
-                for n in range(len(path_championship)):
-                    c = load_json(path_championship[n])
-
-                    # Parse the scheduled timestamp and add the qualifying time, and registered
-                    tq = dateutil.parser.parse(c['Events'][0]['Scheduled']).timestamp()
-                    tr = tq + c['Events'][0]['RaceSetup']['Sessions']['QUALIFY']['Time']*60
-                    nr = len(c['SignUpForm']['Responses'])
-                    ns = c['Stats']['NumEntrants']
-
-                    # If it's different, update the state and send messages
-                    if tq != self['qual_timestamp'][n]    or tr != self['race_timestamp'][n] \
-                    or nr != self['number_registered'][n] or ns != self['number_slots'][n]:
-                        event_time_slots_changed = True
-                        self['qual_timestamp'][n]    = tq
-                        self['race_timestamp'][n]    = tr
-                        self['number_registered'][n] = nr
-                        self['number_slots'][n]      = ns
-
-            except Exception as e: print('ERROR with championship.json:', e)
 
         # Finally, if ANYTHING changed, we need to update the messages
-        if first_run \
-        or laps_or_onlines_changed \
+        if laps_or_onlines_changed \
         or track_changed \
         or carset_fully_changed \
         or event_time_slots_changed \
