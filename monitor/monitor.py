@@ -304,16 +304,9 @@ class Monitor:
             # remember to send the messages
             laps_or_onlines_changed = True
 
-            # Update the state
+            # Redo the onlines in the state.
             self.state['online'] = dict()
-            for item in new:
-
-                # Update state onlines
-                self.state['online'][item[0]] = dict(car=item[1])
-
-                # Update namecar
-                namecar = item[0]+' ('+self.get_carname(item[1])+')'
-                if not namecar in self.state['seen_namecars']: self.state['seen_namecars'].append(namecar)
+            for item in new: self.state['online'][item[0]] = dict(car=item[1])
 
 
         # JACK: THIS MAY BE THE CAUSE OF THE WEIRD STAMPS WHEN THE EVENT STARTS
@@ -848,20 +841,38 @@ class Monitor:
         """
         Returns a string list of who is online.
         """
-        # Otherwise, return None so we know to delete this
+        # If there are no onlines, return None so we know to delete this
         if len(self.state['online'].keys()) == 0: return None
 
         # If there are any online
         onlines = []; n=1
         for name in self.state['online']:
-            namecar = name+' ('+self.get_carname(self.state['online'][name]['car'])+')'
+
+            # Add the online namecar to the list
+            namecar = self.get_namecar_string(name, self.state['online'][name]['car'])
             onlines.append('**'+str(n)+'.** '+namecar)
+
+            # Remember all the namecars we've seen
             if not namecar in self.state['seen_namecars']: self.state['seen_namecars'].append(namecar)
-            print('get_onlines_string seen_namecars', self.state['seen_namecars'])
+
+            # Next!
             n += 1
 
-        # Return the list
-        return '\n'.join(onlines)
+        # Now assemble the offlines list
+        offlines = []
+        for namecar in self.state['seen_namecars']:
+            if not namecar in onlines:
+                offlines.append('**'+str(n)+'.** '+namecar)
+                n += 1
+
+        # Return the string
+        return '\n'.join(onlines) + '\n\nOffline:\n' + '\n'.join(offlines)
+
+    def get_namecar_string(self, name, car):
+        """
+        Returns the nice-looking name + car string.
+        """
+        return name + ' (' + self.get_carname(car) + ')'
 
     def send_state_messages(self):
         """
@@ -871,9 +882,8 @@ class Monitor:
         """
         print('send_state_messages()')
 
-        # We update the ui data in case carsets etc have changed
-        # This happens when the venue changes anyway.
-        #self.load_ui_data()
+        # Rescanning the track and car ui's already happens when the venue changes anyway.
+        # self.load_ui_data()
 
         # Get the list of who is online
         onlines = self.get_onlines_string()
@@ -972,7 +982,6 @@ class Monitor:
                 # new_venue and __init__ that clears seen_namecars
                 self.state['online_message_id'] = None
                 self.state['seen_namecars'] = []
-                print('send_state_messages seen_namecars', self.state['seen_namecars'])
                 
             self.state['session_end_time'] = 0 # Always do this for a live session
 
