@@ -861,7 +861,7 @@ class Monitor:
             n += 1
 
         # Now assemble the offlines list
-        offlines = []
+        offlines = []; n=1
         for namecar in self.state['seen_namecars']:
             if not namecar in online_namecars:
                 offlines.append(str(n)+'. '+namecar)
@@ -954,7 +954,7 @@ class Monitor:
 
         # Separate body for who's online (laps get cut first)
         if onlines:
-            body2 = '\n\n' + online_header + '\n' + onlines
+            body2 = '\n\n**' + online_header + '**\n' + onlines
             color = 15548997
         else:
             body2 = ''
@@ -988,7 +988,7 @@ class Monitor:
             self.state['session_end_time'] = 0 # Always do this for a live session
 
             # Assemble the message body
-            body1 = online_header + '\n\n' + onlines
+            body1 = '**' + online_header + '**\n' + onlines
 
             # Send the message
             self.state['online_message_id'] = self.send_message(self.webhook_online, body1, '', '\n\n'+online_footer, self.state['online_message_id'])
