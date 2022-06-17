@@ -868,7 +868,9 @@ class Monitor:
                 n += 1
 
         # Return the string
-        return '\n'.join(onlines) + '\n\nPrevious Participants:\n' + '\n'.join(offlines)
+        s = '\n'.join(onlines)
+        if len(offlines): s = s + '\n\nPrevious Participants:\n' + '\n'.join(offlines)
+        return s
 
     def get_namecar_string(self, name, car):
         """
