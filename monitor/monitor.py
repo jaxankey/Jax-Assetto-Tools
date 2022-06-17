@@ -850,7 +850,7 @@ class Monitor:
 
             # Add the online namecar to the list
             namecar = self.get_namecar_string(name, self.state['online'][name]['car'])
-            onlines.append('**'+str(n)+'.** '+namecar)
+            onlines.append('**'+str(n)+'. '+namecar+'**')
 
             # Remember all the namecars we've seen
             if not namecar in self.state['seen_namecars']: self.state['seen_namecars'].append(namecar)
@@ -862,11 +862,11 @@ class Monitor:
         offlines = []
         for namecar in self.state['seen_namecars']:
             if not namecar in onlines:
-                offlines.append('**'+str(n)+'.** '+namecar)
+                offlines.append(str(n)+'. '+namecar)
                 n += 1
 
         # Return the string
-        return '\n'.join(onlines) + '\n\nOffline:\n' + '\n'.join(offlines)
+        return '\n'.join(onlines) + '\n\nPrevious Participants:\n' + '\n'.join(offlines)
 
     def get_namecar_string(self, name, car):
         """
