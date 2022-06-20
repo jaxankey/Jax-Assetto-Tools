@@ -341,7 +341,7 @@ class Monitor:
 
             # Use the first championship event to get the track, layout, and available cars
             rs = championships[0]['Events'][0]['RaceSetup']
-            cars   = rs['Cars'].split(';')
+            cars   = rs['Cars'].split(';') if rs['Cars'] else []
             track  = rs['Track']
             layout = rs['TrackLayout']
 
