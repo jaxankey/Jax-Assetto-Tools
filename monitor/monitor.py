@@ -327,7 +327,7 @@ class Monitor:
                 # Parse the scheduled timestamp and add the qualifying time, and registered
                 tq = dateutil.parser.parse(c['Events'][0]['Scheduled']).timestamp()
                 tr = tq + c['Events'][0]['RaceSetup']['Sessions']['QUALIFY']['Time'] * 60
-                nr = len(c['SignUpForm']['Responses'])
+                nr = len(c['SignUpForm']['Responses']) if c['SignUpForm']['Responses'] else 0
                 ns = c['Stats']['NumEntrants']
 
                 # If it's different, update the state and send messages
