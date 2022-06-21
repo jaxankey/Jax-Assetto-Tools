@@ -935,6 +935,8 @@ class Monitor:
             # Loop over the time stamps and registration numbers
             for n in range(len(self['race_timestamp'])):
 
+                if self['race_timestamp'][n] == 0: pass
+
                 # Get the time stamp for this race
                 ts = str(int(self['race_timestamp'][n]))
 
