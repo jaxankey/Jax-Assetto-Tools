@@ -336,9 +336,10 @@ class Monitor:
                     ns = c['Stats']['NumEntrants']
 
                     # If it's different, update the state and send messages
-                    if tq != self['qual_timestamp'][n] or tr != self['race_timestamp'][n] \
-                            or nr != self['number_registered'][n] or ns != self['number_slots'][n]:
+                    if tq != self['qual_timestamp'][n]    or tr != self['race_timestamp'][n] \
+                    or nr != self['number_registered'][n] or ns != self['number_slots'][n]:
                         event_time_slots_changed = True
+                        print('-----------------------HAY JACK!')
                         self['qual_timestamp'][n]    = tq
                         self['race_timestamp'][n]    = tr
                         self['number_registered'][n] = nr
@@ -927,7 +928,7 @@ class Monitor:
         reg_string2 = '' # Longer top one
 
         # If we are in premium mode, these will be lists; otherwise, None.
-        if self['race_timestamp']:
+        if self['race_timestamp'] is not None:
 
             # Flag for whether we include timestamp / registration links.
             reg = url_registration not in ['', None, [None]]
@@ -956,7 +957,6 @@ class Monitor:
                     # Stylize the registration link
                     reg_string1 = nametime1 # Bottom registration
                     reg_string2 = reg_string2 + '\n'+nametime2 # Top time stamp
-
 
         # Track name
         track_name = self.state['track_name']
