@@ -339,7 +339,6 @@ class Monitor:
                     if tq != self['qual_timestamp'][n]    or tr != self['race_timestamp'][n] \
                     or nr != self['number_registered'][n] or ns != self['number_slots'][n]:
                         event_time_slots_changed = True
-                        print('-----------------------HAY JACK!')
                         self['qual_timestamp'][n]    = tq
                         self['race_timestamp'][n]    = tr
                         self['number_registered'][n] = nr
@@ -930,13 +929,14 @@ class Monitor:
         # If we are in premium mode, these will be lists; otherwise, None.
         if self['race_timestamp'] is not None:
 
-            # Flag for whether we include timestamp / registration links.
-            reg = url_registration not in ['', None, [None]]
+            # Flag for whether we include registration links with the time stamp.
+            reg = url_registration != [None]
 
             # Loop over the time stamps and registration numbers
             for n in range(len(self['race_timestamp'])):
 
                 # By default, these are set to None
+                print('------------------JACK:', self['race_timestamp'])
                 if self['race_timestamp'][n] is not None:
 
                     # Get the time stamp for this race
