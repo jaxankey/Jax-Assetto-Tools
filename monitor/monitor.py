@@ -940,7 +940,7 @@ class Monitor:
 
                 # Create the full timestamp, optionally with name
                 nametime1 = '<t:' + ts + ':F>'
-                if registration_name: nametime1 = registration_name[n] + ' '+nametime1
+                if registration_name[n]: nametime1 = registration_name[n] + ' '+nametime1
 
                 # nametime2 also has the relative time
                 nametime2 = nametime1 + ' (<t:' + ts + ':R>)'
