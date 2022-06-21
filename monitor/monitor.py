@@ -930,7 +930,7 @@ class Monitor:
         if self['race_timestamp']:
 
             # Flag for whether we include timestamp / registration links.
-            reg = url_registration not in ['', None, []]
+            reg = url_registration not in ['', None, [None]]
 
             # Loop over the time stamps and registration numbers
             for n in range(len(self['race_timestamp'])):
