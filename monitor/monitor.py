@@ -936,26 +936,26 @@ class Monitor:
             for n in range(len(self['race_timestamp'])):
 
                 # By default, these are set to None
-                if self['race_timestamp'][n] is None: pass
+                if self['race_timestamp'][n] is not None:
 
-                # Get the time stamp for this race
-                ts = str(int(self['race_timestamp'][n]))
+                    # Get the time stamp for this race
+                    ts = str(int(self['race_timestamp'][n]))
 
-                # Create the full timestamp, optionally with name
-                nametime1 = '<t:' + ts + ':F>'
-                if registration_name[n]: nametime1 = registration_name[n] + ' '+nametime1
+                    # Create the full timestamp, optionally with name
+                    nametime1 = '<t:' + ts + ':F>'
+                    if registration_name[n]: nametime1 = registration_name[n] + ' '+nametime1
 
-                # nametime2 also has the relative time
-                nametime2 = nametime1 + ' (<t:' + ts + ':R>)'
+                    # nametime2 also has the relative time
+                    nametime2 = nametime1 + ' (<t:' + ts + ':R>)'
 
-                # Linkify it
-                if reg:
-                    nametime1 = '**[Register (' + str(self['number_registered'][n]) + '/' + str(self['number_slots'][n]) + ')]('+url_registration[n]+')**'
-                    #nametime2 = '['+nametime2+']('+url_registration[n]+')'
+                    # Linkify it
+                    if reg:
+                        nametime1 = '**[Register (' + str(self['number_registered'][n]) + '/' + str(self['number_slots'][n]) + ')]('+url_registration[n]+')**'
+                        #nametime2 = '['+nametime2+']('+url_registration[n]+')'
 
-                # Stylize the registration link
-                reg_string1 = nametime1 # Bottom registration
-                reg_string2 = reg_string2 + '\n'+nametime2 # Top time stamp
+                    # Stylize the registration link
+                    reg_string1 = nametime1 # Bottom registration
+                    reg_string2 = reg_string2 + '\n'+nametime2 # Top time stamp
 
 
         # Track name
