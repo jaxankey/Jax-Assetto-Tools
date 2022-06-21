@@ -96,6 +96,8 @@ def load_json(path, suppress_warning=False):
     """
     Load the supplied path with all the safety measures and encoding etc.
     """
+    if path is None: return None
+
     if not os.path.exists(path): 
         if not suppress_warning: print('load_json: could not find', path)
         return
@@ -308,42 +310,63 @@ class Monitor:
             self.state['online'] = dict()
             for item in new: self.state['online'][item[0]] = dict(car=item[1])
 
-
         # JACK: THIS MAY BE THE CAUSE OF THE WEIRD STAMPS WHEN THE EVENT STARTS
         # If we don't have a qual or race timestamp list, make them with the right number of elements
-        if not self['qual_timestamp']: self['qual_timestamp'] = [0] * len(path_championship)
-        if not self['race_timestamp']: self['race_timestamp'] = [0] * len(path_championship)
+        if not self['qual_timestamp']:    self['qual_timestamp']    = [0] * len(path_championship)
+        if not self['race_timestamp']:    self['race_timestamp']    = [0] * len(path_championship)
         if not self['number_registered']: self['number_registered'] = [0] * len(path_championship)
-        if not self['number_slots']: self['number_slots'] = [0] * len(path_championship)
+        if not self['number_slots']:      self['number_slots']      = [0] * len(path_championship)
 
         # Now load all the supplied championships
         try:
             # Loop over the championships to get time stamps
-            championships = []
+            championships = [] # We only keep this list to get info from the first Championship
             for n in range(len(path_championship)):
                 c = load_json(path_championship[n])
                 championships.append(c)
 
-                # Parse the scheduled timestamp and add the qualifying time, and registered
-                tq = dateutil.parser.parse(c['Events'][0]['Scheduled']).timestamp()
-                tr = tq + c['Events'][0]['RaceSetup']['Sessions']['QUALIFY']['Time'] * 60
-                nr = len(c['SignUpForm']['Responses']) if c['SignUpForm']['Responses'] else 0
-                ns = c['Stats']['NumEntrants']
+                # c comes back None if path_championships[n] is None
+                # If it's NOT None, we get timestamp information.
+                if c is not None:
 
-                # If it's different, update the state and send messages
-                if tq != self['qual_timestamp'][n] or tr != self['race_timestamp'][n] \
-                        or nr != self['number_registered'][n] or ns != self['number_slots'][n]:
-                    event_time_slots_changed = True
-                    self['qual_timestamp'][n]    = tq
-                    self['race_timestamp'][n]    = tr
-                    self['number_registered'][n] = nr
-                    self['number_slots'][n]      = ns
+                    # Parse the scheduled timestamp and add the qualifying time, and registered
+                    tq = dateutil.parser.parse(c['Events'][0]['Scheduled']).timestamp()
+                    tr = tq + c['Events'][0]['RaceSetup']['Sessions']['QUALIFY']['Time'] * 60
+                    nr = len(c['SignUpForm']['Responses']) if c['SignUpForm']['Responses'] else 0
+                    ns = c['Stats']['NumEntrants']
 
-            # Use the first championship event to get the track, layout, and available cars
-            rs = championships[0]['Events'][0]['RaceSetup']
-            cars   = rs['Cars'].split(';') if rs['Cars'] else []
-            track  = rs['Track']
-            layout = rs['TrackLayout']
+                    # If it's different, update the state and send messages
+                    if tq != self['qual_timestamp'][n] or tr != self['race_timestamp'][n] \
+                            or nr != self['number_registered'][n] or ns != self['number_slots'][n]:
+                        event_time_slots_changed = True
+                        self['qual_timestamp'][n]    = tq
+                        self['race_timestamp'][n]    = tr
+                        self['number_registered'][n] = nr
+                        self['number_slots'][n]      = ns
+
+            # Get the track, layout, and cars from the website if there is no championship
+            track  = 'Unknown Track'
+            layout = ''
+            cars   = []
+            #
+            # With no championship, we use details (if we got them above!)
+            if championships[0] is None:
+
+                # We already got the details above; these can be out of date, which is why we use
+                # the championship when available
+                if details:
+                    track_layout = details['track'].split('-')
+                    track = track_layout[0]
+                    if len(track_layout) >= 2: layout = track_layout[1]
+                    else:                      layout = ''
+                    cars = details['cars']
+
+            # Otherwise we use the more reliable championship information
+            else:
+                rs = championships[0]['Events'][0]['RaceSetup']
+                cars   = rs['Cars'].split(';') if rs['Cars'] else []
+                track  = rs['Track']
+                layout = rs['TrackLayout']
 
             # See if the carset fully changed
             carset_fully_changed = len(set(cars).intersection(self.state['cars'])) == 0
@@ -903,18 +926,16 @@ class Monitor:
         reg_string1 = '' # Shorter bottom one
         reg_string2 = '' # Longer top one
 
-        # If we have qual / race timestamps, put those in
+        # If we are in premium mode, these will be lists; otherwise, None.
         if self['race_timestamp']:
-            if type(self['race_timestamp']) is not list: self['race_timestamp'] = [0] * len(path_championship)
-            if type(self['qual_timestamp']) is not list: self['qual_timestamp'] = [0] * len(path_championship)
-            if type(self['number_registered']) is not list: self['number_registered'] = [0] * len(path_championship)
-            if type(self['number_slots']) is not list: self['number_slots'] = [0] * len(path_championship)
 
+            # Flag for whether we include timestamp / registration links.
             reg = url_registration not in ['', None, []]
 
+            # Loop over the time stamps and registration numbers
             for n in range(len(self['race_timestamp'])):
 
-                # Now add the time stamp for this race
+                # Get the time stamp for this race
                 ts = str(int(self['race_timestamp'][n]))
 
                 # Create the full timestamp, optionally with name
