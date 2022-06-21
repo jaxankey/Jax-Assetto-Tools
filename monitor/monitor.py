@@ -60,9 +60,9 @@ else                                    : p = 'monitor.ini'
 exec(open(p, 'r', encoding="utf8").read())
 
 # Tweak
-if type(path_championship) is str: path_championship = [path_championship]
-if type(url_registration)  is str: url_registration  = [url_registration]
-if type(registration_name) is str: registration_name = [registration_name]
+if type(path_championship) is not list: path_championship = [path_championship]
+if type(url_registration)  is not list: url_registration  = [url_registration]
+if type(registration_name) is not list: registration_name = [registration_name]
 
 
 def get_unix_timestamp(y, M, d, h, m):
