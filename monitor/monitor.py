@@ -936,8 +936,7 @@ class Monitor:
             for n in range(len(self['race_timestamp'])):
 
                 # By default, these are set to None
-                print('------------------JACK:', self['race_timestamp'])
-                if self['race_timestamp'][n] is not None:
+                if self['race_timestamp'][n] not in [0, None]:
 
                     # Get the time stamp for this race
                     ts = str(int(self['race_timestamp'][n]))
