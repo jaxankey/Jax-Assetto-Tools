@@ -312,10 +312,10 @@ class Monitor:
 
         # JACK: THIS MAY BE THE CAUSE OF THE WEIRD STAMPS WHEN THE EVENT STARTS
         # If we don't have a qual or race timestamp list, make them with the right number of elements
-        if not self['qual_timestamp']:    self['qual_timestamp']    = [0] * len(path_championship)
-        if not self['race_timestamp']:    self['race_timestamp']    = [0] * len(path_championship)
-        if not self['number_registered']: self['number_registered'] = [0] * len(path_championship)
-        if not self['number_slots']:      self['number_slots']      = [0] * len(path_championship)
+        if not self['qual_timestamp']:    self['qual_timestamp']    = [None] * len(path_championship)
+        if not self['race_timestamp']:    self['race_timestamp']    = [None] * len(path_championship)
+        if not self['number_registered']: self['number_registered'] = [None] * len(path_championship)
+        if not self['number_slots']:      self['number_slots']      = [None] * len(path_championship)
 
         # Now load all the supplied championships
         try:
@@ -935,7 +935,8 @@ class Monitor:
             # Loop over the time stamps and registration numbers
             for n in range(len(self['race_timestamp'])):
 
-                if self['race_timestamp'][n] == 0: pass
+                # By default, these are set to None
+                if self['race_timestamp'][n] is None: pass
 
                 # Get the time stamp for this race
                 ts = str(int(self['race_timestamp'][n]))
