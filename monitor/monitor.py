@@ -255,6 +255,7 @@ class Monitor:
 
         # If we're down, send a message
         if not server_is_up:
+            print('---server down')
 
             # But only if we're supposed to and there isn't already one
             if not no_down_warning and not self['down_message_id']:
@@ -923,6 +924,8 @@ class Monitor:
         ###################################
         # INFO MESSAGE WITH LAPS AND ONLINE
 
+        # These are misnamed for historical reasons.
+        # They contain the time stamp if there is premium mode.
         reg_string1 = '' # Shorter bottom one
         reg_string2 = '' # Longer top one
 
