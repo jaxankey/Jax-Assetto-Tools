@@ -644,7 +644,7 @@ class Monitor:
 
         # Reset everything; new venue happens when the server resets, which boots people (hopefully)
         # When the venue changes, the server may be down, and we want to remember the down message id.
-        down_message_id = self.state['down_message_id']:
+        down_message_id = self.state['down_message_id']
         self.reset_state()
         self.state['down_message_id'] = down_message_id
 
@@ -923,7 +923,7 @@ class Monitor:
         laps = self.get_laps_string()
         if debug and laps: print(laps)
 
-        ###################################
+        ################################################################################################
         # INFO MESSAGE WITH LAPS AND ONLINE
 
         # These are misnamed for historical reasons.
@@ -931,7 +931,7 @@ class Monitor:
         reg_string1 = '' # Shorter bottom one
         reg_string2 = '' # Longer top one
 
-        # If we are in premium mode, these will be lists; otherwise, None.
+        # If we are in premium mode, timestamps will be lists; otherwise, None.
         if self['race_timestamp'] is not None:
 
             # Flag for whether we include registration links with the time stamp.
@@ -995,7 +995,7 @@ class Monitor:
         if self.state['laps_message_id'] is None: print('DID NOT EDIT OR SEND LAPS MESSAGE')
 
 
-        #########################################
+        #############################################################################################
         # HAY MESSAGE WITH JUST ONLINES
 
         # If there is anyone currently online send / update the message about it
