@@ -255,7 +255,6 @@ class Monitor:
 
         # If we're down, send a message
         if not server_is_up:
-            print('---server down')
 
             # But only if we're supposed to and there isn't already one
             if not no_down_warning and not self['down_message_id']:
@@ -644,7 +643,10 @@ class Monitor:
         self.end_session()
 
         # Reset everything; new venue happens when the server resets, which boots people (hopefully)
+        # When the venue changes, the server may be down, and we want to remember the down message id.
+        down_message_id = self.state['down_message_id']:
         self.reset_state()
+        self.state['down_message_id'] = down_message_id
 
         # Stick the track directory in there
         print('new_venue (continued)...')
