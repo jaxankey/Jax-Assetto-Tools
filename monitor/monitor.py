@@ -332,8 +332,13 @@ class Monitor:
                     # Parse the scheduled timestamp and add the qualifying time, and registered
                     tq = dateutil.parser.parse(c['Events'][0]['Scheduled']).timestamp()
                     tr = tq + c['Events'][0]['RaceSetup']['Sessions']['QUALIFY']['Time'] * 60
-                    nr = len(c['SignUpForm']['Responses']) if c['SignUpForm']['Responses'] else 0
                     ns = c['Stats']['NumEntrants']
+
+                    # Have to manually count these since people can cancel registrations
+                    nr = 0
+                    if c['SignUpForm']['Responses']:
+                        for r in c['SignUpForm']['Responses']:
+                            if r['Status'] == 'Accepted': nr += 1
 
                     # If it's different, update the state and send messages
                     if tq != self['qual_timestamp'][n]    or tr != self['race_timestamp'][n] \
