@@ -533,6 +533,7 @@ class Uploader:
         layout = self.combo_layouts.get_text()
         carset = self.combo_carsets.get_text()
         cars   = self.get_selected_cars()
+        tyres  = self.text_tyres.get_text()
 
         try:
             # Now switch to the "send to" server
@@ -546,6 +547,9 @@ class Uploader:
             # If we have an unsaved carset, use the list, otherwise just choose the carset
             if carset == _unsaved_carset: self.set_list_cars_selection(cars)
             self.combo_carsets.set_text(carset)
+
+            # Tyres
+            self.text_tyres.set_text(tyres)
 
         except Exception as e: print('_button_send_to_clicked', e)
 
