@@ -64,6 +64,12 @@ if type(path_championship) is not list: path_championship = [path_championship]
 if type(url_registration)  is not list: url_registration  = [url_registration]
 if type(registration_name) is not list: registration_name = [registration_name]
 
+def log(*a):
+    """
+    Prints the arguments with a time stamp.
+    """
+    ts = str(datetime.datetime.now())
+    print(ts, *a)
 
 def get_unix_timestamp(y, M, d, h, m):
     """
@@ -99,7 +105,7 @@ def load_json(path, suppress_warning=False):
     if path is None: return None
 
     if not os.path.exists(path): 
-        if not suppress_warning: print('load_json: could not find', path)
+        if not suppress_warning: log('load_json: could not find', path)
         return
     try:
         f = open(path, 'r', encoding='utf8', errors='replace')
@@ -107,8 +113,8 @@ def load_json(path, suppress_warning=False):
         f.close()
         return j
     except Exception as e:
-        print('ERROR: Could not load', path)
-        print(e)
+        log('ERROR: Could not load', path)
+        log(e)
 
 
 def port_is_open(host, port, timeout=5):
@@ -164,7 +170,7 @@ class Monitor:
         try:
             if os.path.exists(p):
                 self.state.update(load_json(p))
-                print('\nFOUND state.json, loaded')
+                log('\nFOUND state.json, loaded')
                 pprint.pprint(self.state)
 
                 # May as well update once at the beginning, in case something changed
@@ -172,12 +178,12 @@ class Monitor:
                 self.load_ui_data()
 
         except Exception as e:
-            print('\n\n-------------\nError: corrupt state.json; deleting', e)
+            log('\n\n-------------\nError: corrupt state.json; deleting', e)
             os.remove(p)
 
         # Premium mode
         if server_manager_premium_mode: 
-            print('Monitoring for updates...')
+            log('Monitoring for updates...')
 
             # Get all the latest data from the server
             while True:
@@ -200,7 +206,7 @@ class Monitor:
 
             # Monitor the file, but don't bother if we're just debugging.
             if not debug:
-                print('\nMONITORING FOR CHANGES...')
+                log('\nMONITORING FOR CHANGES...')
                 self.vanilla_parse_lines(tail(open(path_log, 'r', encoding="utf8"), True))
 
         return
@@ -248,7 +254,7 @@ class Monitor:
         Grabs all the latest event information from the server, and 
         send / update messages if anything changed.
         """
-        if debug: print('\n_premium_get_latest_data')
+        if debug: log('\n_premium_get_latest_data')
 
         # Test if the server is up
         server_is_up = port_is_open('localhost', tcp_data_port)
@@ -282,7 +288,7 @@ class Monitor:
         if server_is_up:
             try: details = json.loads(urllib.request.urlopen(url_api_details, timeout=5).read(), strict=False)
             except Exception as e:
-                print('\n\nERROR: Could not open', url_api_details, e)
+                log('\n\nERROR: Could not open', url_api_details, e)
                 details = None
 
         # Sever is down, we don't know anything
@@ -301,7 +307,7 @@ class Monitor:
 
         # If the sets are not equal, update
         if new != old:
-            print('Detected a difference in online drivers', new, old)
+            log('Detected a difference in online drivers', new, old)
 
             # remember to send the messages
             laps_or_onlines_changed = True
@@ -383,12 +389,12 @@ class Monitor:
             self.state['layout'] = layout
 
         except Exception as e:
-            print('ERROR with championship.json(s):', e)
+            log('ERROR with championship.json(s):', e)
 
         # If the venue changed, do the new venue stuff.
         if track_changed or carset_fully_changed:
-            if track_changed:        print('premium_get_latest_data: track changed')
-            if carset_fully_changed: print('premium_get_latest_data: carset fully changed')
+            if track_changed:        log('premium_get_latest_data: track changed')
+            if carset_fully_changed: log('premium_get_latest_data: carset fully changed')
 
             # Resets state, sets track, layout, carset
             self.new_venue(self['track'], self['layout'], self['cars'])
@@ -410,7 +416,7 @@ class Monitor:
 
                 # Make sure this name is in the state
                 if not name in self['laps']:
-                    print('New driver lap:', name)
+                    log('New driver lap:', name)
                     self['laps'][name] = dict()
                     laps_or_onlines_changed = True
 
@@ -426,14 +432,14 @@ class Monitor:
                         # Get the string time
                         ts = self.from_ms(best)
 
-                        print('Lap:', name, car, ts)
+                        log('Lap:', name, car, ts)
 
                         self['laps'][name][car] = dict(
                             time    = ts,
                             time_ms = best,
                             cuts    = 0)
 
-                        print(self['laps'][name][car])
+                        log(self['laps'][name][car])
 
                         # Remember to update the messages
                         laps_or_onlines_changed = True
@@ -469,7 +475,7 @@ class Monitor:
             # Requested car comes first when someone connects.
             # REQUESTED CAR: ac_legends_gtc_shelby_cobra_comp*
             if line.find('REQUESTED CAR:') == 0:
-                print('\n'+line.strip())
+                log('\n'+line.strip())
 
                 # Get the car directory
                 car = line[14:].replace('*','').strip()
@@ -481,23 +487,23 @@ class Monitor:
             # Driver name comes toward the end of someone connecting
             # DRIVER: Driver Name []
             elif line.find('DRIVER:') == 0:
-                print('\n'+line.strip())
+                log('\n'+line.strip())
                 self.vanilla_driver_connects(line[7:].split('[')[0].strip(), self.last_requested_car, init)
 
             # Clean exit, driver disconnected:  Driver Name []
             elif line.find('Clean exit, driver disconnected') == 0:
-                print('\n'+line.strip())
+                log('\n'+line.strip())
                 self.vanilla_driver_disconnects(line[33:].split('[')[0].strip(), init)
 
             # Connection is now closed for Driver Name []
             elif line.find('Connection is now closed') == 0:
-                print('\n'+line.strip())
+                log('\n'+line.strip())
                 self.vanilla_driver_disconnects(line[28:].split('[')[0].strip(), init)
 
             # Lap completed
             # Result.OnLapCompleted. Cuts: 7 ---
             elif line.find('Result.OnLapCompleted') == 0:
-                print('\n'+line.strip())
+                log('\n'+line.strip())
 
                 # Get the number of cuts (0 is valid)
                 cuts = int(line.split('Cuts:')[-1])
@@ -515,7 +521,7 @@ class Monitor:
                         t = s.pop(-1).strip()   # Time string
                         n = ' '.join(s)         # Name
 
-                        print('  ->', repr(t), repr(n), cuts, 'cuts')
+                        log('  ->', repr(t), repr(n), cuts, 'cuts')
 
                         # Get the new time in ms
                         t_ms = self.to_ms(t)
@@ -525,7 +531,7 @@ class Monitor:
 
                         # Should never happen, but if the person is no longer online, poop out.
                         if not n in self.state['online']:
-                            print('  WEIRD: DRIVER OFFLINE NOW??')
+                            log('  WEIRD: DRIVER OFFLINE NOW??')
                             break
 
                         # Get the car for the online person with this name
@@ -549,7 +555,7 @@ class Monitor:
 
             # Check if track or carset has changed from the CALLING line after initialization
             elif line.find('CALLING ') == 0:
-                print('\n'+line.strip())
+                log('\n'+line.strip())
 
                 # Split off the ? then split by &
                 items = line.split('?')[1].split('&')
@@ -562,7 +568,7 @@ class Monitor:
                         # Cars list
                         if s[0] == 'cars':
                             cars = s[1].split('%2C')
-                            print('  Cars:', cars)
+                            log('  Cars:', cars)
 
                         # Track directory and layout, e.g. ks_barcelona-gp
                         elif s[0] == 'track':
@@ -570,7 +576,7 @@ class Monitor:
                             track = tl[0]
                             if len(tl) > 1: layout = tl[1]
                             else:           layout = None
-                            print('  Track:', track, layout)
+                            log('  Track:', track, layout)
 
                 # If we have (entirely!) new cars or new track, initialize that.
                 if len(set(cars).intersection(self.state['cars'])) == 0 \
@@ -639,7 +645,7 @@ class Monitor:
          3. reset the timestamp for this venue
          4. incorporate any ui json data
         """
-        print('\nnew_venue()')
+        log('\nnew_venue()')
 
         # Dump the existing state and copy to the archive before we update the timestamp
         self.save_and_archive_state()
@@ -654,10 +660,10 @@ class Monitor:
         self.state['down_message_id'] = down_message_id
 
         # Stick the track directory in there
-        print('new_venue (continued)...')
-        print('  track ', self.state['track'],  '->', track)
-        print('  layout', self.state['layout'], '->', layout)
-        print('  cars  ', self.state['cars'],   '->', cars)
+        log('new_venue (continued)...')
+        log('  track ', self.state['track'],  '->', track)
+        log('  layout', self.state['layout'], '->', layout)
+        log('  cars  ', self.state['cars'],   '->', cars)
         self.state['track']  = track
         self.state['layout'] = layout
         self.state['cars']   = cars
@@ -674,7 +680,7 @@ class Monitor:
         """
         if skip: return
 
-        print('save_and_archive_state()', not skip)
+        log('save_and_archive_state()', not skip)
 
         # Make sure we have the appropriate directories
         if not os.path.exists('web'): os.mkdir('web')
@@ -687,7 +693,7 @@ class Monitor:
         else:
             self.state['archive_path'] = None
 
-        print('  archive_path:', self.state['archive_path'])
+        log('  archive_path:', self.state['archive_path'])
 
         # Dump the state
         p = os.path.join('web', 'state.json')
@@ -703,7 +709,7 @@ class Monitor:
         # If we're not keeping the full history, trim it
         if web_archive_history: paths = paths[0:web_archive_history]
 
-        print('  ARCHIVES:\n   ', '\n    '.join(paths))
+        log('  ARCHIVES:\n   ', '\n    '.join(paths))
         f = open(path_archive+'.txt', 'w', encoding="utf8")
         f.write('\n'.join(paths))
         f.close()
@@ -727,8 +733,8 @@ class Monitor:
         """
         Load car and track ui_*.json, and look for carsets
         """
-        print('\nload_ui_data()')
-        print('state track, layout =', str(self.state['track']), str(self.state['layout']))
+        log('\nload_ui_data()')
+        log('state track, layout =', str(self.state['track']), str(self.state['layout']))
 
         # If we're here, there is no race.json, so let's look for information
         # in the ui_*.json files for the track and cars.
@@ -744,7 +750,7 @@ class Monitor:
 
         # If the track/layout/ui_track.json exists, load the track name!
         if os.path.exists(path_ui_track):
-            print(' ',path_ui_track)
+            log(' ',path_ui_track)
             j = load_json(path_ui_track)
             if j: self.state['track_name'] = j['name']
         else:
@@ -752,7 +758,7 @@ class Monitor:
 
         # Now load all the carsets if they exist
         path_carsets = os.path.join(path_ac, 'carsets')
-        print('Checking', path_carsets)
+        log('Checking', path_carsets)
         if os.path.exists(path_carsets):
 
             # Looks for and sort the carset paths
@@ -764,7 +770,7 @@ class Monitor:
             self.state['carsets'] = dict()
             self.state['stesrac'] = dict()
             for path in carset_paths:
-                print(' ', path)
+                log(' ', path)
 
                 # Read the file
                 f = open(path, 'r', encoding="utf8"); s = f.read().strip(); f.close()
@@ -783,7 +789,7 @@ class Monitor:
                     self.state['carset'] = name
 
         # Next load the nice names of all the cars for this venue
-        print('Car nice names:')
+        log('Car nice names:')
         self.state['carnames'] = dict()
         for car in self.state['cars']:
             path_ui_car = os.path.join(path_ac,'content','cars',car,'ui','ui_car.json')
@@ -791,11 +797,11 @@ class Monitor:
                 try:
                     j = load_json(path_ui_car)
                     self.state['carnames'][car] = j['name']
-                    print(' ', car, j['name'])
+                    log(' ', car, j['name'])
                 except Exception as e:
-                    print('ERROR: loading', path_ui_car, e)
+                    log('ERROR: loading', path_ui_car, e)
                     self.state['carnames'][car] = car
-                    print(' ', car, '(error)')
+                    log(' ', car, '(error)')
 
         # Dump modifications
         self.save_and_archive_state()
@@ -819,7 +825,7 @@ class Monitor:
         # Scan through the state and collect the driver best laps
         # for each group
         laps = dict() # will eventually be a dictionary like {carset:[(driver,(time,car)), (driver,(time,car))...]}
-        if debug: print('DRIVER BESTS:')
+        if debug: log('DRIVER BESTS:')
         for name in self.state['laps']:
             
             # Dictionary by carset of all laps
@@ -915,18 +921,18 @@ class Monitor:
         post with laps and who is online (to be edited when things change)
         and a "hey!" post if people come online.
         """
-        print('send_state_messages()')
+        log('send_state_messages()')
 
         # Rescanning the track and car ui's already happens when the venue changes anyway.
         # self.load_ui_data()
 
         # Get the list of who is online
         onlines = self.get_onlines_string()
-        print('  Online:\n', onlines)
+        log('  Online:\n', onlines)
 
         # Get the list of driver best laps
         laps = self.get_laps_string()
-        if debug and laps: print(laps)
+        if debug and laps: log(laps)
 
         ################################################################################################
         # INFO MESSAGE WITH LAPS AND ONLINE
@@ -997,7 +1003,7 @@ class Monitor:
 
         # Send the main info message
         self.state['laps_message_id'] = self.send_message(self.webhook_info, body1, body2, '\n\n'+reg_string1+laps_footer, self.state['laps_message_id'], color=color)
-        if self.state['laps_message_id'] is None: print('DID NOT EDIT OR SEND LAPS MESSAGE')
+        if self.state['laps_message_id'] is None: log('DID NOT EDIT OR SEND LAPS MESSAGE')
 
 
         #############################################################################################
@@ -1027,7 +1033,7 @@ class Monitor:
 
             # Send the message
             self.state['online_message_id'] = self.send_message(self.webhook_online, body1, '', '\n\n'+online_footer, self.state['online_message_id'])
-            if self.state['online_message_id'] is None: print('DID NOT EDIT OR SEND ONLINES')
+            if self.state['online_message_id'] is None: log('DID NOT EDIT OR SEND ONLINES')
 
         # No one is currently online. 
         else: self.end_session() 
@@ -1043,7 +1049,7 @@ class Monitor:
 
         # If we have a message id, make sure it's
         # an "end session" message.
-        print('end_session()', self.state['seen_namecars'], self.state['online_message_id'])
+        log('end_session()', self.state['seen_namecars'], self.state['online_message_id'])
         if self.state['online_message_id']: 
 
             # Get a list of the seen namecars from this session
@@ -1065,7 +1071,7 @@ class Monitor:
             
             # JACK: Otherwise delete it.
             else: 
-                print('**** GOSH DARN IT, LOST THE SEEN_NAMECARS AGAIN! WTF.')
+                log('**** GOSH DARN IT, LOST THE SEEN_NAMECARS AGAIN! WTF.')
                 self.delete_message(self.webhook_online, self.state['online_message_id'])
                 self.state['online_message_id'] = None
                 self.state['session_end_time'] = 0
@@ -1079,7 +1085,7 @@ class Monitor:
         # Make sure we actually have a message id
         if not type(message_id) == int or not message_id: return
 
-        print('delete_message()')
+        log('delete_message()')
         if webhook and message_id:
             try: webhook.delete_message(message_id)
             except: pass
@@ -1089,7 +1095,7 @@ class Monitor:
         Sends a message with the supplied header and footer, making sure it's
         less than 4096 characters total. Returns the message id
         """
-        print('\nsend_message()')
+        log('\nsend_message()')
 
         # Keep the total character limit below 4096, cutting body1 first, then body 2
         if len(body1+body2+footer) > 4070: # 4070 gives a little buffer for ... and stuff. I don't wanna count.
@@ -1103,7 +1109,7 @@ class Monitor:
         # Otherwise just use the whole thing
         else: body = body1 + body2 + footer
 
-        if debug: print(body)
+        if debug: log(body)
 
         # If the message_id is supplied, edit, otherwise, send
         if webhook:
@@ -1118,13 +1124,13 @@ class Monitor:
                 try:
                     webhook.edit_message(message_id, embeds=[e])
                 except Exception as x:
-                    print('Whoops could not edit message', message_id, e, x)
+                    log('Whoops could not edit message', message_id, e, x)
                     try: message_id = webhook.send('', embeds=[e], wait=True).id
-                    except Exception as x: print('ERROR: DISCORD DOWN OR BAD WEBHOOK?', x)
+                    except Exception as x: log('ERROR: DISCORD DOWN OR BAD WEBHOOK?', x)
             else:
                 try:    message_id = webhook.send('', embeds=[e], wait=True).id
                 except Exception as x:
-                    print('Whoops could not send message', message_id, e, x)
+                    log('Whoops could not send message', message_id, e, x)
                     message_id = None
 
         # Return it.
