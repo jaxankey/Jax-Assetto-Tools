@@ -1025,8 +1025,9 @@ class Monitor:
                 # new_venue and __init__ that clears seen_namecars
                 self.state['online_message_id'] = None
                 self.state['seen_namecars'] = []
-                
-            self.state['session_end_time'] = 0 # Always do this for a live session
+
+            # We have onlines so the session is live. 0 will preclude the above message shutdown
+            self.state['session_end_time'] = 0
 
             # Assemble the message body
             body1 = '**' + online_header + '**\n' + onlines
@@ -1071,7 +1072,7 @@ class Monitor:
             
             # JACK: Otherwise delete it.
             else: 
-                log('**** GOSH DARN IT, LOST THE SEEN_NAMECARS AGAIN! WTF.')
+                log('**** GOSH DARN IT, LOST THE SEEN_NAMECARS AGAIN! WTF.', self.state['seen_namecars'])
                 self.delete_message(self.webhook_online, self.state['online_message_id'])
                 self.state['online_message_id'] = None
                 self.state['session_end_time'] = 0
