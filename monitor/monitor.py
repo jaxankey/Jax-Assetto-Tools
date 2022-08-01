@@ -48,7 +48,7 @@ url_webhook_info    = None
 url_event_info      = ''
 venue_header        = ''
 venue_subheader     = ''
-venue_recycle_message = False
+venue_recycle_message = True
 laps_footer         = ''
 
 # Other
