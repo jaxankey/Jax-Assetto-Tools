@@ -48,6 +48,7 @@ url_webhook_info    = None
 url_event_info      = ''
 venue_header        = ''
 venue_subheader     = ''
+venue_recycle_message = False
 laps_footer         = ''
 
 # Other
@@ -656,8 +657,10 @@ class Monitor:
         # Reset everything; new venue happens when the server resets, which boots people (hopefully)
         # When the venue changes, the server may be down, and we want to remember the down message id.
         down_message_id = self.state['down_message_id']
+        laps_message_id = self.state['laps_message_id']
         self.reset_state()
         self.state['down_message_id'] = down_message_id
+        if venue_recycle_message: self.state['laps_message_id'] = laps_message_id
 
         # Stick the track directory in there
         log('new_venue (continued)...')
