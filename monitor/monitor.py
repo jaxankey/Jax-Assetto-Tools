@@ -403,7 +403,7 @@ class Monitor:
 
             # Move this so we don't accidentally think it's ok when the carset is totally changed
             # (live_timings.json does not include the available cars)
-            os.rename(path_live_timings, path_live_timings+".backup")
+            if os.path.exists(path_live_timings): os.rename(path_live_timings, path_live_timings+".backup")
 
         # Try to grab the live_timings data; load_json returns None if the file was moved.
         if path_live_timings: self.live_timings = load_json(path_live_timings, True)
