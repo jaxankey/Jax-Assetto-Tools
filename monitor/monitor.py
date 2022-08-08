@@ -269,6 +269,9 @@ class Monitor:
                     'Server is down. I need an adult! :(', '', '')
                 self.save_and_archive_state()
 
+            # Quit out or else it will keep looping
+            return
+
         # Otherwise, the server is up; if there is a down message, clear it
         elif self.state['down_message_id']:
             self.delete_message(self.webhook_info, self['down_message_id'])
