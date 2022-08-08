@@ -393,7 +393,10 @@ class Monitor:
             log('ERROR with championship.json(s):', e)
 
         # If the venue changed, do the new venue stuff.
-        if track_changed or carset_fully_changed:
+        if track_changed or carset_fully_changed \
+        and not self['track'] is None \
+        and not self['layout'] is None \
+        and not len(self['cars']) == 0:
             if track_changed:        log('premium_get_latest_data: track changed')
             if carset_fully_changed: log('premium_get_latest_data: carset fully changed')
 
