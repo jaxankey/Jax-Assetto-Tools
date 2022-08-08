@@ -269,8 +269,8 @@ class Monitor:
                     'Server is down. I need an adult! :(', '', '')
                 self.save_and_archive_state()
 
-            # Quit out or else it will keep looping
-            return
+            # If we don't have a championship to parse, quit out to avoid looping.
+            if not path_championship: return
 
         # Otherwise, the server is up; if there is a down message, clear it
         elif self.state['down_message_id']:
