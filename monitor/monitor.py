@@ -270,7 +270,7 @@ class Monitor:
                 self.save_and_archive_state()
 
             # If we don't have a championship to parse, quit out to avoid looping.
-            if not path_championship: return
+            if not path_championship[0]: return
 
         # Otherwise, the server is up; if there is a down message, clear it
         elif self.state['down_message_id']:
