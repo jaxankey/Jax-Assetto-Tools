@@ -970,11 +970,9 @@ class Monitor:
                     reg_string2 = reg_string2 + '\n'+nametime2 # Top time stamp
 
                 # Linkify it
-                if reg: nametime1 = '**[Register (' + str(self['number_registered'][n]) + '/' + str(
-                    self['number_slots'][n]) + ')](' + url_registration[n] + ')**'
-
-                # Stylize the registration link
-                reg_string1 = nametime1  # Bottom registration
+                if reg:
+                    nametime1 = '**[Register (' + str(self['number_registered'][n]) + '/' + str(self['number_slots'][n]) + ')](' + url_registration[n] + ')**'
+                    reg_string1 = nametime1  # Bottom registration stylized
 
         # Track name
         track_name = self.state['track_name']
