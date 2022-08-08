@@ -966,16 +966,15 @@ class Monitor:
                     if registration_name[n]: nametime1 = registration_name[n] + ' '+nametime1
 
                     # nametime2 also has the relative time
-                    nametime2 = nametime1 + ' (<t:' + ts + ':R>)'
-
-                    # Linkify it
-                    if reg:
-                        nametime1 = '**[Register (' + str(self['number_registered'][n]) + '/' + str(self['number_slots'][n]) + ')]('+url_registration[n]+')**'
-                        #nametime2 = '['+nametime2+']('+url_registration[n]+')'
-
-                    # Stylize the registration link
-                    reg_string1 = nametime1 # Bottom registration
+                    nametime2   = nametime1 + ' (<t:' + ts + ':R>)'
                     reg_string2 = reg_string2 + '\n'+nametime2 # Top time stamp
+
+                # Linkify it
+                if reg: nametime1 = '**[Register (' + str(self['number_registered'][n]) + '/' + str(
+                    self['number_slots'][n]) + ')](' + url_registration[n] + ')**'
+
+                # Stylize the registration link
+                reg_string1 = nametime1  # Bottom registration
 
         # Track name
         track_name = self.state['track_name']
