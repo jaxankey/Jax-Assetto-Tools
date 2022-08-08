@@ -946,7 +946,7 @@ class Monitor:
         reg_string2 = '' # Longer top one
 
         # If we are in premium mode, timestamps will be lists; otherwise, None.
-        if self['race_timestamp'] is not None:
+        if self['race_timestamp'] is not None and self['qual_timestamp'] > 0:
 
             # Flag for whether we include registration links with the time stamp.
             reg = url_registration != [None]
