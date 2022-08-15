@@ -384,7 +384,8 @@ class Uploader:
         self.grid_go = self.tab_uploader.add(egg.gui.GridLayout(False), alignment=0)
 
         self.button_upload = self.grid_go.add(egg.gui.Button(
-            'Full Upload', tip='Packages the required server data, uploads, restarts the server, cleans up the local files.',
+            'Full Upload', tip='Packages the required server data, uploads, restarts \
+            the server, cleans up the local files.',
             signal_clicked=self._button_upload_clicked), alignment=0).set_width(100)
         self.button_upload.set_style(self.style_fancybutton)
 
