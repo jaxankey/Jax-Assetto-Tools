@@ -9,3 +9,5 @@ uploads.7z
 egg_settings
 .idea
 *.exe
+uploader/build
+uploader/uploader.spec
