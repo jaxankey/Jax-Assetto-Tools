@@ -881,7 +881,7 @@ class Monitor:
             # Append this to the master
             s = s + '\n\n**'+carset+'**\n' + '\n'.join(lines)
 
-        return s.strip()        
+        return self.fix_naughty_characters(s.strip())        
 
     def get_onlines_string(self):
         """
@@ -916,13 +916,26 @@ class Monitor:
         # Return the string
         s = '\n'.join(onlines)
         if len(offlines): s = s + '\n\nPrevious Participants:\n' + '\n'.join(offlines)
-        return s
+        return self.fix_naughty_characters(s.strip())
 
     def get_namecar_string(self, name, car):
         """
         Returns the nice-looking name + car string.
         """
         return name + ' (' + self.get_carname(car) + ')'
+
+    def fix_naughty_characters(self, s):
+        """
+        Gets rid of characters that screw with discord's formatting.
+        """
+        
+        # List of naughty characters
+        naughty = ['*', '_']
+        
+        for n in naughty: s = s.replace(n, '\\'+n)
+        
+        return s
+        
 
     def send_state_messages(self):
         """
