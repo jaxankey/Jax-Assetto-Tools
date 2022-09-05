@@ -874,7 +874,8 @@ class Monitor:
             # Now loop over the entries and build a string
             lines = []; n=1
             for x in laps[carset]: 
-                lines.append('**'+str(n)+'.** '+x[1][0]+' '+x[1][1]+' ('+self.get_carname(x[1][2])+')')
+                lines.append('**'+str(n)+'.** '+self.fix_naughty_characters(
+                 x[1][0]+' '+x[1][1]+' ('+self.get_carname(x[1][2])+')'))
                 #lines.append('**'+x[1][0]+'** '+x[1][1]+' ('+self.get_carname(x[1][2])+')')
                 n+=1
                         
@@ -897,7 +898,7 @@ class Monitor:
 
             # Add the online namecar to the list
             namecar = self.get_namecar_string(name, self.state['online'][name]['car'])
-            onlines.append('**'+str(n)+'. '+namecar+'**')
+            onlines.append('**'+str(n)+'. '+self.fix_naughty_characters(namecar)+'**')
             online_namecars.append(namecar)
 
             # Remember all the namecars we've seen
@@ -910,7 +911,7 @@ class Monitor:
         offlines = []; n=1
         for namecar in self.state['seen_namecars']:
             if not namecar in online_namecars:
-                offlines.append(str(n)+'. '+namecar)
+                offlines.append(str(n)+'. '+self.fix_naughty_characters(namecar))
                 n += 1
 
         # Return the string
@@ -922,7 +923,7 @@ class Monitor:
         """
         Returns the nice-looking name + car string.
         """
-        return self.fix_naughty_characters(name + ' (' + self.get_carname(car) + ')')
+        return name + ' (' + self.get_carname(car) + ')'
 
     def fix_naughty_characters(self, s):
         """
