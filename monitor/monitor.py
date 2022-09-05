@@ -888,7 +888,8 @@ class Monitor:
         """
         Returns a string list of who is online.
         """
-        # If there are no onlines, return None so we know to delete this
+        # If there are no onlines, return None, which prevents printing and 
+        # sets the message color to gray.
         if len(self.state['online'].keys()) == 0: return None
 
         # If there are any online
@@ -902,7 +903,8 @@ class Monitor:
             online_namecars.append(namecar)
 
             # Remember all the namecars we've seen
-            if not namecar in self.state['seen_namecars']: self.state['seen_namecars'].append(namecar)
+            if not namecar in self.state['seen_namecars']: 
+                self.state['seen_namecars'].append(namecar)
 
             # Next!
             n += 1
@@ -948,6 +950,20 @@ class Monitor:
 
         # Rescanning the track and car ui's already happens when the venue changes anyway.
         # self.load_ui_data()
+
+        # If there is session_end_time, that means the last time we
+        # were here, we updated an onlines message to "completed" state.
+        # It also means we have online_message_id and the self.state['seen_namecars'].
+        # If this "dead post" has timed out, erase this info, which 
+        # will generate a new message. This must be done before we get the 
+        # onlines string, since that relies on seen_namecars.
+        if self.state['session_end_time'] \
+        and time.time()-self.state['session_end_time'] > online_timeout:
+    
+            # Reset the session info. Note this is the only place other than
+            # new_venue and __init__ that clears seen_namecars
+            self.state['online_message_id'] = None
+            self.state['seen_namecars'] = []
 
         # Get the list of who is online
         onlines = self.get_onlines_string()
@@ -1033,19 +1049,6 @@ class Monitor:
         # If there is anyone currently online send / update the message about it
         # onlines is either a string or None if there isn't anyone online
         if onlines:
-
-            # If there is session_end_time, that means the last time we
-            # were here, we updated a message to "completed" state.
-            # It also means we have online_message_id and the self.state['seen_namecars'].
-            # If this "dead post" has timed out, erase this info, which 
-            # will generate a new message.
-            if self.state['session_end_time'] \
-            and time.time()-self.state['session_end_time'] > online_timeout:
-        
-                # Reset the session info. Note this is the only place other than
-                # new_venue and __init__ that clears seen_namecars
-                self.state['online_message_id'] = None
-                self.state['seen_namecars'] = []
 
             # We have onlines so the session is live. 0 will preclude the above message shutdown
             self.state['session_end_time'] = 0
