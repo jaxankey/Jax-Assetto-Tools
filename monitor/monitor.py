@@ -922,7 +922,7 @@ class Monitor:
         """
         Returns the nice-looking name + car string.
         """
-        return self.fix_naughty_characters(name + ' (' + self.get_carname(car) + ')')
+        return name + ' (' + self.get_carname(car) + ')'
 
     def fix_naughty_characters(self, s):
         """
