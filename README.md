@@ -6,4 +6,4 @@ This repository is to explain how to set up an Assetto Corsa Ubuntu server, and 
  2. A simple Discord bot that monitors the server, sending messages with lap times and who is currently racing. No API nonsense, just webhooks.
  3. Scripts to stop/start the server, send automated messages to discord, etc.
 
-**[See the Wiki](https://github.com/jaxankey/Jax-Assetto-Tools/wiki/Jax-Assetto-Tools-Wiki)** for more information!
+**[See the Wiki](https://github.com/jaxankey/Jax-Assetto-Tools/wiki)** for more information!
