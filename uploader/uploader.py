@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 import glob, codecs, os, sys, shutil, random, json, pyperclip, webbrowser, stat
-import dateutil, subprocess, time, datetime, importlib
+import dateutil, subprocess, time, datetime, importlib, codecs
 
 # Change to the directory of this script depending on whether this is a "compiled" version or run as script
 if os.path.split(sys.executable)[-1] == 'uploader.exe': os.chdir(os.path.dirname(sys.executable)) # For executable version
@@ -25,7 +25,8 @@ def load_json(path):
     """
     try:
         if os.path.exists(path):
-            f = open(path, 'r', encoding='utf8', errors='replace')
+            f = codecs.open(path, 'r', 'utf-8-sig', errors='replace')
+            #f = open(path, 'r', encoding='utf8', errors='replace')
             j = json.load(f, strict=False)
             f.close()
             return j

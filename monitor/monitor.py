@@ -682,6 +682,9 @@ class Monitor:
 
         # Timestamp changes only for new track; use the most recently seen timestamp
         self.state['timestamp'] = time.strftime('%Y-%m-%d_%H.%M.%S', time.localtime())
+        
+        # JACK: Save and archive the state for good measure?
+        self.save_and_archive_state()
 
     def save_and_archive_state(self, skip=False):
         """
