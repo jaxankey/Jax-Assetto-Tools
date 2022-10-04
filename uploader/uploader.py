@@ -212,6 +212,12 @@ class Uploader:
         self.tab_settings.set_row_stretch(20)
 
         self.tab_settings.new_autorow()
+        self.label_reset = self.tab_settings.add(egg.gui.Label('Reset Server Command:'))
+        self.text_reset = self.tab_settings.add(egg.gui.TextBox('',
+            tip='Recommended remote script that stops server manager, clears out the live_timings.json, and restarts it. This prevents laps from persisting between venues.',
+            signal_changed=self._any_server_setting_changed), alignment=0)
+
+        self.tab_settings.new_autorow()
         self.tab_settings.add(egg.gui.Label('Post-Upload URL 1:'))
         self.text_url = self.tab_settings.add(egg.gui.TextBox('',
             tip='Optional website to open after upload (e.g., the reservation sheet or the site that re-indexes server manager / starts practice).',
@@ -367,6 +373,9 @@ class Uploader:
         self.checkbox_clean = self.grid2s.add(egg.gui.CheckBox(
             'Clean', signal_changed=self._any_server_setting_changed,
             tip='During upload, remove all old content (cars and tracks) from the server.'))
+        self.checkbox_reset = self.grid2s.add(egg.gui.CheckBox(
+            'Reset', signal_changed=self._any_server_setting_changed,
+            tip='Stop the server, clear out previous live timings (laps), and restart it, using the specified script.'))
         self.checkbox_restart = self.grid2s.add(egg.gui.CheckBox(
             'Restart Server', signal_changed=self._any_server_setting_changed,
             tip='Stop the server before upload and restart after upload.'))
@@ -417,6 +426,7 @@ class Uploader:
             'text_stop',
             'text_monitor',
             'text_remote_championship',
+            'text_reset'
             'text_postcommand',
             'text_precommand',
             'text_url',
@@ -430,6 +440,7 @@ class Uploader:
             'checkbox_package',
             'checkbox_upload',
             'checkbox_clean',
+            'checkbox_reset',
             'checkbox_restart',
             'checkbox_monitor',
             'checkbox_url',
@@ -631,6 +642,7 @@ class Uploader:
         self.checkbox_url.set_hidden(self.text_url() == '' and self.text_url2() == '')
         self.checkbox_pre.set_hidden(self.text_precommand() == '')
         self.checkbox_post.set_hidden(self.text_postcommand() == '')
+        self.checkbox_reset.set_hidden(self.text_reset() == '')
         self.checkbox_restart.set_hidden(self.text_stop() == '' or self.text_start() == '')
         self.checkbox_monitor.set_hidden(self.text_monitor() == '')
 
@@ -927,10 +939,17 @@ class Uploader:
         print('_combo_mode_changed')
         premium = self.combo_mode.get_index() == 1
 
-        # Settings tab
+
+        # Things that show up only when in premium mode
         self.label_remote_championship   .hide(premium)
         self.text_remote_championship    .hide(premium)
         self.button_download_championship.hide(premium)
+        self.label_reset                 .hide(premium)
+        self.text_reset                  .hide(premium)
+        self.checkbox_autoweek           .hide(premium)
+        self.checkbox_reset              .hide(premium)
+
+        # Things that show up only in vanilla mode
         self.label_stop         .show(premium)
         self.label_start        .show(premium)
         self.label_monitor      .show(premium)
@@ -938,11 +957,9 @@ class Uploader:
         self.text_start         .show(premium)
         self.button_start_server.show(premium)
         self.text_monitor       .show(premium)
+        self.checkbox_restart   .show(premium)
 
-        # Uploader tab
-        self.checkbox_restart .show(premium)
-        self.checkbox_autoweek.hide(premium)
-
+        # Run the stuff because something changed.
         self._any_server_setting_changed()
 
 
@@ -1009,6 +1026,7 @@ class Uploader:
         pem     = os.path.abspath(self.text_pem.get_text())
         stop    = self.text_stop.get_text()    # For acsm
         start   = self.text_start.get_text()   # For acsm
+        reset   = self.text_reset.get_text()   # For acsm
         monitor = self.text_monitor.get_text() 
 
         # Upload the main assetto content
@@ -1016,7 +1034,12 @@ class Uploader:
             
             # Upload the 7z, and clean remote files
             if self.upload_content(skins_only): return True
-    
+
+            # If we're resetting the server and not just doing skins, and we're in premium mode
+            if self.checkbox_reset() and reset != '' and not skins_only and self.combo_mode()==1:
+                self.log('Resetting server manager...')
+                if self.system(['ssh', '-T', '-p', port, '-i', pem, login, self.text_reset()]): return True
+
             # Stop server, but only if there is a command, we're not doing skins, and we're in vanilla mode
             if self.checkbox_restart() and stop != '' and not skins_only and self.combo_mode()==0:
                 self.log('Stopping server...')
@@ -1149,6 +1172,8 @@ class Uploader:
                 self.log('Cleaning out old content...')
                 #c = 'ssh -p '+port+' -i "'+pem+'" '+login+' rm -rf ' + remote + '/content/cars/* ' + remote + '/content/tracks/*'
                 if self.system(['ssh', '-T', '-p', port, '-i', pem, login, 'rm -rf '+remote+'/content/cars/* '+remote+'/content/tracks/*']): return True
+
+
 
     def unpack_uploaded_content(self, skins_only=False):
         """
