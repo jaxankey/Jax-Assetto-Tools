@@ -284,7 +284,7 @@ class Uploader:
 
         #############################
         # UPLOADER
-        self.tab_uploader.set_row_stretch(5)
+        self.tab_uploader.set_row_stretch(6)
 
         # Refresh button
         self.button_refresh = self.tab_uploader.add(egg.gui.Button('Refresh Tracks and Cars',
@@ -326,6 +326,12 @@ class Uploader:
         self.button_delete = self.grid2b.add(egg.gui.Button('Delete',
             tip='Delete the selected carset.',
             signal_clicked=self._button_delete_clicked))
+        
+        self.tab_uploader.new_autorow()
+        self.grid_filter_cars = self.tab_uploader.add(egg.gui.GridLayout(False), alignment=0)
+        self.grid_filter_cars.add(egg.gui.Label('Filter Cars:'))
+        self.text_filter_cars = self.grid_filter_cars.add(egg.gui.TextBox('', 
+            signal_changed=self._text_filter_cars_changed), alignment=0)
 
         # Grid for car list
         self.tab_uploader.new_autorow()
@@ -437,6 +443,7 @@ class Uploader:
             'text_url2',
             'text_skins',
             'text_tyres',
+#            'text_filter_cars', # This really fux with the load for some reason. Or I'm too tired.
             'number_slots',
             'checkbox_pre',
             'checkbox_modify',
@@ -476,6 +483,20 @@ class Uploader:
         ######################
         # Show the window; no more commands below this.
         elif show: self.window.show(blocking)
+
+    def _text_filter_cars_changed(self, *a):
+        """
+        Someone changes the filter
+        """
+        print('_text_filter_cars_changed')
+        
+        search = self.text_filter_cars()
+        for n in range(self.list_cars.count()):
+            item = self.list_cars.item(n)
+            item.setHidden(not search in item.data(0) and not item.isSelected())
+        
+        self.server['settings']['text_filter_cars'] = self.text_filter_cars()
+        if not self._loading_server: self.button_save_server.click()
 
     def import_and_package_skins(self, wait_for_zip=False):
         """
@@ -549,7 +570,7 @@ class Uploader:
         track  = self.combo_tracks.get_text()
         layout = self.combo_layouts.get_text()
         carset = self.combo_carsets.get_text()
-        cars   = self.get_selected_cars()
+        cars   = self.get_selected_cars() # This should always return the directories.
         tyres  = self.text_tyres.get_text()
 
         try:
@@ -776,6 +797,7 @@ class Uploader:
             exec('self.'+key+'.set_value(value)', dict(self=self, value=self.server['settings'][key]))
             #print(' ', key, '->', j['settings'][key])
         self._loading_server = False
+        
 
     def _load_server_uploader(self):
         """
@@ -789,8 +811,10 @@ class Uploader:
         self._loading_uploader = True
 
         # Now populate everything :)
-        try:    
-            self.combo_tracks.set_text(self.server['uploader']['combo_tracks'])
+        try:  
+            t = self.server['uploader']['combo_tracks']
+            if t in self.combo_tracks.get_all_items():
+                self.combo_tracks.set_text(t)
             self._combo_tracks_changed() # JACK: redundant, but catches if it's already selected.
         except Exception as e: print('load_upload_gui combo_tracks', e)
         try:    
@@ -802,6 +826,7 @@ class Uploader:
         except Exception as e: print('load_upload_gui combo_carsets', e)
         
         # List items
+        # In the background, we should always use car directories, not fancy names.
         self.set_list_cars_selection(self.server['uploader']['list_cars'])
 
         self._loading_uploader = False
@@ -843,14 +868,14 @@ class Uploader:
             value = eval('self.'+key+'()', dict(self=self))
             self.server['settings'][key] = value
 
-        self.server['uploader'] = u = dict(
+        self.server['uploader'] = dict(
             combo_tracks  = self.combo_tracks.get_text(),
             combo_layouts = self.combo_layouts.get_text(),
             combo_carsets = self.combo_carsets.get_text(),
             list_cars     = self.get_selected_cars(),
         )
         # Include the shown car settings for the current carset, which may have changed
-        if not self.server['carsets']: self.server['carsets'] = dict()
+        if not 'carsets' in self.server: self.server['carsets'] = dict()
         self.server['carsets'][self.combo_carsets.get_text()] = self.tree_cars.get_dictionary()[1]
 
         # Write the file
@@ -983,8 +1008,8 @@ class Uploader:
                 if key_restrictor in c: restrictor = c[key_restrictor]
 
             # Add the settings
-            self.tree_cars.add(key_ballast,    ballast,    bounds=(0,500))
-            self.tree_cars.add(key_restrictor, restrictor, bounds=(0,100))
+            self.tree_cars.add(key_ballast,    ballast,    step=10, bounds=(0,500))
+            self.tree_cars.add(key_restrictor, restrictor, step=10, bounds=(0,100))
         
         self.tree_cars.unblock_signals()
         
@@ -1408,6 +1433,8 @@ class Uploader:
 
         print('_combo_carsets_changed')
         self.button_load.click()
+        
+        self._text_filter_cars_changed()
         #self._send_selected_cars_to_tree()
         #self.button_save_server.click()
 
@@ -1464,6 +1491,7 @@ class Uploader:
         selected = f.read().splitlines()
         f.close()
 
+        # selected should be a list of car directories
         self.set_list_cars_selection(selected)
         self._send_selected_cars_to_tree()
         
@@ -1661,23 +1689,27 @@ class Uploader:
         # Update the metadata
         c['Stats']['NumEntrants'] = N
         
+        # Get the list of cars from the tree
+        cars = self.get_selected_cars()
+        
         # Now fill the pitboxes
-        # JACK: Classes,Entrants must have an entry for everyone in
-        #       the SignupForm Responses
-        #R = c['SignUpForm']['Responses']
         for n in range(N):
+            
+            # Get the car model
+            car = cars[n%len(cars)]
+            
             x['Entrants']['CAR_'+str(n+1)] = {
                 "InternalUUID": "%08d-0000-0000-0000-000000000000" % (n+1),
                 "PitBox": n,
                 "Name": "",
                 "Team": "",
                 "GUID": "",
-                "Model": "any_car_model",
+                "Model": car,
                 "Skin": "random_skin",
                 "ClassID": "00000000-0000-0000-0000-000000000000",
-                "Ballast": 0,
+                "Ballast":    self.tree_cars[car+'/ballast']    if car+'/ballast'    in self.tree_cars.keys() else 0,
+                "Restrictor": self.tree_cars[car+'/restrictor'] if car+'/restrictor' in self.tree_cars.keys() else 0,
                 "SpectatorMode": 0,
-                "Restrictor": 0,
                 "FixedSetup": "",
                 "ConnectAsSpectator": False,
                 "IsPlaceHolder": False}
@@ -1905,13 +1937,12 @@ class Uploader:
         self.list_cars.clear()
 
         # Dictionary to hold all the model names
-        self.cars = dict()
+        self.cars  = dict()
+        self.srac  = dict() # Reverse-lookup
         self.skins = dict()
 
         # Get all the car paths
-        paths = glob.glob(os.path.join(self.text_local(), 'content', 'cars', '*'))
-        #self.log('Updating cars...')
-        for path in paths:
+        for path in glob.glob(os.path.join(self.text_local(), 'content', 'cars', '*')):
 
             # Get the car's directory name
             dirname = os.path.split(path)[-1]
@@ -1921,29 +1952,30 @@ class Uploader:
             if not os.path.exists(path_json): continue
 
             # Get the fancy car name (the jsons are not always well formatted, so I have to manually search!)
-            f = codecs.open(path_json, 'r', encoding='utf-8')
-            s = f.read()
-            f.close()
+            # f = codecs.open(path_json, 'r', encoding='utf-8')
+            # s = f.read()
+            # f.close()
+            s = load_json(path_json)
 
-            # Find the index of "name" as the starting point
-            i1 = s.find('"name"')
-            if i1 >= 0:
-                i2 = s.find('"', i1+6)
-                if i2 >= 0:
-                    i3 = s.find('"', i2+1)
-                    if i3 >= 0:
-                        try: s[i2+1:i3] + ': ' + dirname
-                        except: print(' *[CANNOT PRINT / UNICODE ISSUE]: '+dirname)
-                        self.cars[dirname] = s[i2+1:i3]
+            # Remember the fancy name
+            name = s['name'] if 'name' in s else dirname
+            self.cars[dirname] = name
+            self.srac[name]    = dirname
 
             # Store the list of skins and the index
             self.skins[dirname] = os.listdir(os.path.join(path, 'skins'))
 
         # Sort the car directories and add them to the list.
-        self.car_directories = list(self.cars.keys())
-        self.car_directories.sort()
-        for n in self.car_directories: egg.pyqtgraph.QtGui.QListWidgetItem(n, self.list_cars)
-
+        self.cars_keys = list(self.cars.keys())
+        self.srac_keys = list(self.srac.keys())
+        self.cars_keys.sort()
+        self.srac_keys.sort()
+        for key in self.cars_keys: egg.pyqtgraph.QtGui.QListWidgetItem(key, self.list_cars)
+        # +++Jack: switch here for the fancy name mode.
+        
+        # Filter
+        #self._text_filter_cars_changed()
+        
         # Reconnect
         self.list_cars.itemSelectionChanged.connect(self._list_cars_changed)
     
