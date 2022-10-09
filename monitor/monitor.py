@@ -898,7 +898,7 @@ class Monitor:
                 break
 
             # If we removed some lines, hint that there are more.
-            if popped: lines.push('...')
+            if popped: lines.append('...')
                       
             # Append this to the master
             s = s + title + '\n'.join(lines)
