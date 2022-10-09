@@ -826,9 +826,10 @@ class Monitor:
         if car in self.state['carnames']: return self.state['carnames'][car]
         return car
         
-    def get_laps_string(self):
+    def get_laps_string(self, N):
         """
-        Returns a string list of driver best laps for sending to discord.
+        Returns a string list of driver best laps for sending to discord. N is
+        the number of characters remaining.
         """
 
         # If there are no laps, return None so we know not to use them.
@@ -871,6 +872,9 @@ class Monitor:
         # Now sort all the group bests
         for carset in laps: 
             
+            # Carset title
+            title = '\n\n**'+carset+'**\n'
+            
             # Sort by milliseconds
             laps[carset].sort(key=lambda x: x[0])
         
@@ -881,9 +885,23 @@ class Monitor:
                  x[1][0]+' '+x[1][1]+' ('+self.get_carname(x[1][2])+')'))
                 #lines.append('**'+x[1][0]+'** '+x[1][1]+' ('+self.get_carname(x[1][2])+')')
                 n+=1
-                        
+            
+            # Pop lines until the message is short enough to fit
+            popped = False
+            while len(lines) > 0 and len(s+title+'\n'.join(lines)) > N-4: # -4 for \n... 
+                lines.pop(-1)
+                popped = True
+
+            # If we have no lines, don't bother
+            if len(lines) == 0: 
+                s = s + '\n...'
+                break
+
+            # If we removed some lines, hint that there are more.
+            if popped: lines.push('...')
+                      
             # Append this to the master
-            s = s + '\n\n**'+carset+'**\n' + '\n'.join(lines)
+            s = s + title + '\n'.join(lines)
 
         return s.strip()       
 
@@ -972,10 +990,6 @@ class Monitor:
         onlines = self.get_onlines_string()
         log('  Online:\n', onlines)
 
-        # Get the list of driver best laps
-        laps = self.get_laps_string()
-        if debug and laps: log(laps)
-
         ################################################################################################
         # INFO MESSAGE WITH LAPS AND ONLINE
 
@@ -1013,6 +1027,9 @@ class Monitor:
                     nametime1 = '**[Register (' + str(self['number_registered'][n]) + '/' + str(self['number_slots'][n]) + ')](' + url_registration[n] + ')**'
                     reg_string1 = nametime1  # Bottom registration stylized
 
+        # Get the footer now for later computing the length
+        footer = '\n\n'+reg_string1+laps_footer
+
         # Track name
         track_name = self.state['track_name']
         if not track_name: track_name = self.state['track']
@@ -1029,10 +1046,7 @@ class Monitor:
 
         # Subheader
         body1 = body1 + reg_string2 + venue_subheader
-
-        # Below the venue and above laps
-        if laps: body1 = body1 + '\n' + laps
-
+        
         # Separate body for who's online (laps get cut first)
         if onlines:
             body2 = '\n\n**' + online_header + '**\n' + onlines
@@ -1041,8 +1055,29 @@ class Monitor:
             body2 = ''
             color = 0
 
+        # Get the list of driver best laps 4070 leaves a little buffer for ... and stuff.
+        laps = self.get_laps_string(4070-len(body1+body2+footer))
+        if debug and laps: log('LAPS\n'+laps)
+
+        # Below the venue and above laps
+        if laps: body1 = body1 + '\n' + laps
+
+        
+        # +++ JACK: Trim the body smartly here so that it doesn't leave a
+        # a weird hanging format tag
+        # # Keep the total character limit below 4096, cutting body1 first, then body 2
+        # if len(body1+body2+footer) > 4070: # 4070 gives a little buffer for ... and stuff. I don't wanna count.
+
+        #     # If body2 and footer are already over the limit, just trim body2 and be done
+        #     if len(body2+footer) > 4070: body = body2[0:4070-len(footer)] + ' ...' + footer
+
+        #     # Otherwise, we trim body1
+        #     else:                        body = body1[0:4070-len(body2)-len(footer)] + ' ...' + body2 + footer
+
+
+
         # Send the main info message
-        self.state['laps_message_id'] = self.send_message(self.webhook_info, body1, body2, '\n\n'+reg_string1+laps_footer, self.state['laps_message_id'], color=color)
+        self.state['laps_message_id'] = self.send_message(self.webhook_info, body1, body2, footer, self.state['laps_message_id'], color=color)
         if self.state['laps_message_id'] is None: log('DID NOT EDIT OR SEND LAPS MESSAGE')
 
 
