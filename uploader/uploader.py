@@ -53,7 +53,7 @@ class Uploader:
     GUI class for uploading content and restarting the assetto server.
     """
 
-    def __init__(self, show=True, blocking=False):
+    def __init__(self, show=True, blocking=True):
 
         # If we're in executable mode, close the splash screen
         if '_PYIBoot_SPLASH' in os.environ and importlib.util.find_spec("pyi_splash"):
@@ -1117,11 +1117,6 @@ class Uploader:
             # Upload the 7z, and clean remote files
             if self.upload_content(skins_only): return True
 
-            # If we're resetting the server and not just doing skins, and we're in premium mode
-            if self.checkbox_reset() and reset != '' and not skins_only and self.combo_mode()==1:
-                self.log('Resetting server manager...')
-                if self.system(['ssh', '-T', '-p', port, '-i', pem, login, self.text_reset()]): return True
-
             # Stop server, but only if there is a command, we're not doing skins, and we're in vanilla mode
             if self.checkbox_restart() and stop != '' and not skins_only and self.combo_mode()==0:
                 self.log('Stopping server...')
@@ -1144,6 +1139,11 @@ class Uploader:
             if self.checkbox_restart() and start != '' and not skins_only and self.combo_mode()==0:
                 self.start_server()
             #else: self.log('*Skipping server start')
+
+            # If we're resetting the server and not just doing skins, and we're in premium mode
+            if self.checkbox_reset() and reset != '' and not skins_only and self.combo_mode() == 1:
+                self.log('Resetting server manager...')
+                if self.system(['ssh', '-T', '-p', port, '-i', pem, login, self.text_reset()]): return True
 
             # Restart monitor if enabled, there is a script, we're not just doing skins, and we're in vanilla mode
             if self.checkbox_monitor() and monitor != '' and not skins_only and self.combo_mode()==0:
@@ -1504,7 +1504,9 @@ class Uploader:
 
         # Special case: first element in combo box is new carset
         if self.combo_carsets.get_index() == 0:
-            name, ok = egg.pyqtgraph.QtGui.QInputDialog.getText(egg.pyqtgraph.QtGui.QWidget(), 'New Carset', 'Name your carset:')
+            print('opening save dialog')
+            name, ok = egg.pyqtgraph.QtGui.QInputDialog.getText(self.window._widget, 'New Carset', 'Name your carset:')
+            print('got', name)
             name = name.strip()
             if not ok or name == '': return
             
