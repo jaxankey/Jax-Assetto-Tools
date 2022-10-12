@@ -280,7 +280,10 @@ class Uploader:
             signal_clicked=self._button_browse_skins_clicked))
 
 
-
+        # self.tab_settings.new_autorow()
+        # self.label_test = self.tab_settings.add(egg.gui.Label('Test Remote Command:'))
+        # self.text_test = self.tab_settings.add(egg.gui.TextBox('', tip='Remote test command for debugging.'), alignment=0)
+        # self.button_test = self.tab_settings.add(egg.gui.Button('Run Command', signal_clicked=self._button_test_clicked, tip='Run the test command.'))
 
         #############################
         # UPLOADER
@@ -484,6 +487,23 @@ class Uploader:
         # Show the window; no more commands below this.
         elif show: self.window.show(blocking)
 
+    def _button_test_clicked(self, *a):
+        """
+        Runs the test remote command.
+        """
+        login = self.text_login.get_text()
+        port = self.text_port.get_text()
+        pem = os.path.abspath(self.text_pem.get_text())
+        test = self.text_test.get_text()  # For acsm
+        self.log('\n'+test+'\n')
+
+        if test.strip() != '':
+            self.log('Testing...')
+            # c = 'ssh -p '+port+' -i "'+pem+'" '+login+' "'+start+'"'
+            if self.system(['ssh', '-T', '-p', port, '-i', pem, login, test]):
+                self.log('oop?')
+                return
+            self.log('Done.')
     def _text_filter_cars_changed(self, *a):
         """
         Someone changes the filter
@@ -1108,7 +1128,7 @@ class Uploader:
         pem     = os.path.abspath(self.text_pem.get_text())
         stop    = self.text_stop.get_text()    # For acsm
         start   = self.text_start.get_text()   # For acsm
-        reset   = self.text_reset.get_text()   # For acsm
+        reset   = '"' + self.text_reset.get_text() + ' >/dev/null 2>&1 &"'   # For acsm (extra stuff makes sure nohup returns)
         monitor = self.text_monitor.get_text() 
 
         # Upload the main assetto content
@@ -1143,7 +1163,7 @@ class Uploader:
             # If we're resetting the server and not just doing skins, and we're in premium mode
             if self.checkbox_reset() and reset != '' and not skins_only and self.combo_mode() == 1:
                 self.log('Resetting server manager...')
-                if self.system(['ssh', '-T', '-p', port, '-i', pem, login, self.text_reset()]): return True
+                if self.system(['ssh', '-T', '-p', port, '-i', pem, login, reset]): return True
 
             # Restart monitor if enabled, there is a script, we're not just doing skins, and we're in vanilla mode
             if self.checkbox_monitor() and monitor != '' and not skins_only and self.combo_mode()==0:
@@ -1706,11 +1726,11 @@ class Uploader:
                 "Name": "",
                 "Team": "",
                 "GUID": "",
-                "Model": car,
+                "Model": "any_car_model",
                 "Skin": "random_skin",
                 "ClassID": "00000000-0000-0000-0000-000000000000",
-                "Ballast":    self.tree_cars[car+'/ballast']    if car+'/ballast'    in self.tree_cars.keys() else 0,
-                "Restrictor": self.tree_cars[car+'/restrictor'] if car+'/restrictor' in self.tree_cars.keys() else 0,
+                "Ballast":    0, # self.tree_cars[car+'/ballast']    if car+'/ballast'    in self.tree_cars.keys() else 0,
+                "Restrictor": 0, # self.tree_cars[car+'/restrictor'] if car+'/restrictor' in self.tree_cars.keys() else 0,
                 "SpectatorMode": 0,
                 "FixedSetup": "",
                 "ConnectAsSpectator": False,
