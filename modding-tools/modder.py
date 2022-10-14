@@ -2,7 +2,9 @@
 # -*- coding: utf-8 -*-
 import glob, codecs, os, sys, shutil, random, json, pyperclip, webbrowser, stat
 import dateutil, subprocess, time, datetime, importlib, codecs
-import configparser
+import configparser, spinmob
+from scipy.signal import savgol_filter
+from numpy import interp, linspace
 
 
 # Change to the directory of this script depending on whether this is a "compiled" version or run as script
@@ -103,6 +105,10 @@ class Modder:
         self.tree.add('Restrictor Curve/Exponent', 0.3, step=0.05)
         self.tree.add('Restrictor Curve/RPM Range', 1.0, step=0.05, limits=(0,None))
         self.tree.add('Ballast', 0.0, step=10)
+        self.tree.add('Smooth', False)
+        self.tree.add('Smooth/Points', 100)
+        self.tree.add('Smooth/Window', 5)
+        self.tree.add('Smooth/Order', 3)
         
         self.tree.load_gui_settings()
         
@@ -197,6 +203,8 @@ class Modder:
         x['specs']['pwratio']  = '%.2f kg/bhp' % (mod_mass/max(hp))
         x['specs']['topspeed'] = 'buh?'
         
+        x['minimodder'] = self.tree.get_dictionary()[1]
+        
         # Dump the revised json
         json.dump(x, open(mod_ui, 'w'), indent=2)
         
@@ -271,8 +279,9 @@ class Modder:
         #     self.log('  Deleting data.acd for testing...')
         #     os.unlink(data+'.acd')
 
-        self.plot.clear()
         self.plot.load_file(power_lut, delimiter='|')
+        self.data = spinmob.data.databox()
+        self.data.copy_all_from(self.plot)
         self.update_curves()        
 
     def update_curves(self):
@@ -281,9 +290,21 @@ class Modder:
         """
         if not len(self.plot): return
         
+        self.plot.copy_all_from(self.data)
+        
         # Update the plot
         x = self.plot[0]
         y = self.plot[1]
+        
+        # If we're smoothing
+        if self.tree['Smooth']:
+            
+            # Sav-Gol filter
+            x2 = linspace(min(x),max(x),self.tree['Smooth/Points'])
+            y2 = interp(x2, x, y)
+            x = self.plot[0] = x2
+            y = self.plot[1] = savgol_filter(y2, self.tree['Smooth/Window'], self.tree['Smooth/Order'])
+        
         x0 = max(self.plot[0])*self.tree['Restrictor Curve/RPM Range']
         p  = self.tree['Restrictor Curve/Exponent']
         self.plot['Restricted'] = y*((x0-x)/x0)**p
@@ -312,21 +333,6 @@ class Modder:
         if(path):
             self.text_local(path)
             self.button_scan.click()
-
-
-    def _any_server_setting_changed(self, *a):
-        """
-        Called whenever someone changes a server setting. Enables the save button.
-        """
-        if not self._loading_server: self.button_save_server.click()
-
-        # Update available options based on what things have text in them.
-        self.checkbox_url.set_hidden(self.text_url() == '' and self.text_url2() == '')
-        self.checkbox_pre.set_hidden(self.text_precommand() == '')
-        self.checkbox_post.set_hidden(self.text_postcommand() == '')
-        self.checkbox_reset.set_hidden(self.text_reset() == '')
-        self.checkbox_restart.set_hidden(self.text_stop() == '' or self.text_start() == '')
-        self.checkbox_monitor.set_hidden(self.text_monitor() == '')
 
     def log(self, *a):
         """
