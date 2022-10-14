@@ -100,9 +100,11 @@ class Modder:
 
         # Settings
         self.tree.add('Mod Tag', 'R')
-        self.tree.add('Restrictor Curve/Exponent', 0.5, step=0.1)
-        self.tree.add('Restrictor Curve/RPM Range', 1.1, step=0.05, limits=(0,None))
+        self.tree.add('Restrictor Curve/Exponent', 0.3, step=0.05)
+        self.tree.add('Restrictor Curve/RPM Range', 1.0, step=0.05, limits=(0,None))
         self.tree.add('Ballast', 0.0, step=10)
+        
+        self.tree.load_gui_settings()
         
         self.plot = self.grid_middle2.add(egg.gui.DataboxPlot(autosettings_path='plot'), alignment=0)        
         
@@ -124,6 +126,7 @@ class Modder:
         """
         Duplicates the currently selected car and creates a modded version.
         """
+        
         # Get the mod name and new folder name
         car_name = self.combo_car.get_text()
         car = self.srac[car_name]
@@ -138,6 +141,8 @@ class Modder:
           "This will create the mod '"+mod_name+"' and create / overwrite the folder "+mod_car_path, 
           qmb.Ok | qmb.Cancel, qmb.Cancel)
         if ret == qmb.Cancel: return
+
+        self.log('Creating '+mod_name)
         
         # If the other directory is already there, kill it.
         if os.path.exists(mod_car_path): 
