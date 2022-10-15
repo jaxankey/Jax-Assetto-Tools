@@ -1,10 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-import glob, codecs, os, sys, shutil, random, json, pyperclip, webbrowser, stat
-import dateutil, subprocess, time, datetime, importlib, codecs
-import configparser, spinmob
+import glob, codecs, os, sys, shutil, json, stat
 from scipy.signal import savgol_filter
-from numpy import interp, linspace
+from numpy import interp, linspace, nan_to_num
 
 
 # Change to the directory of this script depending on whether this is a "compiled" version or run as script
@@ -13,6 +11,8 @@ else:                                                   os.chdir(os.path.dirname
 print('WORKING DIRECTORY:')
 print(os.getcwd())
 
+# Library for all the gui and plotting.
+import spinmob
 import spinmob.egg as egg
 
 # Function for loading a json at the specified path
@@ -102,8 +102,9 @@ class Modder:
 
         # Settings
         self.tree.add('Mod Tag', 'R')
-        self.tree.add('Restrictor Curve/Exponent', 0.3, step=0.05)
-        self.tree.add('Restrictor Curve/RPM Range', 1.0, step=0.05, limits=(0,None))
+        self.tree.add('Restrictor', False)
+        self.tree.add('Restrictor/Exponent', 0.3, step=0.05)
+        self.tree.add('Restrictor/RPM Range', 1.0, step=0.05, limits=(0,None))
         self.tree.add('Ballast', 0.0, step=10)
         self.tree.add('Smooth', False)
         self.tree.add('Smooth/Points', 100)
@@ -137,7 +138,7 @@ class Modder:
         car_name = self.combo_car.get_text()
         car = self.srac[car_name]
         car_path = os.path.realpath(os.path.join(self.text_local(), 'content', 'cars', car))
-        mod_name = self.combo_car.get_text() + ' ('+self.tree['Mod Tag']+')'
+        mod_name = self.combo_car.get_text() + '-'+self.tree['Mod Tag']
         mod_car  = car+'_'+self.tree['Mod Tag'].lower().replace(' ', '_')
         mod_car_path = os.path.realpath(os.path.join(self.text_local(), 'content', 'cars', mod_car))
         
@@ -159,8 +160,6 @@ class Modder:
         self.log('  Copying '+car+' -> '+mod_car)
         shutil.copytree(car_path, mod_car_path)
         
-        
-        
         # Now update power.lut
         d = self.plot
         mod_power_path = os.path.realpath(os.path.join(mod_car_path,'data','power.lut'))
@@ -172,20 +171,16 @@ class Modder:
         f.close()
         
         # Now update ballast etc
-        self.log('  Updating car.ini to include ballast')
-        c = configparser.ConfigParser()
-        mod_car_ini = os.path.join(mod_car_path, 'data', 'car.ini')
-        c.read(mod_car_ini)
-        mod_mass = float(c['BASIC']['TOTALMASS']) + self.tree['Ballast']
-        c['BASIC']['TOTALMASS'] = '%.0f' % mod_mass
-        c.write(open(mod_car_ini, 'w'))
+        self.log('  Updating car mass in car.ini')
         
+        mod_car_ini = os.path.join(mod_car_path, 'data', 'car.ini')
+        mod_mass = float(self.get_value_from_ini(mod_car_ini, 'TOTALMASS')) + self.tree['Ballast']
+        self.mod_and_overwrite_ini(mod_car_ini, TOTALMASS=mod_mass)
         
         # Now update the ui.json
         self.log('  Updating ui_car.json')
-        ui     = os.path.realpath(os.path.join(car_path,     'ui', 'ui_car.json'))
         mod_ui = os.path.realpath(os.path.join(mod_car_path, 'ui', 'ui_car.json'))
-        x = load_json(ui)
+        x = load_json(mod_ui)
         
         # Name
         x['name'] = mod_name
@@ -214,12 +209,59 @@ class Modder:
             self.log('  Deleting mod data.acd (don\'t forget to pack!)')
             os.unlink(mod_data_acd)
         
+        # Update sfx
+        mod_guids = os.path.join(mod_car_path, 'sfx', 'GUIDs.txt')
+        if os.path.exists(mod_guids):
+            self.log('  Updating '+mod_guids)
+            with open(mod_guids, 'r') as f: s = f.read()
+            with open(mod_guids, 'w') as f: f.write(s.replace(car, mod_car))
+        
+        # Renaming bank
+        self.log('Renaming '+car+'.bank -> '+mod_car+'.bank')
+        os.rename(os.path.join(mod_car_path, 'sfx', car    +'.bank'),
+                  os.path.join(mod_car_path, 'sfx', mod_car+'.bank'))
+        
         # Remember our selection and scan
         self.button_scan.click()
         self.combo_car.set_index(self.combo_car.get_index(car_name))
         
         # Open the mod car path
         os.startfile(mod_car_path)
+
+    def get_value_from_ini(self, path, key):
+        """
+        Returns the value from the ini file
+        """
+        # Read in the og
+        with open(path) as f: lines = f.readlines()
+        for line in lines: 
+            if line.split('=')[0].strip() == key:
+                return line.split('=')[1].split(';')[0].strip()
+
+    def mod_and_overwrite_ini(self, path, **kwargs):
+        """
+        Copies ini from og folder to fl folder. Keyword arguments specify the
+        multiplication factor for different settings.
+        
+        e.g. mod_and_overwrite_ini('gpl67_brm', 'car.ini', INERTIA=0.8)
+        """
+        self.log('  Modding '+path)
+
+        # Read in the og
+        with open(path) as f: lines = f.readlines()
+                
+        # Update lines
+        for n in range(len(lines)):
+            line = lines[n]
+        
+            # Get the key
+            key = line.split('=')[0].strip()
+            if key in kwargs: 
+                lines[n] = key+'='+str(kwargs[key])+'\n'
+                self.log('    '+line.split(';')[0].strip()+' -> '+lines[n].split('=')[1].strip())
+                
+        # Now overwrite
+        with open(path, 'w') as f: f.write(''.join(lines))
 
     def _button_open_car_folder_clicked(self, *a):
         """
@@ -282,7 +324,7 @@ class Modder:
         self.plot.load_file(power_lut, delimiter='|')
         self.data = spinmob.data.databox()
         self.data.copy_all_from(self.plot)
-        self.update_curves()        
+        self.update_curves()             
 
     def update_curves(self):
         """
@@ -304,11 +346,18 @@ class Modder:
             y2 = interp(x2, x, y)
             x = self.plot[0] = x2
             y = self.plot[1] = savgol_filter(y2, self.tree['Smooth/Window'], self.tree['Smooth/Order'])
+    
+        x0 = max(self.plot[0])*self.tree['Restrictor/RPM Range']
+        p  = self.tree['Restrictor/Exponent']
         
-        x0 = max(self.plot[0])*self.tree['Restrictor Curve/RPM Range']
-        p  = self.tree['Restrictor Curve/Exponent']
-        self.plot['Restricted'] = y*((x0-x)/x0)**p
-        self.plot['Scale'] = ((x0-x)/x0)**p
+        if self.tree['Restrictor']:
+            self.plot['Modded'] = nan_to_num(y*((x0-x)/x0)**p, 0)
+            self.plot['Scale']  = nan_to_num(((x0-x)/x0)**p, 0)
+            
+            
+        else:
+            self.plot['Modded'] = y
+            self.plot['Scale'] = 0*x+1
         
         self.plot.plot()
 
