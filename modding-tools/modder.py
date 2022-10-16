@@ -3,6 +3,7 @@
 import glob, codecs, os, sys, shutil, json, stat
 from scipy.signal import savgol_filter
 from numpy import interp, linspace, nan_to_num
+from configparser import ConfigParser
 
 
 # Change to the directory of this script depending on whether this is a "compiled" version or run as script
@@ -50,6 +51,24 @@ class Modder:
 
         # When updating cars, we want to suppress some signals.
         self._updating_cars = False
+
+        # Lookup table to convert from user-friendly settings to keys in ini files.
+        self.ini = {
+            'CAR.INI'           : {
+                'Mass'          : 'BASIC/TOTALMASS',
+            },
+            'DRIVETRAIN.INI'    : {
+                'Power'         : 'DIFFERENTIAL/POWER',
+                'Coast'         : 'DIFFERENTIAL/COAST',
+                'Preload'       : 'DIFFERENTIAL/PRELOAD',
+            },
+            'SUSPENSIONS.INI'   : {
+                'Front Height'  : 'FRONT/ROD_LENGTH',
+                'Front Travel'  : 'FRONT/PACKER_RANGE',
+                'Rear Height'   : 'REAR/ROD_LENGTH',
+                'Rear Travel'   : 'REAR/PACKER_RANGE',
+            },
+        }
         
 
         ######################
@@ -57,9 +76,6 @@ class Modder:
 
         # Main window
         self.window = egg.gui.Window('Assetto Corsa Minimodder', size=(1200,700), autosettings_path='window')
-
-
-
 
         # Top grid controls
         self.grid_top = self.window.add(egg.gui.GridLayout(False), alignment=0)
@@ -97,30 +113,39 @@ class Modder:
         self.window.new_autorow()
         self.grid_middle2 = self.window.add(egg.gui.GridLayout(False), alignment=0)
         self.tree = self.grid_middle2.add(egg.gui.TreeDictionary(
-            autosettings_path='tree', new_parameter_signal_changed=self._tree_changed))
+            autosettings_path='tree', new_parameter_signal_changed=self._tree_changed),
+            row_span=2)
         self.tree.set_minimum_width(210)
 
         # Settings
         self.tree.add('Mod Tag', 'R')
-        self.tree.add('Restrictor', False)
-        self.tree.add('Restrictor/Exponent', 0.3, step=0.05)
-        self.tree.add('Restrictor/RPM Range', 1.0, step=0.05, limits=(0,None))
-        self.tree.add('Ballast', 0.0, step=10)
-        self.tree.add('Smooth', False)
-        self.tree.add('Smooth/Points', 100)
-        self.tree.add('Smooth/Window', 5)
-        self.tree.add('Smooth/Order', 3)
         
+        self.tree.add('POWER.LUT', False)
+        self.tree.add('POWER.LUT/Restrictor', False)
+        self.tree.add('POWER.LUT/Restrictor/Exponent', 0.3, step=0.05)
+        self.tree.add('POWER.LUT/Restrictor/RPM Range', 1.0, step=0.05, limits=(0,None))
+        self.tree.add('POWER.LUT/Smooth', False)
+        self.tree.add('POWER.LUT/Smooth/Points', 100)
+        self.tree.add('POWER.LUT/Smooth/Window', 5)
+        self.tree.add('POWER.LUT/Smooth/Order', 3)
+        
+        for key in self.ini:
+            self.tree.add(key, False)
+            for k in self.ini[key]:
+                self.tree.add(key+'/'+k, 0.0)
+                self.tree.add(key+'/'+k+'/->', 0.0)
+                
         self.tree.load_gui_settings()
         
+        # Make the plotter
         self.plot = self.grid_middle2.add(egg.gui.DataboxPlot(autosettings_path='plot'), alignment=0)        
         
-        
+        # Log area
         self.window.new_autorow()
-        self.grid_bottom = self.window.add(egg.gui.GridLayout(False), alignment=0)  
-        self.text_log = self.grid_bottom.add(egg.gui.TextLog(), alignment=0)
+        #self.grid_bottom = self.window.add(egg.gui.GridLayout(False), alignment=0)  
+        self.text_log = self.grid_middle2.add(egg.gui.TextLog(), 1,1, alignment=0)
         
-        self.log('Welcome to my silly-ass minimodder! I just use this to balance carsets, so don\'t @ me!')
+        self.log('Welcome to my silly-ass minimodder!')
         
         # Scan for content
         self.button_scan.click()
@@ -161,47 +186,63 @@ class Modder:
         shutil.copytree(car_path, mod_car_path)
         
         # Now update power.lut
-        d = self.plot
-        mod_power_path = os.path.realpath(os.path.join(mod_car_path,'data','power.lut'))
-        self.log('  Writing '+mod_power_path)
-        f = open(mod_power_path, 'w')
-        for n in range(len(d[0])): 
-            line = '%.1f|%.1f\n' % (d[0][n], d[2][n])
-            f.write(line)
-        f.close()
-        
-        # Now update ballast etc
-        self.log('  Updating car mass in car.ini')
-        
-        mod_car_ini = os.path.join(mod_car_path, 'data', 'car.ini')
-        mod_mass = float(self.get_value_from_ini(mod_car_ini, 'TOTALMASS')) + self.tree['Ballast']
-        self.mod_and_overwrite_ini(mod_car_ini, TOTALMASS=mod_mass)
+        if self.tree['POWER.LUT']:
+            self.log('  Updating power.lut')
+            d = self.plot
+            mod_power_path = os.path.realpath(os.path.join(mod_car_path,'data','power.lut'))
+            f = open(mod_power_path, 'w')
+            for n in range(len(d[0])):
+                if d[2][n]:
+                    line = '%.1f|%.1f\n' % (d[0][n], d[2][n])
+                    f.write(line)
+            f.close()
         
         # Now update the ui.json
         self.log('  Updating ui_car.json')
         mod_ui = os.path.realpath(os.path.join(mod_car_path, 'ui', 'ui_car.json'))
         x = load_json(mod_ui)
-        
-        # Name
         x['name'] = mod_name
-        
-        # Torque and Power curves
         x['torqueCurve'] = []
         x['powerCurve']  = []
         hp = d[0]*d[2]*0.00014
         for n in range(len(d[0])):
-            x['torqueCurve'].append(['%.1f'%d[0][n], '%.1f'%d[2][n]])
-            x['powerCurve'] .append(['%.1f'%d[0][n], '%.1f'%hp[n]  ])
+            if d[2][n]:
+                x['torqueCurve'].append(['%.1f'%d[0][n], '%.1f'%d[2][n]])
+                x['powerCurve'] .append(['%.1f'%d[0][n], '%.1f'%hp[n]  ])
         x['specs']['bhp']      = '%.0f bhp' % max(hp) 
         x['specs']['torque']   = '%.0f Nm'  % max(d[2])
-        x['specs']['weight']   = '%.0f kg'  % mod_mass
-        x['specs']['pwratio']  = '%.2f kg/bhp' % (mod_mass/max(hp))
+        x['specs']['weight']   = '%.0f kg'  % self.tree['CAR.INI/Mass/->']
+        x['specs']['pwratio']  = '%.2f kg/bhp' % (self.tree['CAR.INI/Mass/->']/max(hp))
         x['specs']['topspeed'] = 'buh?'
-        
         x['minimodder'] = self.tree.get_dictionary()[1]
-        
-        # Dump the revised json
         json.dump(x, open(mod_ui, 'w'), indent=2)
+
+        ##################
+        # INI FILES
+        ##################
+        for key in self.ini:
+            self.log('  Updating '+key)
+            
+            # Read the existing ini file
+            with open(os.path.join(mod_car_path,'data',key.lower())) as f: ls = f.readlines()
+            
+            # Loop over lines, keeping track of the section
+            section = ''
+            for n in range(len(ls)):
+     
+                # Check if this is a section header
+                if ls[n][0] == '[': 
+                    section = ls[n][1:].split(']')[0].strip()
+                    #self.log('   ['+section+']')
+                
+                # Otherwise, do the key-value thing
+                else:
+                    b = ls[n].split('=')[0].strip()
+                    ab = section+'/'+b
+                    for k in self.ini[key]:
+                        if ab == self.ini[key][k]: 
+                            ls[n] = b+'='+str(self.tree[key+'/'+k+'/->'])
+                            self.log('     '+b+'='+str(self.tree[key+'/'+k+'/->']))
         
         # Now delete the data.acd
         mod_data_acd = os.path.join(mod_car_path, 'data.acd')
@@ -227,23 +268,42 @@ class Modder:
         
         # Open the mod car path
         os.startfile(mod_car_path)
-
-    def get_value_from_ini(self, path, key):
+    
+    def load_ini(self, *path_args):
         """
-        Returns the value from the ini file
+        Returns ConfigParser
         """
-        # Read in the og
+        c = ConfigParser()
+        c.optionxform=str
+        path = os.path.join(*path_args)
+        self.log('  Loading '+path)
+        c.read(path)
+        return c
+        
+    def get_floats_from_ini(self, path, *keys):
+        """
+        Returns a dictionary of key:value pairs for the supplied keys.
+        e.g. get_init_values('C:\...\thing.ini', 'INTERTIA', 'PANTS', 'SHOES')
+        """
+        
+        r = dict()
+        # Read in the ini
         with open(path) as f: lines = f.readlines()
-        for line in lines: 
-            if line.split('=')[0].strip() == key:
-                return line.split('=')[1].split(';')[0].strip()
+        
+        for line in lines:
+            
+            key = line.split('=')[0].strip()
+            if key in keys:
+                r[key] = line.split('=')[1].split(';')[0].strip()
+        
+        return r
+        
 
     def mod_and_overwrite_ini(self, path, **kwargs):
         """
-        Copies ini from og folder to fl folder. Keyword arguments specify the
-        multiplication factor for different settings.
+        Modifies the specified values
         
-        e.g. mod_and_overwrite_ini('gpl67_brm', 'car.ini', INERTIA=0.8)
+        e.g. mod_and_overwrite_ini('C:\...\my_car\data\car.ini', INERTIA=0.8)
         """
         self.log('  Modding '+path)
 
@@ -310,21 +370,21 @@ class Modder:
         
         # power.lut path
         power_lut = os.path.join(data, 'power.lut')
-        
-        # Make sure the first time we back up the original.
-        # if not os.path.exists(power_lut+'.original'): 
-        #     self.log('  Backing up power.lut -> power.lut.original')
-        #     shutil.copy(power_lut, power_lut+'.original')
-        
-        # Delete data.acd if it exists
-        # if os.path.exists(data+'.acd'):
-        #     self.log('  Deleting data.acd for testing...')
-        #     os.unlink(data+'.acd')
-
         self.plot.load_file(power_lut, delimiter='|')
         self.data = spinmob.data.databox()
         self.data.copy_all_from(self.plot)
-        self.update_curves()             
+        self.update_curves()
+        
+        # Load other ini settings into the tree
+        for key in self.ini:
+            c = self.load_ini(data, key.lower())
+            for k in self.ini[key]:
+                a,b = self.ini[key][k].split('/')
+                self.tree[key+'/'+k] = c[a][b]
+                if self.tree[key+'/'+k+'/->'] == 0:
+                    self.tree[key+'/'+k+'/->'] = c[a][b]
+                
+        
 
     def update_curves(self):
         """
@@ -339,21 +399,20 @@ class Modder:
         y = self.plot[1]
         
         # If we're smoothing
-        if self.tree['Smooth']:
+        if self.tree['POWER.LUT/Smooth']:
             
             # Sav-Gol filter
-            x2 = linspace(min(x),max(x),self.tree['Smooth/Points'])
+            x2 = linspace(min(x),max(x),self.tree['POWER.LUT/Smooth/Points'])
             y2 = interp(x2, x, y)
             x = self.plot[0] = x2
-            y = self.plot[1] = savgol_filter(y2, self.tree['Smooth/Window'], self.tree['Smooth/Order'])
+            y = self.plot[1] = savgol_filter(y2, self.tree['POWER.LUT/Smooth/Window'], self.tree['POWER.LUT/Smooth/Order'])
     
-        x0 = max(self.plot[0])*self.tree['Restrictor/RPM Range']
-        p  = self.tree['Restrictor/Exponent']
+        x0 = max(self.plot[0])*self.tree['POWER.LUT/Restrictor/RPM Range']
+        p  = self.tree['POWER.LUT/Restrictor/Exponent']
         
-        if self.tree['Restrictor']:
+        if self.tree['POWER.LUT/Restrictor']:
             self.plot['Modded'] = nan_to_num(y*((x0-x)/x0)**p, 0)
             self.plot['Scale']  = nan_to_num(((x0-x)/x0)**p, 0)
-            
             
         else:
             self.plot['Modded'] = y
