@@ -11,3 +11,4 @@ egg_settings
 *.exe
 uploader/build
 uploader/uploader.spec
+*.pyc

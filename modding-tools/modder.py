@@ -1,10 +1,17 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-import glob, codecs, os, sys, shutil, json, stat
-from scipy.signal import savgol_filter
-from numpy import interp, linspace, nan_to_num
-from configparser import ConfigParser
+import codecs
+import glob
+import json
+import os
+import shutil
+import stat
+import sys
+import spinmob
+import spinmob.egg as egg
 
+from numpy import interp, linspace, isnan
+from scipy.signal import savgol_filter
 
 # Change to the directory of this script depending on whether this is a "compiled" version or run as script
 if os.path.split(sys.executable)[-1] == 'uploader.exe': os.chdir(os.path.dirname(sys.executable)) # For executable version
@@ -12,9 +19,7 @@ else:                                                   os.chdir(os.path.dirname
 print('WORKING DIRECTORY:')
 print(os.getcwd())
 
-# Library for all the gui and plotting.
-import spinmob
-import spinmob.egg as egg
+
 
 # Function for loading a json at the specified path
 def load_json(path):
@@ -31,22 +36,24 @@ def load_json(path):
         print('ERROR: Could not load', path)
         print(e)
 
-def rm_readonly(func, path, excinfo):
+def rm_readonly(func, path):
     os.chmod(path, stat.S_IWRITE)
     func(path)
 
 def rmtree(top):
     """
-    Implemented to take care of chmodding
+    Implemented to take care of chmod
     """
     shutil.rmtree(top, onerror=rm_readonly)
 
+
+# noinspection PyProtectedMember
 class Modder:
     """
     GUI class for searching and modding content.
     """
 
-    def __init__(self, show=True, blocking=True):
+    def __init__(self, blocking=True):
 
         # When updating cars, we want to suppress some signals.
         self._updating_cars = False
@@ -55,22 +62,36 @@ class Modder:
 
         # Other variables
         self.source_power_lut = None # Used to hold the source power.lut data.
+        self.cars = dict()  # Car folder keys, car name values
+        self.srac = dict()  # Reverse-lookup
+        self.skins = dict()
+        self.cars_keys = None
+        self.srac_keys = None
 
         # Lookup table to convert from user-friendly settings to keys in ini files.
         self.ini = {
             'CAR.INI'           : {
-                'Mass'          : 'BASIC/TOTALMASS',
+                'Mass'              : 'BASIC/TOTALMASS',
             },
-            'DRIVETRAIN.INI'    : {
-                'Power'         : 'DIFFERENTIAL/POWER',
-                'Coast'         : 'DIFFERENTIAL/COAST',
-                'Preload'       : 'DIFFERENTIAL/PRELOAD',
+            'DRIVETRAIN.INI'        : {
+                'Power'             : 'DIFFERENTIAL/POWER',
+                'Coast'             : 'DIFFERENTIAL/COAST',
+                'Preload'           : 'DIFFERENTIAL/PRELOAD',
             },
             'SUSPENSIONS.INI'   : {
-                'Front Height'  : 'FRONT/ROD_LENGTH',
-                'Front Travel'  : 'FRONT/PACKER_RANGE',
-                'Rear Height'   : 'REAR/ROD_LENGTH',
-                'Rear Travel'   : 'REAR/PACKER_RANGE',
+                'Front Height'      : 'FRONT/ROD_LENGTH',
+                'Front Travel'      : 'FRONT/PACKER_RANGE',
+                'Front Bump'        : 'FRONT/DAMP_BUMP',
+                'Front Rebound'     : 'FRONT/DAMP_REBOUND',
+                'Front Fast Bump'   : 'FRONT/DAMP_FAST_BUMP',
+                'Front Fast Rebound': 'FRONT/DAMP_FAST_REBOUND',
+
+                'Rear Height'       : 'REAR/ROD_LENGTH',
+                'Rear Travel'       : 'REAR/PACKER_RANGE',
+                'Rear Bump'         :  'REAR/DAMP_BUMP',
+                'Rear Rebound'      : 'REAR/DAMP_REBOUND',
+                'Rear Fast Bump'    : 'REAR/DAMP_FAST_BUMP',
+                'Rear Fast Rebound' : 'REAR/DAMP_FAST_REBOUND',
             },
         }
         
@@ -211,13 +232,13 @@ class Modder:
         shutil.copytree(car_path, mod_car_path)
         
         # Now update power.lut
+        d = self.plot
         if self.tree['POWER.LUT']:
             self.log('  Updating power.lut')
-            d = self.plot
             mod_power_path = os.path.realpath(os.path.join(mod_car_path,'data','power.lut'))
             f = open(mod_power_path, 'w')
             for n in range(len(d[0])):
-                if d[2][n]:
+                if not isnan(d[2][n]):
                     line = '%.1f|%.1f\n' % (d[0][n], d[2][n])
                     f.write(line)
             f.close()
@@ -231,9 +252,9 @@ class Modder:
         x['powerCurve']  = []
         hp = d[0]*d[2]*0.00014
         for n in range(len(d[0])):
-            if d[2][n]:
-                x['torqueCurve'].append(['%.1f'%d[0][n], '%.1f'%d[2][n]])
-                x['powerCurve'] .append(['%.1f'%d[0][n], '%.1f'%hp[n]  ])
+            if not isnan(d[2][n]):
+                x['torqueCurve'].append(['%.1f' % d[0][n], '%.1f' % d[2][n]])
+                x['powerCurve'] .append(['%.1f' % d[0][n], '%.1f' % hp[n]  ])
         x['specs']['bhp']      = '%.0f bhp' % max(hp) 
         x['specs']['torque']   = '%.0f Nm'  % max(d[2])
         x['specs']['weight']   = '%.0f kg'  % self.tree['CAR.INI/Mass/->']
@@ -242,17 +263,20 @@ class Modder:
         x['minimodder'] = self.tree.get_dictionary()[1]
         json.dump(x, open(mod_ui, 'w'), indent=2)
 
+        # JACK: CAR.INI NAMES
+
         ##################
         # INI FILES
         ##################
-        for key in self.ini:
+        for file in self.ini:
         
             # if we're supposed to mess with this file    
-            if not self.tree[key]: continue
-            self.log('  Updating '+key)
+            if not self.tree[file]: continue
+            self.log('  Updating '+file)
             
             # Read the existing ini file
-            with open(os.path.join(mod_car_path,'data',key.lower())) as f: ls = f.readlines()
+            mod_ini_path = os.path.join(mod_car_path,'data',file.lower())
+            with open(mod_ini_path) as f: ls = f.readlines()
             
             # Loop over lines, keeping track of the section
             section = ''
@@ -261,16 +285,18 @@ class Modder:
                 # Check if this is a section header
                 if ls[n][0] == '[': 
                     section = ls[n][1:].split(']')[0].strip()
-                    #self.log('   ['+section+']')
-                
+
                 # Otherwise, do the key-value thing
                 else:
                     b = ls[n].split('=')[0].strip()
                     ab = section+'/'+b
-                    for k in self.ini[key]:
-                        if ab == self.ini[key][k]: 
-                            ls[n] = b+'='+str(self.tree[key+'/'+k+'/->'])
-                            self.log('     '+b+'='+str(self.tree[key+'/'+k+'/->']))
+                    for k in self.ini[file]:
+                        if ab == self.ini[file][k]:
+                            ls[n] = b+'='+str(self.tree[file+'/'+k+'/->'])+'\n'
+                            self.log('     '+b+'='+str(self.tree[file+'/'+k+'/->']))
+
+            # Overwrite the ini file
+            with open(mod_ini_path, 'w') as f: f.writelines(ls)
         
         # Now delete the data.acd
         mod_data_acd = os.path.join(mod_car_path, 'data.acd')
@@ -287,8 +313,8 @@ class Modder:
         
         # Renaming bank
         self.log('Renaming '+car+'.bank -> '+mod_car+'.bank')
-        os.rename(os.path.join(mod_car_path, 'sfx', car    +'.bank'),
-                  os.path.join(mod_car_path, 'sfx', mod_car+'.bank'))
+        os.rename(os.path.join(mod_car_path, 'sfx', car     + '.bank'),
+                  os.path.join(mod_car_path, 'sfx', mod_car + '.bank'))
         
         # Remember our selection and scan
         self.button_scan.click()
@@ -320,49 +346,6 @@ class Modder:
                     value = s[1].split(';')[0].strip()
                     c[section][key] = value
         return c
-
-    def get_floats_from_ini(self, path, *keys):
-        """
-        Returns a dictionary of key:value pairs for the supplied keys.
-        e.g. get_init_values('C:/.../thing.ini', 'INERTIA', 'PANTS', 'SHOES')
-        """
-        
-        r = dict()
-        # Read in the ini
-        with open(path) as f: lines = f.readlines()
-        
-        for line in lines:
-            
-            key = line.split('=')[0].strip()
-            if key in keys:
-                r[key] = line.split('=')[1].split(';')[0].strip()
-        
-        return r
-        
-
-    def mod_and_overwrite_ini(self, path, **kwargs):
-        """
-        Modifies the specified values
-        
-        e.g. mod_and_overwrite_ini('C:\...\my_car\data\car.ini', INERTIA=0.8)
-        """
-        self.log('  Modding '+path)
-
-        # Read in the og
-        with open(path) as f: lines = f.readlines()
-                
-        # Update lines
-        for n in range(len(lines)):
-            line = lines[n]
-        
-            # Get the key
-            key = line.split('=')[0].strip()
-            if key in kwargs: 
-                lines[n] = key+'='+str(kwargs[key])+'\n'
-                self.log('    '+line.split(';')[0].strip()+' -> '+lines[n].split('=')[1].strip())
-                
-        # Now overwrite
-        with open(path, 'w') as f: f.write(''.join(lines))
 
     def _button_open_car_folder_clicked(self, *a):
         """
@@ -400,23 +383,20 @@ class Modder:
 
         self.log('Loading '+self.combo_car.get_text()+' data:')
         if not os.path.exists(data):
-            self.log('  ERROR: '+data+ ' does not exist. Make sure you have unpacked data.acd.')
+            self.log('  ERROR: '+ data + ' does not exist. Make sure you have unpacked data.acd.')
             self.button_create_mod.disable()
             self.plot.clear()
             self.plot.plot()
             self.grid_middle2.disable()
             return
         
-        self.log('  Found '+data)
+        self.log('  Found ' + data)
         self.button_create_mod.enable()
         self.grid_middle2.enable()
         
         # load power.lut, stick it in an "original" databox, copy to plot, and run the plot
         power_lut = os.path.join(data, 'power.lut')
-        self.plot.load_file(power_lut, delimiter='|')
-        self.source_power_lut = spinmob.data.databox()
-        self.source_power_lut.copy_all_from(self.plot)
-        self.update_curves()
+        self.source_power_lut = spinmob.data.load(power_lut, delimiter='|')
 
         # If we have already saved a tree for this car, load it
         saved_tree = None
@@ -424,7 +404,7 @@ class Modder:
         if os.path.exists(saved_tree_path):
             self.log('  Loading ', saved_tree_path)
             saved_tree = spinmob.data.load(saved_tree_path, header_only=True, delimiter='\t')
-            self.tree.update(saved_tree)
+            self.tree.update(saved_tree) # No event fired because we're loading car data.
 
         # Load other ini settings into the tree
         for file in self.ini:
@@ -438,7 +418,6 @@ class Modder:
                 # Get the ini file section and key
                 section,key = self.ini[file][nice_key].split('/')
                 value = c[section][key]
-                print('  ', section, key, value)
 
                 # update the tree 'start' value
                 tree_key = file+'/'+nice_key
@@ -452,14 +431,16 @@ class Modder:
 
         # Expand
         self.expand_tree()
+        self.update_curves()
 
     def update_curves(self):
         """
         Calculates and updates the plot.
         """
-        if not len(self.plot): return
+        if not len(self.source_power_lut): return
 
         # Start clean
+        self.plot.clear()
         self.plot.copy_all_from(self.source_power_lut)
         
         # Update the plot
@@ -469,6 +450,7 @@ class Modder:
         self.plot['Scale']  = 0 * x + 1
 
         if self.tree['POWER.LUT']:
+
             # If we're smoothing
             if self.tree['POWER.LUT/Smooth']:
 
@@ -482,8 +464,8 @@ class Modder:
             p  = self.tree['POWER.LUT/Restrictor/Exponent']
 
             if self.tree['POWER.LUT/Restrictor']:
-                self.plot['Modded'] = nan_to_num(y*((x0-x)/x0)**p, 0)
-                self.plot['Scale']  = nan_to_num(((x0-x)/x0)**p, 0)
+                self.plot['Modded'] = y*((x0-x)/x0)**p
+                self.plot['Scale']  = ((x0-x)/x0)**p
 
             else:
                 self.plot['Modded'] = y
@@ -523,12 +505,12 @@ class Modder:
         """
         self.update_cars()
 
-    def _button_browse_local_clicked(self, e):
+    def _button_browse_local_clicked(self, *a):
         """
         Pop up the directory selector.
         """
         path = egg.dialogs.select_directory(text='Select the Assetto Corsa directory, apex-nerd.', default_directory='assetto_local')
-        if(path):
+        if path:
             self.text_local(path)
             self.button_scan.click()
 
@@ -540,7 +522,7 @@ class Modder:
         for n in range(len(a)): a[n] = str(a[n])
         text = ' '.join(a)
         self.text_log.append_text(text)
-        print('LOG:',text)
+        print('LOG:', text)
         self.window.process_events()
 
     def update_cars(self):
@@ -585,25 +567,8 @@ class Modder:
         # Populate the combo
         self.combo_car.clear()
         for key in self.srac_keys: self.combo_car.add_item(key)
-        
+
         self._updating_cars = False
-        
-
-    def update_tracks(self):
-        """
-        Searches through the assetto directory for all the track folders
-        """
-        print('update_tracks')
-        # Clear existing
-        self._refilling_tracks = True
-        self.combo_tracks.clear()
-
-        # Get all the paths
-        #self.log('Updating tracks...')
-        paths = glob.glob(os.path.join(self.text_local(), 'content', 'tracks', '*'))
-        paths.sort()
-        for path in paths: self.combo_tracks.add_item(os.path.split(path)[-1])
-        self._refilling_tracks = False
 
 
 # Start the show!
