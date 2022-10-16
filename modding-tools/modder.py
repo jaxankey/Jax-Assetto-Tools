@@ -24,7 +24,6 @@ def load_json(path):
     try:
         if os.path.exists(path):
             f = codecs.open(path, 'r', 'utf-8-sig', errors='replace')
-            #f = open(path, 'r', encoding='utf8', errors='replace')
             j = json.load(f, strict=False)
             f.close()
             return j
@@ -51,6 +50,11 @@ class Modder:
 
         # When updating cars, we want to suppress some signals.
         self._updating_cars = False
+        self._loading_car_data = False
+        self._tree_changing = False
+
+        # Other variables
+        self.source_power_lut = None # Used to hold the source power.lut data.
 
         # Lookup table to convert from user-friendly settings to keys in ini files.
         self.ini = {
@@ -128,7 +132,10 @@ class Modder:
         self.tree.add('POWER.LUT/Smooth/Points', 100)
         self.tree.add('POWER.LUT/Smooth/Window', 5)
         self.tree.add('POWER.LUT/Smooth/Order', 3)
-        
+
+        self.button_reset_inis = self.tree.add_button('Reset INI\'s')
+        self.button_reset_inis.signal_clicked.connect(self._button_reset_inis_clicked)
+
         for key in self.ini:
             self.tree.add(key, False)
             for k in self.ini[key]:
@@ -142,7 +149,6 @@ class Modder:
         
         # Log area
         self.window.new_autorow()
-        #self.grid_bottom = self.window.add(egg.gui.GridLayout(False), alignment=0)  
         self.text_log = self.grid_middle2.add(egg.gui.TextLog(), 1,1, alignment=0)
         
         self.log('Welcome to my silly-ass minimodder!')
@@ -153,6 +159,25 @@ class Modder:
         
         # Show it.
         self.window.show(blocking)
+
+    def _button_reset_inis_clicked(self, *a):
+        """
+        Clears out the jax-minimodder file and reloads the car.
+        """
+        path = os.path.join(self.text_local(), 'content', 'cars', self.srac[self.combo_car.get_text()], 'ui', 'jax-minimodder.txt')
+
+        # delete the config file
+        if os.path.exists(path):
+            self.log('Deleting ui/jax-minimodder.txt')
+            os.unlink(path)
+
+        # Uncheck them all
+        self._tree_changing = True
+        for file in self.ini: self.tree[file] = False
+        self._tree_changing = False
+
+        # Reload the car
+        self.load_car_data()
 
     def _button_create_mod_clicked(self, *a):
         """
@@ -221,6 +246,9 @@ class Modder:
         # INI FILES
         ##################
         for key in self.ini:
+        
+            # if we're supposed to mess with this file    
+            if not self.tree[key]: continue
             self.log('  Updating '+key)
             
             # Read the existing ini file
@@ -271,19 +299,32 @@ class Modder:
     
     def load_ini(self, *path_args):
         """
-        Returns ConfigParser
+        Returns dictionary for the specified file.
         """
-        c = ConfigParser()
-        c.optionxform=str
         path = os.path.join(*path_args)
         self.log('  Loading '+path)
-        c.read(path)
+
+        # ConfigParser is a bug-ass piece of shit.
+        # Assemble a dictionary.
+        c = dict()
+        with open(path) as f: ls = f.readlines()
+        section = None
+        for l in ls:
+            if l[0] == '[':
+                section = l[1:].split(']')[0].strip()
+                c[section] = dict()
+            elif section:
+                s = l.split('=')
+                if len(s) > 1:
+                    key   = s[0].strip()
+                    value = s[1].split(';')[0].strip()
+                    c[section][key] = value
         return c
-        
+
     def get_floats_from_ini(self, path, *keys):
         """
         Returns a dictionary of key:value pairs for the supplied keys.
-        e.g. get_init_values('C:\...\thing.ini', 'INTERTIA', 'PANTS', 'SHOES')
+        e.g. get_init_values('C:/.../thing.ini', 'INERTIA', 'PANTS', 'SHOES')
         """
         
         r = dict()
@@ -350,7 +391,9 @@ class Modder:
         """
         Loads the car data.
         """
-        
+        # Prevent tree events etc
+        self._loading_car_data = True
+
         # Get the path to the car
         car  = self.srac[self.combo_car.get_text()]
         data = os.path.realpath(os.path.join(self.text_local(), 'content', 'cars', car, 'data'))
@@ -368,64 +411,111 @@ class Modder:
         self.button_create_mod.enable()
         self.grid_middle2.enable()
         
-        # power.lut path
+        # load power.lut, stick it in an "original" databox, copy to plot, and run the plot
         power_lut = os.path.join(data, 'power.lut')
         self.plot.load_file(power_lut, delimiter='|')
-        self.data = spinmob.data.databox()
-        self.data.copy_all_from(self.plot)
+        self.source_power_lut = spinmob.data.databox()
+        self.source_power_lut.copy_all_from(self.plot)
         self.update_curves()
-        
+
+        # If we have already saved a tree for this car, load it
+        saved_tree = None
+        saved_tree_path = os.path.join(self.text_local(), 'content', 'cars', car, 'ui', 'jax-minimodder.txt')
+        if os.path.exists(saved_tree_path):
+            self.log('  Loading ', saved_tree_path)
+            saved_tree = spinmob.data.load(saved_tree_path, header_only=True, delimiter='\t')
+            self.tree.update(saved_tree)
+
         # Load other ini settings into the tree
-        for key in self.ini:
-            c = self.load_ini(data, key.lower())
-            for k in self.ini[key]:
-                a,b = self.ini[key][k].split('/')
-                self.tree[key+'/'+k] = c[a][b]
-                if self.tree[key+'/'+k+'/->'] == 0:
-                    self.tree[key+'/'+k+'/->'] = c[a][b]
-                
-        
+        for file in self.ini:
+
+            # Load the existing data
+            c = self.load_ini(data, file.lower())
+
+            # loop over the "user friendly" keys of interest
+            for nice_key in self.ini[file]:
+
+                # Get the ini file section and key
+                section,key = self.ini[file][nice_key].split('/')
+                value = c[section][key]
+                print('  ', section, key, value)
+
+                # update the tree 'start' value
+                tree_key = file+'/'+nice_key
+                self.tree[tree_key] = value
+
+                # If we didn't already load the saved_tree, set a default for the 'to'
+                if saved_tree is None: self.tree[tree_key + '/->'] = value
+
+        # Re-enable tree events
+        self._loading_car_data = False
+
+        # Expand
+        self.expand_tree()
 
     def update_curves(self):
         """
         Calculates and updates the plot.
         """
         if not len(self.plot): return
-        
-        self.plot.copy_all_from(self.data)
+
+        # Start clean
+        self.plot.copy_all_from(self.source_power_lut)
         
         # Update the plot
         x = self.plot[0]
         y = self.plot[1]
-        
-        # If we're smoothing
-        if self.tree['POWER.LUT/Smooth']:
-            
-            # Sav-Gol filter
-            x2 = linspace(min(x),max(x),self.tree['POWER.LUT/Smooth/Points'])
-            y2 = interp(x2, x, y)
-            x = self.plot[0] = x2
-            y = self.plot[1] = savgol_filter(y2, self.tree['POWER.LUT/Smooth/Window'], self.tree['POWER.LUT/Smooth/Order'])
-    
-        x0 = max(self.plot[0])*self.tree['POWER.LUT/Restrictor/RPM Range']
-        p  = self.tree['POWER.LUT/Restrictor/Exponent']
-        
-        if self.tree['POWER.LUT/Restrictor']:
-            self.plot['Modded'] = nan_to_num(y*((x0-x)/x0)**p, 0)
-            self.plot['Scale']  = nan_to_num(((x0-x)/x0)**p, 0)
-            
-        else:
-            self.plot['Modded'] = y
-            self.plot['Scale'] = 0*x+1
+        self.plot['Modded'] = y
+        self.plot['Scale']  = 0 * x + 1
+
+        if self.tree['POWER.LUT']:
+            # If we're smoothing
+            if self.tree['POWER.LUT/Smooth']:
+
+                # Sav-Gol filter
+                x2 = linspace(min(x),max(x),self.tree['POWER.LUT/Smooth/Points'])
+                y2 = interp(x2, x, y)
+                x = self.plot[0] = x2
+                y = self.plot[1] = savgol_filter(y2, self.tree['POWER.LUT/Smooth/Window'], self.tree['POWER.LUT/Smooth/Order'])
+
+            x0 = max(self.plot[0])*self.tree['POWER.LUT/Restrictor/RPM Range']
+            p  = self.tree['POWER.LUT/Restrictor/Exponent']
+
+            if self.tree['POWER.LUT/Restrictor']:
+                self.plot['Modded'] = nan_to_num(y*((x0-x)/x0)**p, 0)
+                self.plot['Scale']  = nan_to_num(((x0-x)/x0)**p, 0)
+
+            else:
+                self.plot['Modded'] = y
+                self.plot['Scale'] = 0 * x + 1
         
         self.plot.plot()
+
+    def expand_tree(self):
+        """
+        Expands / collapses based on check boxes
+        """
+        self._tree_changing = True
+        self.tree.set_expanded('POWER.LUT', self.tree['POWER.LUT'])
+        for file in self.ini:
+            if file in self.tree.keys(): self.tree.set_expanded(file, self.tree[file])
+        self._tree_changing = False
 
     def _tree_changed(self, *a):
         """
         Setting in the tree changed.
         """
+        if self._loading_car_data or self._tree_changing: return
+
+        print('_tree_changed')
         self.update_curves()
-        
+
+        self.expand_tree()
+
+        # Save the tree
+        car = self.srac[self.combo_car.get_text()]
+        saved_tree_path = os.path.join(self.text_local(), 'content', 'cars', car, 'ui', 'jax-minimodder.txt')
+        self.tree.save(saved_tree_path)
 
     def _button_scan_clicked(self, *a):
         """
