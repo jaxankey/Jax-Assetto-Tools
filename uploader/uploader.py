@@ -1128,7 +1128,7 @@ class Uploader:
         pem     = os.path.abspath(self.text_pem.get_text())
         stop    = self.text_stop.get_text()    # For acsm
         start   = self.text_start.get_text()   # For acsm
-        reset   = '"' + self.text_reset.get_text() + ' >/dev/null 2>&1 &"'   # For acsm (extra stuff makes sure nohup returns)
+        reset   = self.text_reset.get_text() + ' >/dev/null 2>&1 &'   # For acsm (extra stuff makes sure nohup returns)
         monitor = self.text_monitor.get_text() 
 
         # Upload the main assetto content

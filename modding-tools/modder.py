@@ -79,19 +79,19 @@ class Modder:
                 'Preload'           : 'DIFFERENTIAL/PRELOAD',
             },
             'SUSPENSIONS.INI'   : {
-                'Front Height'      : 'FRONT/ROD_LENGTH',
-                'Front Travel'      : 'FRONT/PACKER_RANGE',
-                'Front Bump'        : 'FRONT/DAMP_BUMP',
-                'Front Rebound'     : 'FRONT/DAMP_REBOUND',
-                'Front Fast Bump'   : 'FRONT/DAMP_FAST_BUMP',
-                'Front Fast Rebound': 'FRONT/DAMP_FAST_REBOUND',
+                'Front/Height'      : 'FRONT/ROD_LENGTH',
+                'Front/Travel'      : 'FRONT/PACKER_RANGE',
+                'Front/Bump'        : 'FRONT/DAMP_BUMP',
+                'Front/Rebound'     : 'FRONT/DAMP_REBOUND',
+                'Front/Fast Bump'   : 'FRONT/DAMP_FAST_BUMP',
+                'Front/Fast Rebound': 'FRONT/DAMP_FAST_REBOUND',
 
-                'Rear Height'       : 'REAR/ROD_LENGTH',
-                'Rear Travel'       : 'REAR/PACKER_RANGE',
-                'Rear Bump'         :  'REAR/DAMP_BUMP',
-                'Rear Rebound'      : 'REAR/DAMP_REBOUND',
-                'Rear Fast Bump'    : 'REAR/DAMP_FAST_BUMP',
-                'Rear Fast Rebound' : 'REAR/DAMP_FAST_REBOUND',
+                'Rear/Height'       : 'REAR/ROD_LENGTH',
+                'Rear/Travel'       : 'REAR/PACKER_RANGE',
+                'Rear/Bump'         :  'REAR/DAMP_BUMP',
+                'Rear/Rebound'      : 'REAR/DAMP_REBOUND',
+                'Rear/Fast Bump'    : 'REAR/DAMP_FAST_BUMP',
+                'Rear/Fast Rebound' : 'REAR/DAMP_FAST_REBOUND',
             },
         }
         
@@ -160,8 +160,8 @@ class Modder:
         for key in self.ini:
             self.tree.add(key, False)
             for k in self.ini[key]:
-                self.tree.add(key+'/'+k, 0.0)
-                self.tree.add(key+'/'+k+'/->', 0.0)
+                self.tree.add(key+'/'+k, 0.0, format='{value:.6g}')
+                self.tree.add(key+'/'+k+'/->', 0.0, format='{value:.6g}')
                 
         self.tree.load_gui_settings()
         
