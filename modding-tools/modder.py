@@ -10,6 +10,7 @@ import sys
 import spinmob
 import spinmob.egg as egg
 
+from configparser import RawConfigParser as ConfigParser
 from numpy import interp, linspace, isnan
 from scipy.signal import savgol_filter
 
@@ -19,7 +20,7 @@ else:                                                   os.chdir(os.path.dirname
 print('WORKING DIRECTORY:')
 print(os.getcwd())
 
-
+exceptions = egg.gui.TimerExceptions()
 
 # Function for loading a json at the specified path
 def load_json(path):
@@ -36,14 +37,14 @@ def load_json(path):
         print('ERROR: Could not load', path)
         print(e)
 
-def rm_readonly(func, path):
-    os.chmod(path, stat.S_IWRITE)
-    func(path)
-
 def rmtree(top):
     """
     Implemented to take care of chmod
     """
+    def rm_readonly(func, path):
+        os.chmod(path, stat.S_IWRITE)
+        func(path)
+        
     shutil.rmtree(top, onerror=rm_readonly)
 
 
@@ -56,8 +57,10 @@ class Modder:
     def __init__(self, blocking=True):
 
         # When updating cars, we want to suppress some signals.
+        self._init_running = True
         self._updating_cars = False
         self._loading_car_data = False
+        self._expanding_tree = False
         self._tree_changing = False
 
         # Other variables
@@ -68,35 +71,15 @@ class Modder:
         self.cars_keys = None
         self.srac_keys = None
 
-        # Lookup table to convert from user-friendly settings to keys in ini files.
+        # Lookup table for which files to mod, with extra sections possible
         self.ini = {
-            'CAR.INI'           : {
-                'Mass'              : 'BASIC/TOTALMASS',
-            },
-            'DRIVETRAIN.INI'        : {
-                'Power'             : 'DIFFERENTIAL/POWER',
-                'Coast'             : 'DIFFERENTIAL/COAST',
-                'Preload'           : 'DIFFERENTIAL/PRELOAD',
-                'Final Ratio'       : 'GEARS/FINAL',
-            },
-            'SUSPENSIONS.INI'   : {
-                'Front/Height'      : 'FRONT/ROD_LENGTH',
-                'Front/Travel'      : 'FRONT/PACKER_RANGE',
-                'Front/Spring'      : 'FRONT/SPRING_RATE',
-                'Front/Bump'        : 'FRONT/DAMP_BUMP',
-                'Front/Rebound'     : 'FRONT/DAMP_REBOUND',
-                'Front/Fast Bump'   : 'FRONT/DAMP_FAST_BUMP',
-                'Front/Fast Rebound': 'FRONT/DAMP_FAST_REBOUND',
-
-                'Rear/Height'       : 'REAR/ROD_LENGTH',
-                'Rear/Travel'       : 'REAR/PACKER_RANGE',
-                'Rear/Spring'       : 'REAR/SPRING_RATE',
-                'Rear/Bump'         : 'REAR/DAMP_BUMP',
-                'Rear/Rebound'      : 'REAR/DAMP_REBOUND',
-                'Rear/Fast Bump'    : 'REAR/DAMP_FAST_BUMP',
-                'Rear/Fast Rebound' : 'REAR/DAMP_FAST_REBOUND',
-            },
+            'CAR.INI'           : {'RULES': ['MIN_HEIGHT']},
+            'DRIVETRAIN.INI'    : {},
+            'SUSPENSIONS.INI'   : {},
         }
+
+        # This will hold all the configs with the files above as keys.
+        self.ini_files = dict()
 
 
         ######################
@@ -141,8 +124,8 @@ class Modder:
         self.window.new_autorow()
         self.grid_middle2 = self.window.add(egg.gui.GridLayout(False), alignment=0)
         self.tree = self.grid_middle2.add(egg.gui.TreeDictionary(
-            autosettings_path='tree'), row_span=2)
-        self.tree.set_minimum_width(210)
+            new_parameter_signal_changed=self._tree_changed), row_span=2)
+        self.tree.set_minimum_width(400)
 
         # Settings
         self.tree.add('Mod Tag', 'R')
@@ -159,18 +142,19 @@ class Modder:
         self.button_reset_inis = self.tree.add_button('Reset INI\'s')
         self.button_reset_inis.signal_clicked.connect(self._button_reset_inis_clicked)
 
-        for key in self.ini:
-            self.tree.add(key, False)
-            for k in self.ini[key]:
-                self.tree.add(key+'/'+k, 0.0, format='{value:.6g}')
-                self.tree.add(key+'/'+k+'/->', 0.0, format='{value:.6g}')
+        # Lookup table to convert from user-friendly settings to keys in ini files.
+        # self.ini = {
+        #     'CAR.INI': {'RULES': ['MIN_HEIGHT',...]},
+        #     'DRIVETRAIN.INI': {},
+        for file in self.ini:
+            self.tree.add(file, False)
+            for section in self.ini[file]:
+                self.tree.add(file+'/'+section, False)
+                for key in self.ini[file][section]:
+                    self.tree.add(file+'/'+section+'/'+key, '')
 
-        # Gear Ratio Modder
-        self.tree.add('RATIOS-DRIVETRAIN', False)
-        self.tree.add('RATIOS-DRIVETRAIN/Scale', 1.0, format='{value:.06g}', dec=True, step=0.1)
-
-        self.tree.load_gui_settings()
-        self.tree.connect_any_signal_changed(self._tree_changed)
+        #self.tree.load_gui_settings()
+        #self.tree.connect_any_signal_changed(self._tree_changed)
 
         # Make the plotter
         self.plot = self.grid_middle2.add(egg.gui.DataboxPlot(autosettings_path='plot'), alignment=0)
@@ -185,6 +169,8 @@ class Modder:
         self.button_scan.click()
         self.combo_car.set_index(last_car_index)
 
+        self._init_running = False
+
         # Show it.
         self.window.show(blocking)
 
@@ -192,11 +178,14 @@ class Modder:
         """
         Clears out the jax-minimodder file and reloads the car.
         """
-        path = os.path.join(self.text_local(), 'content', 'cars', self.srac[self.combo_car.get_text()], 'ui', 'jax-minimodder.txt')
+        self.log('Resetting car data:')
+        
+        car = self.combo_car.get_text()
+        path = os.path.join(self.text_local(), 'content', 'cars', car, 'ui', 'jax-minimodder.txt')
 
         # delete the config file
         if os.path.exists(path):
-            self.log('Deleting ui/jax-minimodder.txt')
+            self.log('  Deleting ui/jax-minimodder.txt')
             os.unlink(path)
 
         # Uncheck them all
@@ -213,10 +202,11 @@ class Modder:
         """
 
         # Get the mod name and new folder name
-        car_name = self.combo_car.get_text()
-        car = self.srac[car_name]
+        car      = self.combo_car.get_text()
+        car_name = self.cars[car]
         car_path = os.path.realpath(os.path.join(self.text_local(), 'content', 'cars', car))
-        mod_name = self.combo_car.get_text() + '-'+self.tree['Mod Tag']
+        
+        mod_name = car_name + '-'+self.tree['Mod Tag']
         mod_car  = car+'_'+self.tree['Mod Tag'].lower().replace(' ', '_')
         mod_car_path = os.path.realpath(os.path.join(self.text_local(), 'content', 'cars', mod_car))
 
@@ -264,56 +254,46 @@ class Modder:
                 x['powerCurve'] .append(['%.1f' % d[0][n], '%.1f' % hp[n]  ])
         x['specs']['bhp']      = '%.0f bhp' % max(hp)
         x['specs']['torque']   = '%.0f Nm'  % max(d[2])
-        x['specs']['weight']   = '%.0f kg'  % self.tree['CAR.INI/Mass/->']
-        x['specs']['pwratio']  = '%.2f kg/bhp' % (self.tree['CAR.INI/Mass/->']/max(hp))
+        x['specs']['weight']   = '%s kg'  % self.tree['CAR.INI/BASIC/TOTALMASS']
+        x['specs']['pwratio']  = '%.2f kg/bhp' % (float(self.tree['CAR.INI/BASIC/TOTALMASS'])/max(hp))
         x['specs']['topspeed'] = 'buh?'
         x['minimodder'] = self.tree.get_dictionary()[1]
         json.dump(x, open(mod_ui, 'w'), indent=2)
 
-        # Ratios
-        # if self.tree['RATIOS-DRIVETRAIN']:
-        #     self.log('  Updating ratios.rto and drivetrain.ini')
-        #     with open(mod_ratios_path) as f:
-        #         ls = f.readlines()
-        #     with open(mod_ratios_path, 'w') as f:
-        #         for l in ls:
-        #             s = l.split('|')
-        #             if len(s) > 1:
-        #                 s[1] = '%.4g' % (float(s[1].strip()) * self.tree['RATIOS.RTO/Scale'])
-        #                 f.write(s[0] + '|' + s[1] + '\n')
-
         ##################
         # INI FILES
         ##################
-        for file in self.ini:
-
-            # if we're supposed to mess with this file
-            if not self.tree[file]: continue
-            self.log('  Updating '+file)
-
-            # Read the existing ini file
-            mod_ini_path = os.path.join(mod_car_path,'data',file.lower())
-            with open(mod_ini_path) as f: ls = f.readlines()
-
-            # Loop over lines, keeping track of the section
-            section = ''
-            for n in range(len(ls)):
-
-                # Check if this is a section header
-                if ls[n][0] == '[':
-                    section = ls[n][1:].split(']')[0].strip()
-
-                # Otherwise, do the key-value thing
-                else:
-                    b = ls[n].split('=')[0].strip()
-                    ab = section+'/'+b
-                    for k in self.ini[file]:
-                        if ab == self.ini[file][k]:
-                            ls[n] = b+'='+str(self.tree[file+'/'+k+'/->'])+'\n'
-                            self.log('     '+b+'='+str(self.tree[file+'/'+k+'/->']))
-
-            # Overwrite the ini file
-            with open(mod_ini_path, 'w') as f: f.writelines(ls)
+        
+        # Update the config parser for each file
+        for k in self.tree.keys():
+            s = k.split('/')
+            file = s[0]
+            
+            # If it's a file we modify and we have it checked
+            if file in self.ini and self.tree[file]:
+                    
+                # Get the config parser for this file
+                c = self.ini_files[file]
+                
+                # If there is a section
+                if len(s) > 1:
+                    section = s[1]
+                    
+                    # If there is not already a section in the config parser, add it
+                    if not section in c: c.add_section(section)
+                    
+                    # If we're supposed to modify the section and there is a key
+                    if self.tree[file + '/' + section] and len(s) > 2:
+                        
+                        # Update the key to the tree value
+                        c[section][s[2]] = self.tree[k]
+                
+        # Write the files
+        for file in self.ini_files:
+            c = self.ini_files[file]
+            self.log('  Writing ', file.lower())
+            with open(os.path.join(mod_car_path, 'data', file.lower()),'w') as f: 
+                c.write(f, space_around_delimiters=False)
 
         # Now delete the data.acd
         mod_data_acd = os.path.join(mod_car_path, 'data.acd')
@@ -329,60 +309,23 @@ class Modder:
             with open(mod_guids, 'w') as f: f.write(s.replace(car, mod_car))
 
         # Renaming bank
-        self.log('Renaming '+car+'.bank -> '+mod_car+'.bank')
+        self.log('  Renaming '+car+'.bank -> '+mod_car+'.bank')
         os.rename(os.path.join(mod_car_path, 'sfx', car     + '.bank'),
                   os.path.join(mod_car_path, 'sfx', mod_car + '.bank'))
 
         # Remember our selection and scan
         self.button_scan.click()
-        self.combo_car.set_index(self.combo_car.get_index(car_name))
+        self.combo_car.set_index(self.combo_car.get_index(car))
 
         # Open the mod car path
         os.startfile(mod_car_path)
 
-    def write_ini(self, ini, *path_args):
-        """
-        Writes the dictionary ini to the path.
-        """
-        path = os.path.join(*path_args)
-        self.log('  Writing'+path)
-        with open(path, 'w') as f:
-            for section in ini:
-                f.write('\n['+section+']'+'\n')
-                for key in ini[section]:
-                    f.write(key+'=%.6g\n')
-
-
-
-    def load_ini(self, *path_args):
-        """
-        Returns dictionary for the specified file.
-        """
-        path = os.path.join(*path_args)
-        self.log('  Loading '+path)
-
-        # ConfigParser is a bug-ass piece of shit.
-        # Assemble a dictionary.
-        c = dict()
-        with open(path) as f: ls = f.readlines()
-        section = None
-        for l in ls:
-            if l[0] == '[':
-                section = l[1:].split(']')[0].strip()
-                c[section] = dict()
-            elif section:
-                s = l.split('=')
-                if len(s) > 1:
-                    key   = s[0].strip()
-                    value = s[1].split(';')[0].strip()
-                    c[section][key] = value
-        return c
 
     def _button_open_car_folder_clicked(self, *a):
         """
         Opens the car directory.
         """
-        car  = self.srac[self.combo_car.get_text()]
+        car  = self.combo_car.get_text()
         path = os.path.realpath(os.path.join(self.text_local(), 'content', 'cars', car))
         self.log('Opening', path)
         os.startfile(path)
@@ -401,7 +344,7 @@ class Modder:
         """
         self.load_car_data()
 
-    def load_car_data(self):
+    def load_car_data(self, original_values=False):
         """
         Loads the car data.
         """
@@ -409,10 +352,10 @@ class Modder:
         self._loading_car_data = True
 
         # Get the path to the car
-        car  = self.srac[self.combo_car.get_text()]
+        car  = self.combo_car.get_text()
         data = os.path.realpath(os.path.join(self.text_local(), 'content', 'cars', car, 'data'))
 
-        self.log('Loading '+self.combo_car.get_text()+' data:')
+        self.log('Loading '+car+' data:')
         if not os.path.exists(data):
             self.log('  ERROR: '+ data + ' does not exist. Make sure you have unpacked data.acd.')
             self.button_create_mod.disable()
@@ -429,33 +372,34 @@ class Modder:
         power_lut = os.path.join(data, 'power.lut')
         self.source_power_lut = spinmob.data.load(power_lut, delimiter='|')
 
-        # If we have already saved a tree for this car, load it
-        saved_tree = None
+        # Load default settings from the ini files themselves
+        for file in self.ini:
+            self.log('  Loading', file)
+            
+            # Load the existing data as dictionary
+            c = ConfigParser()
+            c.optionxform = str
+            c.read(os.path.join(data, file.lower()))
+            self.ini_files[file] = c
+
+            # loop over the keys
+            for section in c:
+
+                # Add section
+                s = file + '/' + section
+                if s not in self.tree.keys(): self.tree.add(s, False)
+
+                # Add keys
+                for key in c[section]:
+                    k = s+'/'+key
+                    if k not in self.tree.keys(): self.tree.add(k, str(c[section][key].split(';')[0].strip()))
+
+        # If we have already saved a tree for this car, load that data
         saved_tree_path = os.path.join(self.text_local(), 'content', 'cars', car, 'ui', 'jax-minimodder.txt')
         if os.path.exists(saved_tree_path):
             self.log('  Loading ', saved_tree_path)
             saved_tree = spinmob.data.load(saved_tree_path, header_only=True, delimiter='\t')
             self.tree.update(saved_tree) # No event fired because we're loading car data.
-
-        # Load other ini settings into the tree
-        for file in self.ini:
-
-            # Load the existing data
-            c = self.load_ini(data, file.lower())
-
-            # loop over the "user friendly" keys of interest
-            for nice_key in self.ini[file]:
-
-                # Get the ini file section and key
-                section,key = self.ini[file][nice_key].split('/')
-                value = c[section][key]
-
-                # update the tree 'start' value
-                tree_key = file+'/'+nice_key
-                self.tree[tree_key] = value
-
-                # If we didn't already load the saved_tree, set a default for the 'to'
-                if saved_tree is None: self.tree[tree_key + '/->'] = value
 
         # Re-enable tree events
         self._loading_car_data = False
@@ -508,25 +452,49 @@ class Modder:
         """
         Expands / collapses based on check boxes
         """
-        self._tree_changing = True
+        print('expand_tree')
+
+        self._expanding_tree = True
+        
         self.tree.set_expanded('POWER.LUT', self.tree['POWER.LUT'])
         for file in self.ini:
-            if file in self.tree.keys(): self.tree.set_expanded(file, self.tree[file])
-        self._tree_changing = False
+
+            # Expand top level
+            if file in self.tree.keys():
+                self.tree.set_expanded(file, self.tree[file])
+
+            # Expand sections
+            for section in self.ini_files[file]:
+                s = file+'/'+section
+                self.tree.set_expanded(s, self.tree[s])
+            
+            # Expand added sections
+            for section in self.ini[file]:
+                s = file+'/'+section
+                self.tree.set_expanded(s, self.tree[s])
+
+        self.window.process_events()
+        self._expanding_tree = False
+
 
     def _tree_changed(self, *a):
         """
         Setting in the tree changed.
         """
-        if self._loading_car_data or self._tree_changing: return
-
+        if self._loading_car_data \
+        or self._expanding_tree   \
+        or self._tree_changing    \
+        or self._init_running: return
         print('_tree_changed')
+
+        # Update the plot curves
         self.update_curves()
 
+        # Automatically expand based on checkboxes
         self.expand_tree()
 
         # Save the tree
-        car = self.srac[self.combo_car.get_text()]
+        car = self.combo_car.get_text()
         saved_tree_path = os.path.join(self.text_local(), 'content', 'cars', car, 'ui', 'jax-minimodder.txt')
         self.tree.save(saved_tree_path)
 
@@ -597,7 +565,7 @@ class Modder:
 
         # Populate the combo
         self.combo_car.clear()
-        for key in self.srac_keys: self.combo_car.add_item(key)
+        for key in self.cars_keys: self.combo_car.add_item(key)
 
         self._updating_cars = False
 
