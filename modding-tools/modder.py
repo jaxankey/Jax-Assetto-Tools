@@ -54,7 +54,7 @@ class Modder:
     GUI class for searching and modding content.
     """
 
-    def __init__(self, blocking=True):
+    def __init__(self, blocking=False):
 
         # When updating cars, we want to suppress some signals.
         self._init_running = True
@@ -119,6 +119,12 @@ class Modder:
 
         self.button_create_mod = self.grid_middle.add(egg.gui.Button(
             'Create Mod', signal_clicked=self._button_create_mod_clicked))
+        
+        self.button_reset_inis = self.grid_middle.add(egg.gui.Button(
+            'Reset INI\'s', 
+            tip='Undoes all changes to the files below.',
+            signal_clicked=self._button_reset_inis_clicked))
+
 
         # Settings and plot row
         self.window.new_autorow()
@@ -131,6 +137,8 @@ class Modder:
         self.tree.add('Mod Tag', 'R')
 
         self.tree.add('POWER.LUT', False)
+        self.set_tree_item_style_header('POWER.LUT')
+        
         self.tree.add('POWER.LUT/Restrictor', False)
         self.tree.add('POWER.LUT/Restrictor/Exponent', 0.3, step=0.05)
         self.tree.add('POWER.LUT/Restrictor/RPM Range', 1.0, step=0.05, limits=(0,None))
@@ -138,16 +146,15 @@ class Modder:
         self.tree.add('POWER.LUT/Smooth/Points', 100)
         self.tree.add('POWER.LUT/Smooth/Window', 5)
         self.tree.add('POWER.LUT/Smooth/Order', 3)
+        
+        self.button_hide_unchanged = self.tree.add_button('Hide Unchanged', True, tip='Hides everything that will not be changed.')
+        self.button_hide_unchanged.signal_toggled.connect(self._button_hide_unchanged_toggled)
 
-        self.button_reset_inis = self.tree.add_button('Reset INI\'s')
-        self.button_reset_inis.signal_clicked.connect(self._button_reset_inis_clicked)
-
-        # Lookup table to convert from user-friendly settings to keys in ini files.
-        # self.ini = {
-        #     'CAR.INI': {'RULES': ['MIN_HEIGHT',...]},
-        #     'DRIVETRAIN.INI': {},
+        # Populate those specified outside the file itself        
         for file in self.ini:
             self.tree.add(file, False)
+            self.set_tree_item_style_header(file)
+            
             for section in self.ini[file]:
                 self.tree.add(file+'/'+section, False)
                 for key in self.ini[file][section]:
@@ -173,6 +180,35 @@ class Modder:
 
         # Show it.
         self.window.show(blocking)
+
+    def _button_hide_unchanged_toggled(self, *a):
+        """
+        Updates the hidden state.
+        """
+        self.hide_unchanged()
+
+    def set_tree_item_style_header(self, tree_key):
+        """
+        Sets the style of the tree key.
+        """
+        w = self.tree.get_widget(tree_key)
+        
+        
+        f = w.font(0)
+        f.setBold(True)
+        
+        w.setFont(0, f)
+        w.setFont(1, f)
+        
+        color = egg.pyqtgraph.QtGui.QColor(200,200,255)
+        w.setBackground(0, color)
+        w.setBackground(1, color)
+        
+        
+        self.f = f
+        self.w = w
+        
+        
 
     def _button_reset_inis_clicked(self, *a):
         """
@@ -344,7 +380,7 @@ class Modder:
         """
         self.load_car_data()
 
-    def load_car_data(self, original_values=False):
+    def load_car_data(self):
         """
         Loads the car data.
         """
@@ -388,11 +424,12 @@ class Modder:
                 # Add section
                 s = file + '/' + section
                 if s not in self.tree.keys(): self.tree.add(s, False)
-
+                    
                 # Add keys
                 for key in c[section]:
                     k = s+'/'+key
-                    if k not in self.tree.keys(): self.tree.add(k, str(c[section][key].split(';')[0].strip()))
+                    if k not in self.tree.keys():
+                        self.tree.add(k, self.get_ini_value(file, section, key))
 
         # If we have already saved a tree for this car, load that data
         saved_tree_path = os.path.join(self.text_local(), 'content', 'cars', car, 'ui', 'jax-minimodder.txt')
@@ -407,6 +444,45 @@ class Modder:
         # Expand
         self.expand_tree()
         self.update_curves()
+
+    def get_ini_value(self, file, section, key):
+        """
+        Returns the value string from self.ini_files.
+        """
+        return str(self.ini_files[file][section][key].split(';')[0].strip())
+
+    def hide_unchanged(self):
+        """
+        Loops through the ini list and hides everything that has not been changed.
+        """
+        unhide = not self.button_hide_unchanged()
+        
+        # Reload car data to original values
+        self.load_car_data()
+        
+        # Load default settings from the ini files themselves
+        for file in self.ini_files:
+            c = self.ini_files[file]
+            
+            # loop over the keys
+            for section in c:
+                ts = file + '/' + section
+                
+                # Hide the section if it's unchecked
+                self.tree.hide_parameter(ts, self.tree[ts] or unhide)
+                
+                # Hide keys that aren't different.
+                if self.tree[ts]:
+                    for key in c[section]:
+                        tk = file + '/' + section + '/' + key
+                        self.tree.hide_parameter(tk, self.tree[tk] != self.get_ini_value(file, section, key) or unhide)
+
+            # loop over the extras
+            for section in self.ini[file]:
+                ts = file + '/' + section
+                self.tree.hide_parameter(ts, self.tree[ts] or unhide)
+                
+
 
     def update_curves(self):
         """
