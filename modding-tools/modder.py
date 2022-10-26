@@ -178,6 +178,8 @@ class Modder:
 
         self._init_running = False
 
+
+
         # Show it.
         self.window.show(blocking)
 
