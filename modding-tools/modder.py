@@ -125,6 +125,11 @@ class Modder:
             tip='Undoes all changes to the files below.',
             signal_clicked=self._button_reset_inis_clicked))
 
+        self.button_hide_unchanged = self.grid_middle.add(egg.gui.Button('Hide Unchanged', 
+            True, tip='Hides everything that will not be changed.',
+            autosettings_path='button_hide'))
+        self.button_hide_unchanged.signal_toggled.connect(self._button_hide_unchanged_toggled)
+
 
         # Settings and plot row
         self.window.new_autorow()
@@ -141,15 +146,13 @@ class Modder:
         
         self.tree.add('POWER.LUT/Restrictor', False)
         self.tree.add('POWER.LUT/Restrictor/Exponent', 0.3, step=0.05)
-        self.tree.add('POWER.LUT/Restrictor/RPM Range', 1.0, step=0.05, limits=(0,None))
+        self.tree.add('POWER.LUT/Restrictor/RPM Range', 1.0, step=0.05, bounds=(0,None))
         self.tree.add('POWER.LUT/Smooth', False)
         self.tree.add('POWER.LUT/Smooth/Points', 100)
         self.tree.add('POWER.LUT/Smooth/Window', 5)
         self.tree.add('POWER.LUT/Smooth/Order', 3)
         
-        self.button_hide_unchanged = self.tree.add_button('Hide Unchanged', True, tip='Hides everything that will not be changed.')
-        self.button_hide_unchanged.signal_toggled.connect(self._button_hide_unchanged_toggled)
-
+        
         # Populate those specified outside the file itself        
         for file in self.ini:
             self.tree.add(file, False)
@@ -161,8 +164,7 @@ class Modder:
                     self.tree.add(file+'/'+section+'/'+key, '')
 
         #self.tree.load_gui_settings()
-        #self.tree.connect_any_signal_changed(self._tree_changed)
-
+        
         # Make the plotter
         self.plot = self.grid_middle2.add(egg.gui.DataboxPlot(autosettings_path='plot'), alignment=0)
 
@@ -178,7 +180,9 @@ class Modder:
 
         self._init_running = False
 
-
+        # Last pretty steps.
+        self.hide_unchanged()
+        self.highlight_changed()
 
         # Show it.
         self.window.show(blocking)
@@ -206,12 +210,6 @@ class Modder:
         w.setBackground(0, color)
         w.setBackground(1, color)
         
-        
-        self.f = f
-        self.w = w
-        
-        
-
     def _button_reset_inis_clicked(self, *a):
         """
         Clears out the jax-minimodder file and reloads the car.
@@ -382,6 +380,24 @@ class Modder:
         """
         self.load_car_data()
 
+    def reload_ini_files(self):
+        """
+        Resets self.ini_files to the defaults.
+        """
+        # Get the path to the car
+        car  = self.combo_car.get_text()
+        data = os.path.realpath(os.path.join(self.text_local(), 'content', 'cars', car, 'data'))
+        
+        # Load default settings from the ini files themselves
+        for file in self.ini:
+            self.log('  Loading', file)
+            
+            # Load the existing data as dictionary
+            c = ConfigParser()
+            c.optionxform = str
+            c.read(os.path.join(data, file.lower()))
+            self.ini_files[file] = c
+
     def load_car_data(self):
         """
         Loads the car data.
@@ -451,7 +467,67 @@ class Modder:
         """
         Returns the value string from self.ini_files.
         """
-        return str(self.ini_files[file][section][key].split(';')[0].strip())
+        if file    in self.ini_files and \
+           section in self.ini_files[file] and \
+           key     in self.ini_files[file][section]:
+               return str(self.ini_files[file][section][key].split(';')[0].strip())
+        return None
+
+    def set_tree_item_highlighted(self, key, highlighted=False):
+        """
+        Sets whether the item is highlighted.
+        """
+        # Get the widget
+        w = self.tree.get_widget(key)
+        
+        if highlighted: color = egg.pyqtgraph.QtGui.QColor(255,200,200)
+        else:           color = w.background(0)
+        
+        w.setBackground(1, color)
+
+            
+    def get_changed_tree_keys(self):
+        """
+        Loops over the tree keys and returns a list of those changed from the
+        car values.
+        """
+        
+        # Reload car data to original values
+        self.reload_ini_files()
+        
+        # Loop over all keys
+        changed_keys = []
+        for tk in self.tree.keys():
+            s = tk.split('/')
+            
+            # If we're length 3, that means we have file/section/key
+            if len(s) < 3: continue
+            file, section, key = s
+            
+            # If the file is not in the config parser set, skip
+            if file not in self.ini_files: continue
+            
+            # Get the config parser for this file
+            c = self.ini_files[file]
+            
+            # If the section isn't in there, we highlight
+            if section not in c or self.tree[tk] != self.get_ini_value(file, section, key):  
+                changed_keys.append(tk)
+                
+        return changed_keys
+            
+
+    def highlight_changed(self):
+        """
+        Highlights the changed items.
+        """        
+        self.log('Highlighting changed items...')
+        changed = self.get_changed_tree_keys()
+        for tk in self.tree.keys():
+            if len(tk.split('/')) == 3:
+                self.set_tree_item_highlighted(tk, tk in changed)
+            
+        
 
     def hide_unchanged(self):
         """
@@ -460,7 +536,7 @@ class Modder:
         unhide = not self.button_hide_unchanged()
         
         # Reload car data to original values
-        self.load_car_data()
+        self.reload_ini_files()
         
         # Load default settings from the ini files themselves
         for file in self.ini_files:
@@ -570,6 +646,9 @@ class Modder:
 
         # Automatically expand based on checkboxes
         self.expand_tree()
+
+        # Change colors
+        self.highlight_changed()
 
         # Save the tree
         car = self.combo_car.get_text()
