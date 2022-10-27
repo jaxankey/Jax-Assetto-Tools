@@ -54,7 +54,7 @@ class Modder:
     GUI class for searching and modding content.
     """
 
-    def __init__(self, blocking=False):
+    def __init__(self, blocking=True):
 
         # When updating cars, we want to suppress some signals.
         self._init_running = True
@@ -76,6 +76,7 @@ class Modder:
             'CAR.INI'           : {'RULES': ['MIN_HEIGHT']},
             'DRIVETRAIN.INI'    : {},
             'SUSPENSIONS.INI'   : {},
+            'TYRES.INI'         : {},
         }
 
         # This will hold all the configs with the files above as keys.
