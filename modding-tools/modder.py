@@ -223,10 +223,15 @@ class Modder:
         if os.path.exists(path):
             self.log('  Deleting ui/jax-minimodder.txt')
             os.unlink(path)
+        else: self.log('  Could not find', path)
 
         # Uncheck them all
         self._tree_changing = True
-        for file in self.ini: self.tree[file] = False
+        for file in self.ini_files: 
+            self.tree[file] = False
+            for section in self.ini_files[file]: self.tree[file+'/'+section] = False
+            for section in self.ini[file]:       self.tree[file+'/'+section] = False
+            
         self._tree_changing = False
 
         # Reload the car
@@ -448,6 +453,7 @@ class Modder:
                     k = s+'/'+key
                     if k not in self.tree.keys():
                         self.tree.add(k, self.get_ini_value(file, section, key))
+                    self.tree[k] = self.get_ini_value(file, section, key)
 
         # If we have already saved a tree for this car, load that data
         saved_tree_path = os.path.join(self.text_local(), 'content', 'cars', car, 'ui', 'jax-minimodder.txt')
