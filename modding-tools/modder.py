@@ -11,7 +11,7 @@ import spinmob
 import spinmob.egg as egg
 
 from configparser import RawConfigParser as ConfigParser
-from numpy import interp, linspace, isnan
+from numpy import interp, linspace, isnan, unravel_index
 from scipy.signal import savgol_filter
 
 # Change to the directory of this script depending on whether this is a "compiled" version or run as script
@@ -46,6 +46,19 @@ def rmtree(top):
         func(path)
         
     shutil.rmtree(top, onerror=rm_readonly)
+
+def nearest_fraction(x, nmin=7, nmax=40):
+    """
+    Given x, find the closest fraction
+    """
+    
+    # Generate all fractions
+    num, den = spinmob.fun.generate_xy_grid(nmin, nmax, nmax-nmin+1, nmin, nmax, nmax-nmin+1)
+    
+    # Find the closest
+    n,m = unravel_index(((x-num/den)**2).argmin(), num.shape)
+    
+    return num[n,m], den[n,m]
 
 
 # noinspection PyProtectedMember
@@ -153,6 +166,24 @@ class Modder:
         self.tree.add('POWER.LUT/Smooth/Window', 5)
         self.tree.add('POWER.LUT/Smooth/Order', 3)
         
+        self.tree.add('RATIOS.RTO', False)
+        self.set_tree_item_style_header('RATIOS.RTO')
+
+        self.tree.add('RATIOS.RTO/Start', 2.64, bounds=(0,None))
+        self.tree.add('RATIOS.RTO/Stop',  0.88, bounds=(0,None))
+        self.tree.add('RATIOS.RTO/Steps', 24)
+        self.tree.add('RATIOS.RTO/Min',   7)
+        self.tree.add('RATIOS.RTO/Max',  37)
+        
+        self.tree.add('FINAL.RTO', False)
+        self.set_tree_item_style_header('FINAL.RTO')
+
+        self.tree.add('FINAL.RTO/Start', 4, bounds=(0,None))
+        self.tree.add('FINAL.RTO/Stop',  2, bounds=(0,None))
+        self.tree.add('FINAL.RTO/Steps', 24)
+        self.tree.add('FINAL.RTO/Min',   7)
+        self.tree.add('FINAL.RTO/Max',   42)
+        
         
         # Populate those specified outside the file itself        
         for file in self.ini:
@@ -187,6 +218,26 @@ class Modder:
 
         # Show it.
         self.window.show(blocking)
+
+    def generate_rto(self, file='RATIOS.RTO'):
+        """
+        Generates the ratio selection.
+        """
+    
+        if not self.tree[file]: return
+        self.log('Generating '+file)
+        
+        # Get the range of targeted ratio floats
+        rs = spinmob.fun.erange(self.tree[file+'/Start'], self.tree[file+'/Stop'], self.tree[file+'/Steps'])
+        
+        # Open the ratios file
+        with open(self.get_mod_path('data',file.lower()), 'w') as f:
+        
+            # Get the nearest fraction for each
+            for r in rs:
+                n,d = nearest_fraction(r, self.tree[file+'/Min'], self.tree[file+'/Max'])
+                f.write('%i//%i|%0.3f\n' % (d, n, n/d) )
+                
 
     def _button_hide_unchanged_toggled(self, *a):
         """
@@ -238,6 +289,15 @@ class Modder:
         # Reload the car
         self.load_car_data()
 
+    def get_mod_path(self, *args):
+        """
+        Returns the path to the mod car.
+        
+        args can be additional paths, e.g. 'data'.
+        """
+        mod_car  = self.combo_car.get_text()+'_'+self.tree['Mod Tag'].lower().replace(' ', '_')
+        return os.path.realpath(os.path.join(self.text_local(), 'content', 'cars', mod_car, *args))
+    
     def _button_create_mod_clicked(self, *a):
         """
         Duplicates the currently selected car and creates a modded version.
@@ -301,6 +361,10 @@ class Modder:
         x['specs']['topspeed'] = 'buh?'
         x['minimodder'] = self.tree.get_dictionary()[1]
         json.dump(x, open(mod_ui, 'w'), indent=2)
+
+        # Gear Ratios
+        self.generate_rto('RATIOS.RTO')
+        self.generate_rto('FINAL.RTO')
 
         ##################
         # INI FILES
