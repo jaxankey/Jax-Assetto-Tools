@@ -244,7 +244,7 @@ class Monitor:
             cars=list(),  # List of car directories
             carnames=dict(),  # Dictionary converting car dirnames to fancy names for everything in the venue.
 
-            seen_namecars=list(),  # Set of people/cars seen online for this session.
+            seen_namecars=dict(),  # Set of people/cars seen online for this session.
             session_end_time=0,
 
             session_type=None,
@@ -923,23 +923,32 @@ class Monitor:
             onlines.append('**'+str(n)+'. '+self.fix_naughty_characters(namecar)+'**')
             online_namecars.append(namecar)
 
-            # Remember all the namecars we've seen
-            if not namecar in self.state['seen_namecars']: 
-                self.state['seen_namecars'].append(namecar)
+            # Remember all the namecars we've seen and update the time stamps
+            self.state['seen_namecars'][namecar] = time.time()
 
             # Next!
             n += 1
 
-        # Now assemble the offlines list
-        offlines = []; n=1
-        for namecar in self.state['seen_namecars']:
-            if not namecar in online_namecars:
-                offlines.append(str(n)+'. '+self.fix_naughty_characters(namecar))
+        # Now assemble the recents list
+        recents = []; n=1
+        to_pop = []
+        for namecar in self.state['seen_namecars'].keys():
+            
+            # Trim out those that are too old (10 minutes)
+            if time.time() - self.state['seen_namecars'][namecar] > 10*60:
+                to_pop.append(namecar)
+            
+            # Otherwise, add it to the list of recents
+            elif not namecar in online_namecars:
+                recents.append(str(n)+'. '+self.fix_naughty_characters(namecar))
                 n += 1
+        
+        # Prune; we do this separately to not change the keys size in the above loop
+        for namecar in to_pop: self.state['seen_namecars'].pop(namecar)
 
         # Return the string
         s = '\n'.join(onlines)
-        if len(offlines): s = s + '\n\nPrevious Participants:\n' + '\n'.join(offlines)
+        if len(recents): s = s + '\n\nRecently Online:\n' + '\n'.join(recents)
         return s.strip()
     
     def get_namecar_string(self, name, car):
@@ -984,7 +993,7 @@ class Monitor:
             # Reset the session info. Note this is the only place other than
             # new_venue and __init__ that clears seen_namecars
             self.state['online_message_id'] = None
-            self.state['seen_namecars'] = []
+            self.state['seen_namecars'] = dict()
 
         # Get the list of who is online
         onlines = self.get_onlines_string()
@@ -1076,7 +1085,7 @@ class Monitor:
 
 
 
-        # Send the main info message
+        # Send the main info message. Body 1 is the laps list, body 2 includes previous onlines
         self.state['laps_message_id'] = self.send_message(self.webhook_info, body1, body2, footer, self.state['laps_message_id'], color=color)
         if self.state['laps_message_id'] is None: log('DID NOT EDIT OR SEND LAPS MESSAGE')
 
@@ -1112,12 +1121,12 @@ class Monitor:
 
         # If we have a message id, make sure it's
         # an "end session" message.
-        log('end_session()', self.state['seen_namecars'], self.state['online_message_id'])
+        log('end_session()', self.state['seen_namecars'].keys(), self.state['online_message_id'])
         if self.state['online_message_id']: 
 
             # Get a list of the seen namecars from this session
             errbody = []; n=1
-            for namecar in self.state['seen_namecars']:
+            for namecar in self.state['seen_namecars'].keys():
                 errbody.append(str(n)+'. '+namecar)
                 n += 1
             
@@ -1134,7 +1143,7 @@ class Monitor:
             
             # JACK: Otherwise delete it.
             else: 
-                log('**** GOSH DARN IT, LOST THE SEEN_NAMECARS AGAIN! WTF.', self.state['seen_namecars'])
+                log('**** GOSH DARN IT, LOST THE SEEN_NAMECARS AGAIN! WTF.', self.state['seen_namecars'].keys())
                 self.delete_message(self.webhook_online, self.state['online_message_id'])
                 self.state['online_message_id'] = None
                 self.state['session_end_time'] = 0

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 import glob, codecs, os, sys, shutil, random, json, pyperclip, webbrowser, stat
-import dateutil, subprocess, time, datetime, importlib, codecs
+import dateutil, subprocess, time, datetime, importlib
 
 # Change to the directory of this script depending on whether this is a "compiled" version or run as script
 if os.path.split(sys.executable)[-1] == 'uploader.exe': os.chdir(os.path.dirname(sys.executable)) # For executable version
@@ -209,13 +209,21 @@ class Uploader:
             tip='Download the specified championship into the server.json file.',
             signal_clicked = self._button_download_championship_clicked))
 
+        self.tab_settings.new_autorow()
+        self.label_remote_live_timings = self.tab_settings.add(egg.gui.Label('Remote Live Timings JSON:'))
+        self.text_remote_live_timings = self.tab_settings.add(egg.gui.TextBox('/home/username/server-manager/json/live_timings.json',
+            tip='Remote path to the live_timings.json file we will need to delete when uploading a new venue.\n'\
+               +'Requires json mode in\nserver-manager\'s config.yml.',
+            signal_changed=self._any_server_setting_changed), alignment=0)
+
+
         self.tab_settings.set_row_stretch(20)
 
-        self.tab_settings.new_autorow()
-        self.label_reset = self.tab_settings.add(egg.gui.Label('Reset Server Command:'))
-        self.text_reset = self.tab_settings.add(egg.gui.TextBox('',
-            tip='Recommended remote script that stops server manager, clears out the live_timings.json, and restarts it. This prevents laps from persisting between venues.',
-            signal_changed=self._any_server_setting_changed), alignment=0)
+        # self.tab_settings.new_autorow()
+        # self.label_reset = self.tab_settings.add(egg.gui.Label('Reset Server Command:'))
+        # self.text_reset = self.tab_settings.add(egg.gui.TextBox('',
+        #     tip='Recommended remote script that stops server manager, clears out the live_timings.json, and restarts it. This prevents laps from persisting between venues.',
+        #     signal_changed=self._any_server_setting_changed), alignment=0)
 
         self.tab_settings.new_autorow()
         self.tab_settings.add(egg.gui.Label('Post-Upload URL 1:'))
@@ -386,9 +394,9 @@ class Uploader:
         self.checkbox_clean = self.grid2s.add(egg.gui.CheckBox(
             'Clean', signal_changed=self._any_server_setting_changed,
             tip='During upload, remove all old content (cars and tracks) from the server.'))
-        self.checkbox_reset = self.grid2s.add(egg.gui.CheckBox(
-            'Reset', signal_changed=self._any_server_setting_changed,
-            tip='Stop the server, clear out previous live timings (laps), and restart it, using the specified script.'))
+        # self.checkbox_reset = self.grid2s.add(egg.gui.CheckBox(
+        #     'Reset', signal_changed=self._any_server_setting_changed,
+        #     tip='Stop the server, clear out previous live timings (laps), and restart it, using the specified script.'))
         self.checkbox_restart = self.grid2s.add(egg.gui.CheckBox(
             'Restart Server', signal_changed=self._any_server_setting_changed,
             tip='Stop the server before upload and restart after upload.'))
@@ -439,7 +447,8 @@ class Uploader:
             'text_stop',
             'text_monitor',
             'text_remote_championship',
-            'text_reset',
+            'text_remote_live_timings',
+            #'text_reset',
             'text_postcommand',
             'text_precommand',
             'text_url',
@@ -454,7 +463,7 @@ class Uploader:
             'checkbox_package',
             'checkbox_upload',
             'checkbox_clean',
-            'checkbox_reset',
+            #'checkbox_reset',
             'checkbox_restart',
             'checkbox_monitor',
             'checkbox_url',
@@ -687,7 +696,7 @@ class Uploader:
         self.checkbox_url.set_hidden(self.text_url() == '' and self.text_url2() == '')
         self.checkbox_pre.set_hidden(self.text_precommand() == '')
         self.checkbox_post.set_hidden(self.text_postcommand() == '')
-        self.checkbox_reset.set_hidden(self.text_reset() == '')
+        #self.checkbox_reset.set_hidden(self.text_reset() == '')
         self.checkbox_restart.set_hidden(self.text_stop() == '' or self.text_start() == '')
         self.checkbox_monitor.set_hidden(self.text_monitor() == '')
 
@@ -813,8 +822,13 @@ class Uploader:
         print('  loaded json')
 
         self._loading_server = True
+        dead_keys = []
         for key in self.server['settings']:
-            exec('self.'+key+'.set_value(value)', dict(self=self, value=self.server['settings'][key]))
+            try:    exec('self.'+key+'.set_value(value)', dict(self=self, value=self.server['settings'][key]))
+            except: 
+                print('  deleting', key)
+                dead_keys.append(key)
+        for key in dead_keys: self.server['settings'].pop(key)
             #print(' ', key, '->', j['settings'][key])
         self._loading_server = False
         
@@ -1045,11 +1059,13 @@ class Uploader:
         # Things that show up only when in premium mode
         self.label_remote_championship   .hide(premium)
         self.text_remote_championship    .hide(premium)
+        self.label_remote_live_timings   .hide(premium)
+        self.text_remote_live_timings    .hide(premium)
         self.button_download_championship.hide(premium)
-        self.label_reset                 .hide(premium)
-        self.text_reset                  .hide(premium)
+        #self.label_reset                 .hide(premium)
+        #self.text_reset                  .hide(premium)
         self.checkbox_autoweek           .hide(premium)
-        self.checkbox_reset              .hide(premium)
+        #self.checkbox_reset              .hide(premium)
 
         # Things that show up only in vanilla mode
         self.label_stop         .show(premium)
@@ -1084,6 +1100,23 @@ class Uploader:
             self.log('Starting server...')
             #c = 'ssh -p '+port+' -i "'+pem+'" '+login+' "'+start+'"' 
             if self.system(['ssh', '-T', '-p', port, '-i', pem, login, start]): return
+
+    def send_ssh_command(self, command='ls'):
+        """
+        Sends a single ssh command and returns the result.
+        """
+        # Server info
+        login   = self.text_login.get_text()
+        port    = self.text_port .get_text()
+        pem     = os.path.abspath(self.text_pem.get_text())
+        
+        s = ['ssh', '-T', '-p', port, '-i', pem, login, '"'+command+'"']
+        print('send_ssh_command '+ ' '.join(s))
+        r = self.system(s)
+        
+        return r
+    
+        
 
     def _button_upload_clicked(self,e,skins_only=False):
         """
@@ -1128,7 +1161,7 @@ class Uploader:
         pem     = os.path.abspath(self.text_pem.get_text())
         stop    = self.text_stop.get_text()    # For acsm
         start   = self.text_start.get_text()   # For acsm
-        reset   = self.text_reset.get_text() + ' >/dev/null 2>&1 &'   # For acsm (extra stuff makes sure nohup returns)
+        #reset   = self.text_reset.get_text() + ' >/dev/null 2>&1 &'   # For acsm (extra stuff makes sure nohup returns)
         monitor = self.text_monitor.get_text() 
 
         # Upload the main assetto content
@@ -1142,8 +1175,14 @@ class Uploader:
                 self.log('Stopping server...')
                 #c = 'ssh -p '+port+' -i "'+pem+'" '+login+' "'+stop+'"' 
                 if self.system(['ssh', '-T', '-p', port, '-i', pem, login, stop]): return True
-            #else: self.log('*Skipping server stop')
                 
+                # JACK: Pause to let server shut down, then delete live_timings.json
+                if self.text_live_timings() != '':
+                    time.sleep(5.0)
+                    self.log('Removing live_timings.json')
+                    if self.send_ssh_command('rm -f '+self.text_live_timings()): return True
+                
+                    
             # Remote unzip the upload
             if self.unpack_uploaded_content(skins_only): return True
             
@@ -1155,15 +1194,16 @@ class Uploader:
                 #c = 'scp -P '+port+' -i "' + pem +'" championship.json '+ login+':"'+self.text_remote_championship()+'"'
                 if self.system(['scp', '-T', '-P', port, '-i', pem, 'championship.json', login+':"'+self.text_remote_championship()+'"']): return True
                 
+                
             # Start server
             if self.checkbox_restart() and start != '' and not skins_only and self.combo_mode()==0:
                 self.start_server()
             #else: self.log('*Skipping server start')
 
-            # If we're resetting the server and not just doing skins, and we're in premium mode
-            if self.checkbox_reset() and reset != '' and not skins_only and self.combo_mode() == 1:
-                self.log('Resetting server manager...')
-                if self.system(['ssh', '-T', '-p', port, '-i', pem, login, reset]): return True
+            # # If we're resetting the server and not just doing skins, and we're in premium mode
+            # if self.checkbox_reset() and reset != '' and not skins_only and self.combo_mode() == 1:
+            #     self.log('Resetting server manager...')
+            #     if self.system(['ssh', '-T', '-p', port, '-i', pem, login, reset]): return True
 
             # Restart monitor if enabled, there is a script, we're not just doing skins, and we're in vanilla mode
             if self.checkbox_monitor() and monitor != '' and not skins_only and self.combo_mode()==0:
@@ -1366,7 +1406,7 @@ class Uploader:
         print(command)
         #r = os.system(command)
         self._c = command
-        self._r = subprocess.run(self._c, capture_output=False, shell=True)
+        self._r = subprocess.run(self._c, capture_output=True, shell=True)
         if self._r.returncode:
             self.log('--------------------') 
             self.log('ERROR:\n')
@@ -1693,10 +1733,9 @@ class Uploader:
         e['RaceSetup']['LegalTyres'] = self.text_tyres() # JACK: UNPACK AND SCRAPE DATA.ACD? GROSS!!
         
         # Reset the signup form, but only if the venue has changed.
-        # if new_venue:
-        #     self.log('New venue detected, clearing signup.')
-        # JACK:
-        c['SignUpForm']['Responses'] = []
+        if new_venue:
+            self.log('New venue detected, clearing signup.')
+            c['SignUpForm']['Responses'] = []
         
         # Now that we know if there are still responses, 
         # We can fill up the Entrants and EntryList
@@ -1718,7 +1757,7 @@ class Uploader:
         for n in range(N):
             
             # Get the car model
-            car = cars[n%len(cars)]
+            #car = cars[n%len(cars)]
             
             x['Entrants']['CAR_'+str(n+1)] = {
                 "InternalUUID": "%08d-0000-0000-0000-000000000000" % (n+1),
@@ -1759,10 +1798,18 @@ class Uploader:
             # Parse the scheduled timestamp and add the qualifying time.
             tq = dateutil.parser.isoparse(c['Events'][0]['Scheduled'])
 
+            # JACK: GET THE DAY NUMBER AND INCREMENT THAT BY 7 UNTIL THE FIRST
+            # ONE WITH A TIMESTAMP, rather than incrementing by 7 days worth of seconds.
+
             # Go backwards to before our time, then forward to the first week after now.
             week = datetime.timedelta(days=7)
-            while tq.timestamp() > time.time(): tq -= week
-            while tq.timestamp() < time.time(): tq += week
+            now = time.time()
+            
+            # This bit allows me to schedule something last minute.
+            while tq.timestamp() > now: tq -= week
+            while tq.timestamp() < now: tq += week
+
+            # JACK: ADJUST FOR DAYLIGHT SAVINGS
 
             self.log('  ', tq.isoformat())
             c['Events'][0]['Scheduled'] = tq.isoformat()

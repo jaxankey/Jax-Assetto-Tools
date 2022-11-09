@@ -11,6 +11,7 @@ import spinmob
 import spinmob.egg as egg
 
 from configparser import RawConfigParser as ConfigParser
+from configparser import ParsingError
 from numpy import interp, linspace, isnan, unravel_index
 from scipy.signal import savgol_filter
 
@@ -90,6 +91,7 @@ class Modder:
             'DRIVETRAIN.INI'    : {},
             'SUSPENSIONS.INI'   : {},
             'TYRES.INI'         : {},
+            'SETUP.INI'         : {},
         }
 
         # This will hold all the configs with the files above as keys.
@@ -123,8 +125,11 @@ class Modder:
         self.combo_car = self.grid_middle.add(egg.gui.ComboBox([],
             autosettings_path='combo_car',
             signal_changed=self._combo_car_changed,).set_width(180))
+        
+        # JACK: Not sure why I had to put this here. Legacy?
         self.combo_car.load_gui_settings(True)
         last_car_index = self.combo_car._lazy_load['self']
+
         self.button_load_car = self.grid_middle.add(egg.gui.Button(
             'Load Car Data', signal_clicked=self._button_load_car_clicked)).hide()
 
@@ -458,14 +463,19 @@ class Modder:
         car  = self.combo_car.get_text()
         data = os.path.realpath(os.path.join(self.text_local(), 'content', 'cars', car, 'data'))
         
+        if not os.path.exists(data):
+            self.log('ERROR: Data folder not present. Make sure you unpack data.acd.')
+            return
+        
         # Load default settings from the ini files themselves
         for file in self.ini:
-            self.log('  Loading', file)
+            self.log('  Reloading', file)
             
             # Load the existing data as dictionary
             c = ConfigParser()
             c.optionxform = str
-            c.read(os.path.join(data, file.lower()))
+            try: c.read(os.path.join(data, file.lower()))
+            except ParsingError: pass
             self.ini_files[file] = c
 
     def load_car_data(self):
@@ -503,7 +513,9 @@ class Modder:
             # Load the existing data as dictionary
             c = ConfigParser()
             c.optionxform = str
-            c.read(os.path.join(data, file.lower()))
+            try: c.read(os.path.join(data, file.lower()))
+            except ParsingError: pass
+            
             self.ini_files[file] = c
 
             # loop over the keys
@@ -533,6 +545,8 @@ class Modder:
         # Expand
         self.expand_tree()
         self.update_curves()
+        
+        return True
 
     def get_ini_value(self, file, section, key):
         """
@@ -562,6 +576,7 @@ class Modder:
         Loops over the tree keys and returns a list of those changed from the
         car values.
         """
+        print('get_changed_tree_keys')
         
         # Reload car data to original values
         self.reload_ini_files()
@@ -604,6 +619,8 @@ class Modder:
         """
         Loops through the ini list and hides everything that has not been changed.
         """
+        print('hide_unchanged')
+        
         unhide = not self.button_hide_unchanged()
         
         # Reload car data to original values
@@ -618,10 +635,10 @@ class Modder:
                 ts = file + '/' + section
                 
                 # Hide the section if it's unchecked
-                self.tree.hide_parameter(ts, self.tree[ts] or unhide)
+                if ts in self.tree.keys(): 
+                    self.tree.hide_parameter(ts, self.tree[ts] or unhide)
                 
-                # Hide keys that aren't different.
-                if self.tree[ts]:
+                    # Hide keys that aren't different.
                     for key in c[section]:
                         tk = file + '/' + section + '/' + key
                         self.tree.hide_parameter(tk, self.tree[tk] != self.get_ini_value(file, section, key) or unhide)
@@ -637,7 +654,7 @@ class Modder:
         """
         Calculates and updates the plot.
         """
-        if not len(self.source_power_lut): return
+        if not self.source_power_lut or not len(self.source_power_lut): return
 
         # Start clean
         self.plot.clear()
@@ -681,7 +698,7 @@ class Modder:
 
         self._expanding_tree = True
         
-        self.tree.set_expanded('POWER.LUT', self.tree['POWER.LUT'])
+        if 'POWER.LUT' in self.tree.keys(): self.tree.set_expanded('POWER.LUT', self.tree['POWER.LUT'])
         for file in self.ini:
 
             # Expand top level
@@ -691,12 +708,12 @@ class Modder:
             # Expand sections
             for section in self.ini_files[file]:
                 s = file+'/'+section
-                self.tree.set_expanded(s, self.tree[s])
+                if s in self.tree.keys(): self.tree.set_expanded(s, self.tree[s])
             
             # Expand added sections
             for section in self.ini[file]:
                 s = file+'/'+section
-                self.tree.set_expanded(s, self.tree[s])
+                if s in self.tree.keys(): self.tree.set_expanded(s, self.tree[s])
 
         self.window.process_events()
         self._expanding_tree = False
