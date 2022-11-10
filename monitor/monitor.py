@@ -150,6 +150,7 @@ class Monitor:
         # Discord webhook objects
         self.webhook_online  = None # List of webhooks
         self.webhook_info    = None
+        self.message_failures = dict() # when it times out or whatever this increments.
 
         # List of all onlines seen during this session
 
@@ -1071,19 +1072,6 @@ class Monitor:
         # Below the venue and above laps
         if laps: body1 = body1 + '\n' + laps
 
-        
-        # +++ JACK: Trim the body smartly here so that it doesn't leave a
-        # a weird hanging format tag
-        # # Keep the total character limit below 4096, cutting body1 first, then body 2
-        # if len(body1+body2+footer) > 4070: # 4070 gives a little buffer for ... and stuff. I don't wanna count.
-
-        #     # If body2 and footer are already over the limit, just trim body2 and be done
-        #     if len(body2+footer) > 4070: body = body2[0:4070-len(footer)] + ' ...' + footer
-
-        #     # Otherwise, we trim body1
-        #     else:                        body = body1[0:4070-len(body2)-len(footer)] + ' ...' + body2 + footer
-
-
 
         # Send the main info message. Body 1 is the laps list, body 2 includes previous onlines
         self.state['laps_message_id'] = self.send_message(self.webhook_info, body1, body2, footer, self.state['laps_message_id'], color=color)
@@ -1192,17 +1180,47 @@ class Monitor:
             e.description = body
 
             # Decide whether to make a new message or use the existing
+            # JACK: DISCORD IS SOMETIMES NOT AVAILABLE, SO HERE WE SHOULD
+            #       ALLOW AT LEAST A FEW RETRIES.
             if message_id:
-                try:
+                
+                # First try to edit the existing method
+                try:    
+                    # If it works, reset the message retries count
                     webhook.edit_message(message_id, embeds=[e])
+                    self.message_failures[message_id] = 0
+                
+                # It didn't work. Count the failures and then give up / send a new one
                 except Exception as x:
-                    log('Whoops could not edit message', message_id, e, x)
-                    try: message_id = webhook.send('', embeds=[e], wait=True).id
-                    except Exception as x: log('ERROR: DISCORD DOWN OR BAD WEBHOOK?', x)
+                    
+                    # Make sure we have a failures entry for this
+                    if not message_id in self.message_failures.keys(): self.message_failures[message_id] = 0
+                    
+                    # Increment the number of failures on this message
+                    self.message_failures[message_id] += 1
+
+                    # Let the user know
+                    log('WHOOPS could not edit message', message_id, e, x, 'failures =', self.message_failures[message_id])
+
+                    # If we're above a certain number of failures, get a new message
+                    if self.message_failures[message_id] > 20:
+
+                        # Get rid of the entry for this
+                        self.message_failures.pop(message_id)
+                        
+                        # Now try to get a new one...
+                        try: message_id = webhook.send('', embeds=[e], wait=True).id
+                        except Exception as x: 
+                            log('WHOOPS could not send message', message_id, e, x)
+                            message_id = None
+            
+            # If we don't have a message_id, just try to send a new one.
             else:
-                try:    message_id = webhook.send('', embeds=[e], wait=True).id
+                
+                # Try to send it
+                try: message_id = webhook.send('', embeds=[e], wait=True).id
                 except Exception as x:
-                    log('Whoops could not send message', message_id, e, x)
+                    log('WHOOPS could not send message', message_id, e, x)
                     message_id = None
 
         # Return it.
