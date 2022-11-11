@@ -62,9 +62,9 @@ class Uploader:
             pyi_splash.close()
 
         # For troubleshooting; may not work
-        # self.timer_exceptions = egg.gui.TimerExceptions()
-        # self.timer_exceptions.signal_new_exception.connect(self._signal_new_exception)
-        # self.timer_exceptions.start()
+        self.timer_exceptions = egg.gui.TimerExceptions()
+        self.timer_exceptions.signal_new_exception.connect(self._signal_new_exception)
+        self.timer_exceptions.start()
 
         # Flag for whether we're in the init phases
         self._init = True
@@ -348,10 +348,15 @@ class Uploader:
         self.tab_uploader.new_autorow()
         self.grid2c = self.tab_uploader.add(egg.gui.GridLayout(False), alignment=0)
 
-        # Car list
+        # Car folder list
         self.list_cars = self.grid2c.add(egg.pyqtgraph.QtGui.QListWidget(), alignment=0)
         self.list_cars.setSelectionMode(egg.pyqtgraph.QtGui.QAbstractItemView.ExtendedSelection)
         self.list_cars.itemSelectionChanged.connect(self._list_cars_changed)
+
+        # Car fancy name list
+        self.list_carnames = self.grid2c.add(egg.pyqtgraph.QtGui.QListWidget(), alignment=0)
+        self.list_carnames.setSelectionMode(egg.pyqtgraph.QtGui.QAbstractItemView.ExtendedSelection)
+        self.list_carnames.itemSelectionChanged.connect(self._list_carnames_changed)
 
         # Settings for each car. Auto-populated so no autosettings.
         self.tree_cars = self.grid2c.add(egg.gui.TreeDictionary(
@@ -513,6 +518,7 @@ class Uploader:
                 self.log('oop?')
                 return
             self.log('Done.')
+
     def _text_filter_cars_changed(self, *a):
         """
         Someone changes the filter
@@ -612,7 +618,7 @@ class Uploader:
 
             # JACK: Some problem here if we overwrite a carset
             # If we have an unsaved carset, use the list, otherwise just choose the carset
-            if carset == _unsaved_carset: self.set_list_cars_selection(cars)
+            if carset == _unsaved_carset: self.set_list_selection(cars, self.list_cars, self._list_cars_changed)
             self.combo_carsets.set_text(carset)
 
             # Tyres
@@ -840,19 +846,26 @@ class Uploader:
         print('_load_server_uploader')
         #self.server = self.load_server_json()
         if not 'uploader' in self.server: return
-        print('  found uploader key')
-
         self._loading_uploader = True
 
         # Now re-select the track
+        print('  track')
         try:  
             t = self.server['uploader']['combo_tracks']
-            if t in self.combo_tracks.get_all_items():
-                self.combo_tracks.set_text(t)
-            self._combo_tracks_changed() # JACK: redundant, but catches if it's already selected.
+            
+            # Get the current text for comparison
+            original = self.combo_tracks.get_text()
+            
+            # Set it if it's in there.
+            if t in self.combo_tracks.get_all_items(): self.combo_tracks.set_text(t)
+
+            # If it's the same as it was before, run the event to make sure  it updates the rest of the gui
+            if self.combo_tracks.get_text() == original: self._combo_tracks_changed() 
+
         except Exception as e: print('load_upload_gui combo_tracks', e)
         
         # Now re-select the layout
+        print('  layout')
         try:    
             t = self.server['uploader']['combo_layouts']
             if t in self.combo_layouts.get_all_items():
@@ -860,19 +873,24 @@ class Uploader:
         except Exception as e: print('load_upload_gui combo_layouts', e)
         
         # Now re-select the carset
+        print('  carset')
         try:    
             t = self.server['uploader']['combo_carsets']
             if t in self.combo_carsets.get_all_items():
                 self.combo_carsets.set_text(t)
         except Exception as e: print('load_upload_gui combo_carsets', e)
         
-        # List items
-        # In the background, we should always use car directories, not fancy names.
-        self.set_list_cars_selection(self.server['uploader']['list_cars'])
+        # Update the actual cars list based on the server data.
+        self.set_list_selection(self.server['uploader']['list_cars'], self.list_cars, self._list_cars_changed)
+        
+        # Also send these to the carnames
+        self.send_cars_to_carnames()
 
         self._loading_uploader = False
         
-        self._send_selected_cars_to_tree()
+        self.send_cars_to_tree()
+
+        print('_load_server_uploader complete')
 
 
     def _button_save_server_clicked(self, *a): 
@@ -1006,9 +1024,33 @@ class Uploader:
         """
         if self._loading_uploader: return
         print('_list_cars_changed')
+
+        # If we changed something, unselect the carset since that's not valid any more
         self.combo_carsets(0)
+
+        # Update the server json
         self.button_save_server.click()
-        self._send_selected_cars_to_tree()
+
+        # Sends the car information to the tree, which is likely hidden, since ballast etc is kinda not worth setting per car
+        self.send_cars_to_tree()
+
+        # Select the corresponding carnames
+        self.send_cars_to_carnames()
+    
+    def send_cars_to_carnames(self):
+        """
+        Transfers the currently selected cars to carnames.
+        """
+        # Syncrhonize the selections from this list to the other one
+        carnames = []
+        for car in self.get_selected_cars(): carnames.append(self.cars[car])
+        self.set_list_selection(carnames, self.list_carnames, self._list_carnames_changed)
+
+    def _list_carnames_changed(self, e=None):
+        """
+        """
+        if self._loading_uploader: return
+        print('_list_carnames_changed')
     
     def _tree_cars_changed(self, *a):
         """
@@ -1017,11 +1059,11 @@ class Uploader:
         print('_tree_cars_changed')
         self._button_save_server_clicked()
     
-    def _send_selected_cars_to_tree(self):
+    def send_cars_to_tree(self):
         """
         Sends the selected cars to the car tree.
         """
-        print('_send_selected_cars_to_tree')
+        print('send_cars_to_tree')
         self.tree_cars.block_signals()
         
         # Now populate the tree of cars
@@ -1129,7 +1171,7 @@ class Uploader:
         """
         Uploads the current configuration to the server.
         """
-        # Make sure! +++
+        # Make sure!
         qmb = egg.pyqtgraph.QtGui.QMessageBox
         ret = qmb.question(self.window._window, '******* WARNING *******', "This action can clear the server and overwrite\nthe existing championship!", qmb.Ok | qmb.Cancel, qmb.Cancel)
         if ret == qmb.Cancel: return
@@ -1502,7 +1544,7 @@ class Uploader:
         self.button_load.click()
         
         self._text_filter_cars_changed()
-        #self._send_selected_cars_to_tree()
+        #self.send_cars_to_tree()
         #self.button_save_server.click()
 
     def _button_delete_clicked(self,e):
@@ -1521,30 +1563,31 @@ class Uploader:
         # Rebuild
         self.update_carsets()
 
-    def set_list_cars_selection(self, selected):
+    def set_list_selection(self, selected, widget, itemSelectionChanged):
         """
         Selects the specified list of cars.
         """
         # Disconnect the update signal until the end
-        self.list_cars.itemSelectionChanged.disconnect()
+        widget.itemSelectionChanged.disconnect()
 
         # Update the list selection
-        self.list_cars.clearSelection()
+        widget.clearSelection()
         for s in selected:
             s = s.strip()
             if s != '':
-                try:    self.list_cars.findItems(s, egg.pyqtgraph.QtCore.Qt.MatchExactly)[0].setSelected(True)
+                try:    widget.findItems(s, egg.pyqtgraph.QtCore.Qt.MatchExactly)[0].setSelected(True)
                 except: self.log('WARNING: '+s+' not in list')
         
-        # Reconnect
-        self.list_cars.itemSelectionChanged.connect(self._list_cars_changed)
+        # Reconnect and call it for good measure.
+        widget.itemSelectionChanged.connect(itemSelectionChanged)
+        
                 
 
     def _button_load_clicked(self,e):
         """
         Load the selected carset.
         """
-        print('Load carset button clicked')
+        print('_button_load_clicked')
 
         # Special case: first element in combo box is new carset
         if self.combo_carsets.get_index() == 0: return
@@ -1559,8 +1602,9 @@ class Uploader:
         f.close()
 
         # selected should be a list of car directories
-        self.set_list_cars_selection(selected)
-        self._send_selected_cars_to_tree()
+        self.set_list_selection(selected, self.list_cars, self._list_cars_changed)
+        self.send_cars_to_carnames()
+        self.send_cars_to_tree()
         
         self.button_save_server.click()
         
@@ -1998,7 +2042,7 @@ class Uploader:
             carsets.add(carset)
             self.combo_carsets.add_item(carset)
 
-        # Prune extra carsets.+++
+        # Prune extra carsets.
         s = self.server
         if 'carsets' in s:
             
@@ -2023,10 +2067,12 @@ class Uploader:
         print('update_cars')
         
         # Disconnect the update signal until the end
-        self.list_cars.itemSelectionChanged.disconnect()
+        self.list_cars    .itemSelectionChanged.disconnect()
+        self.list_carnames.itemSelectionChanged.disconnect()
 
         # Clear out the list 
         self.list_cars.clear()
+        self.list_carnames.clear()
 
         # Dictionary to hold all the model names
         self.cars  = dict()
@@ -2063,13 +2109,14 @@ class Uploader:
         self.cars_keys.sort()
         self.srac_keys.sort()
         for key in self.cars_keys: egg.pyqtgraph.QtGui.QListWidgetItem(key, self.list_cars)
-        # +++Jack: switch here for the fancy name mode.
+        for key in self.srac_keys: egg.pyqtgraph.QtGui.QListWidgetItem(key, self.list_carnames)
         
         # Filter
         #self._text_filter_cars_changed()
         
         # Reconnect
-        self.list_cars.itemSelectionChanged.connect(self._list_cars_changed)
+        self.list_cars    .itemSelectionChanged.connect(self._list_cars_changed)
+        self.list_carnames.itemSelectionChanged.connect(self._list_carnames_changed)
     
     def update_skins(self, wait_for_zip=False):
         """
