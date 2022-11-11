@@ -359,8 +359,8 @@ class Uploader:
         self.list_carnames.itemSelectionChanged.connect(self._list_carnames_changed)
 
         # Settings for each car. Auto-populated so no autosettings.
-        self.tree_cars = self.grid2c.add(egg.gui.TreeDictionary(
-            new_parameter_signal_changed=self._tree_cars_changed), alignment=0).hide()
+        # self.tree_cars = self.grid2c.add(egg.gui.TreeDictionary(
+        #     new_parameter_signal_changed=self._tree_cars_changed), alignment=0).hide()
         
         self.tab_uploader.new_autorow()
         self.grid_tyres = self.tab_uploader.add(egg.gui.GridLayout(False))
@@ -460,7 +460,6 @@ class Uploader:
             'text_url2',
             'text_skins',
             'text_tyres',
-#            'text_filter_cars', # This really fux with the load for some reason. Or I'm too tired.
             'number_slots',
             'checkbox_pre',
             'checkbox_modify',
@@ -473,6 +472,7 @@ class Uploader:
             'checkbox_monitor',
             'checkbox_url',
             'checkbox_post',
+            'text_filter_cars', # Do this as a last step
         ]
 
         ###################
@@ -535,8 +535,8 @@ class Uploader:
             item1.setHidden(not search in item1.data(0).lower() and not item1.isSelected())
             item2.setHidden(not search in item2.data(0).lower() and not item2.isSelected())
 
-        # Save the setting in case we ever decide to load on boot
-        self.server['settings']['text_filter_cars'] = self.text_filter_cars()
+        # Save the setting in case we ever decide to load on boot. 
+        #self.server['settings']['text_filter_cars'] = self.text_filter_cars()
         if not self._loading_server: self.button_save_server.click()
 
     def import_and_package_skins(self, wait_for_zip=False):
@@ -836,7 +836,9 @@ class Uploader:
         self._loading_server = True
         dead_keys = []
         for key in self.server['settings']:
-            try:    exec('self.'+key+'.set_value(value)', dict(self=self, value=self.server['settings'][key]))
+            try:    
+                # Special case: we do this one manually at the end.
+                exec('self.'+key+'.set_value(value)', dict(self=self, value=self.server['settings'][key]))
             except: 
                 print('  deleting', key)
                 dead_keys.append(key)
@@ -894,7 +896,10 @@ class Uploader:
 
         self._loading_uploader = False
         
-        self.send_cars_to_tree()
+        # Now run the filter
+        self._text_filter_cars_changed()
+
+        #self.send_cars_to_tree()
 
         print('_load_server_uploader complete')
 
@@ -941,7 +946,7 @@ class Uploader:
         )
         # Include the shown car settings for the current carset, which may have changed
         if not 'carsets' in self.server: self.server['carsets'] = dict()
-        self.server['carsets'][self.combo_carsets.get_text()] = self.tree_cars.get_dictionary()[1]
+        #self.server['carsets'][self.combo_carsets.get_text()] = self.tree_cars.get_dictionary()[1]
 
         # Write the file
         if not os.path.exists('servers'): os.makedirs('servers')
@@ -1023,7 +1028,27 @@ class Uploader:
             msg.setWindowTitle("HAY!")
             msg.setStandardButtons(egg.pyqtgraph.QtGui.QMessageBox.Ok)
             msg.exec_()
-        
+
+    def _list_carnames_changed(self, e=None):
+        """
+        """
+        if self._loading_uploader: return
+        print('_list_carnames_changed')
+
+        # If we changed something, unselect the carset since that's not valid any more
+        self.combo_carsets(0)
+
+        # Select the corresponding carnames
+        self.send_carnames_to_cars()
+
+        # Sends the car information to the tree, which is likely hidden, since ballast etc is kinda not worth setting per car
+        #self.send_cars_to_tree()
+
+        # Update the server json
+        self.button_save_server.click()
+
+
+
     def _list_cars_changed(self, e=None):
         """
         Just set the carset combo when anything changes.
@@ -1034,14 +1059,14 @@ class Uploader:
         # If we changed something, unselect the carset since that's not valid any more
         self.combo_carsets(0)
 
-        # Update the server json
-        self.button_save_server.click()
-
-        # Sends the car information to the tree, which is likely hidden, since ballast etc is kinda not worth setting per car
-        self.send_cars_to_tree()
-
         # Select the corresponding carnames
         self.send_cars_to_carnames()
+
+        # Sends the car information to the tree, which is likely hidden, since ballast etc is kinda not worth setting per car
+        #self.send_cars_to_tree()
+
+        # Update the server json
+        self.button_save_server.click()
     
     def send_cars_to_carnames(self):
         """
@@ -1051,56 +1076,59 @@ class Uploader:
         carnames = []
         for car in self.get_selected_cars(): carnames.append(self.cars[car])
         self.set_list_selection(carnames, self.list_carnames, self._list_carnames_changed)
-
-    def _list_carnames_changed(self, e=None):
-        """
-        """
-        if self._loading_uploader: return
-        print('_list_carnames_changed')
     
-    def _tree_cars_changed(self, *a):
+    def send_carnames_to_cars(self):
         """
-        Something changed in the tree.
+        Transfers the currently selected carnames to cars.
         """
-        print('_tree_cars_changed')
-        self._button_save_server_clicked()
+        # Syncrhonize the selections from this list to the other one
+        cars = []
+        for car in self.get_selected_carnames(): cars.append(self.srac[car])
+        self.set_list_selection(cars, self.list_cars, self._list_cars_changed)
     
-    def send_cars_to_tree(self):
-        """
-        Sends the selected cars to the car tree.
-        """
-        print('send_cars_to_tree')
-        self.tree_cars.block_signals()
+    # def _tree_cars_changed(self, *a):
+    #     """
+    #     Something changed in the tree.
+    #     """
+    #     print('_tree_cars_changed')
+    #     self._button_save_server_clicked()
+    
+    # def send_cars_to_tree(self):
+    #     """
+    #     Sends the selected cars to the car tree.
+    #     """
+    #     print('send_cars_to_tree')
+    #     self.tree_cars.block_signals()
         
-        # Now populate the tree of cars
-        # Jack make sure the constant clearing isn't populating some 
-        # internal lists. We need to clear those as well.
-        self.tree_cars._widget.clear()
+    #     # Now populate the tree of cars
+    #     # Jack make sure the constant clearing isn't populating some 
+    #     # internal lists. We need to clear those as well.
+    #     self.tree_cars._widget.clear()
         
-        # Loop over the selected cars
-        for car in self.get_selected_cars():
+    #     # Loop over the selected cars
+    #     for car in self.get_selected_cars():
             
-            # Keys for the tree for this car
-            key_ballast    = car+'/ballast'
-            key_restrictor = car+'/restrictor'
+    #         # Keys for the tree for this car
+    #         key_ballast    = car+'/ballast'
+    #         key_restrictor = car+'/restrictor'
 
-            # Defaults
-            ballast    = 0
-            restrictor = 0
+    #         # Defaults
+    #         ballast    = 0
+    #         restrictor = 0
 
-            # If the car is in self.server, get the last values
-            carset = self.combo_carsets.get_text()
-            if 'carsets'    in self.server            \
-            and carset      in self.server['carsets']:
-                c = self.server['carsets'][carset]
-                if key_ballast    in c: ballast    = c[key_ballast]
-                if key_restrictor in c: restrictor = c[key_restrictor]
+    #         # If the car is in self.server, get the last values
+    #         carset = self.combo_carsets.get_text()
+    #         if 'carsets'    in self.server            \
+    #         and carset      in self.server['carsets']:
+    #             c = self.server['carsets'][carset]
+    #             if key_ballast    in c: ballast    = c[key_ballast]
+    #             if key_restrictor in c: restrictor = c[key_restrictor]
 
-            # Add the settings
-            self.tree_cars.add(key_ballast,    ballast,    step=10, bounds=(0,500))
-            self.tree_cars.add(key_restrictor, restrictor, step=10, bounds=(0,100))
+    #         # Add the settings
+    #         self.tree_cars.add(key_ballast,    ballast,    step=10, bounds=(0,500))
+    #         self.tree_cars.add(key_restrictor, restrictor, step=10, bounds=(0,100))
         
-        self.tree_cars.unblock_signals()
+    #     self.tree_cars.unblock_signals()
         
     def _combo_mode_changed(self,*e):
         """
@@ -1608,7 +1636,7 @@ class Uploader:
         # selected should be a list of car directories
         self.set_list_selection(selected, self.list_cars, self._list_cars_changed)
         self.send_cars_to_carnames()
-        self.send_cars_to_tree()
+        #self.send_cars_to_tree()
         
         self.button_save_server.click()
         
@@ -2021,6 +2049,15 @@ class Uploader:
         """
         a = []
         for x in self.list_cars.selectedItems(): a.append(x.text())
+        a.sort()
+        return a
+
+    def get_selected_carnames(self):
+        """
+        Returns a list of selected carnames.
+        """
+        a = []
+        for x in self.list_carnames.selectedItems(): a.append(x.text())
         a.sort()
         return a
 
