@@ -525,11 +525,17 @@ class Uploader:
         """
         print('_text_filter_cars_changed')
         
-        search = self.text_filter_cars()
-        for n in range(self.list_cars.count()):
-            item = self.list_cars.item(n)
-            item.setHidden(not search in item.data(0) and not item.isSelected())
+        # Get the search string
+        search = self.text_filter_cars().lower()
         
+        # Loop over the car and carname lists
+        for n in range(self.list_cars.count()):
+            item1 = self.list_cars    .item(n)
+            item2 = self.list_carnames.item(n)
+            item1.setHidden(not search in item1.data(0).lower() and not item1.isSelected())
+            item2.setHidden(not search in item2.data(0).lower() and not item2.isSelected())
+
+        # Save the setting in case we ever decide to load on boot
         self.server['settings']['text_filter_cars'] = self.text_filter_cars()
         if not self._loading_server: self.button_save_server.click()
 
@@ -1581,8 +1587,6 @@ class Uploader:
         # Reconnect and call it for good measure.
         widget.itemSelectionChanged.connect(itemSelectionChanged)
         
-                
-
     def _button_load_clicked(self,e):
         """
         Load the selected carset.
