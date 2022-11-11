@@ -1179,9 +1179,7 @@ class Monitor:
             e.color       = color
             e.description = body
 
-            # Decide whether to make a new message or use the existing
-            # JACK: DISCORD IS SOMETIMES NOT AVAILABLE, SO HERE WE SHOULD
-            #       ALLOW AT LEAST A FEW RETRIES.
+            # If we have a message_id it means we should edit the existing post
             if message_id:
                 
                 # First try to edit the existing method

@@ -53,7 +53,7 @@ class Uploader:
     GUI class for uploading content and restarting the assetto server.
     """
 
-    def __init__(self, show=True, blocking=True):
+    def __init__(self, show=True, blocking=False):
 
         # If we're in executable mode, close the splash screen
         if '_PYIBoot_SPLASH' in os.environ and importlib.util.find_spec("pyi_splash"):
@@ -355,7 +355,7 @@ class Uploader:
 
         # Settings for each car. Auto-populated so no autosettings.
         self.tree_cars = self.grid2c.add(egg.gui.TreeDictionary(
-            new_parameter_signal_changed=self._tree_cars_changed), alignment=0)
+            new_parameter_signal_changed=self._tree_cars_changed), alignment=0).hide()
         
         self.tab_uploader.new_autorow()
         self.grid_tyres = self.tab_uploader.add(egg.gui.GridLayout(False))
@@ -610,7 +610,7 @@ class Uploader:
             self.combo_tracks.set_text(track)
             if len(self.combo_layouts.get_all_items()) > 0: self.combo_layouts.set_text(layout)
 
-            # +++JACK: Some problem here if we overwrite a carset
+            # JACK: Some problem here if we overwrite a carset
             # If we have an unsaved carset, use the list, otherwise just choose the carset
             if carset == _unsaved_carset: self.set_list_cars_selection(cars)
             self.combo_carsets.set_text(carset)
@@ -844,19 +844,26 @@ class Uploader:
 
         self._loading_uploader = True
 
-        # Now populate everything :)
+        # Now re-select the track
         try:  
             t = self.server['uploader']['combo_tracks']
             if t in self.combo_tracks.get_all_items():
                 self.combo_tracks.set_text(t)
             self._combo_tracks_changed() # JACK: redundant, but catches if it's already selected.
         except Exception as e: print('load_upload_gui combo_tracks', e)
+        
+        # Now re-select the layout
         try:    
             t = self.server['uploader']['combo_layouts']
             if t in self.combo_layouts.get_all_items():
-                self.combo_layouts.set_text(t, block_signals=True)
+                self.combo_layouts.set_text(t)
         except Exception as e: print('load_upload_gui combo_layouts', e)
-        try:    self.combo_carsets.set_text(self.server['uploader']['combo_carsets'])
+        
+        # Now re-select the carset
+        try:    
+            t = self.server['uploader']['combo_carsets']
+            if t in self.combo_carsets.get_all_items():
+                self.combo_carsets.set_text(t)
         except Exception as e: print('load_upload_gui combo_carsets', e)
         
         # List items
@@ -1018,7 +1025,7 @@ class Uploader:
         self.tree_cars.block_signals()
         
         # Now populate the tree of cars
-        # +++ Jack make sure the constant clearing isn't populating some 
+        # Jack make sure the constant clearing isn't populating some 
         # internal lists. We need to clear those as well.
         self.tree_cars._widget.clear()
         
@@ -1796,23 +1803,39 @@ class Uploader:
             self.log('  ',c['Events'][0]['Scheduled'], '->')
 
             # Parse the scheduled timestamp and add the qualifying time.
-            tq = dateutil.parser.isoparse(c['Events'][0]['Scheduled'])
-
-            # JACK: GET THE DAY NUMBER AND INCREMENT THAT BY 7 UNTIL THE FIRST
-            # ONE WITH A TIMESTAMP, rather than incrementing by 7 days worth of seconds.
-
-            # Go backwards to before our time, then forward to the first week after now.
-            week = datetime.timedelta(days=7)
-            now = time.time()
+            tqc  = dateutil.parser.isoparse(c['Events'][0]['Scheduled'])
+            tqp  = tqc + datetime.timedelta(hours=1)
+            tqm  = tqc - datetime.timedelta(hours=1)
+            tqs = [tqc, tqp, tqm]
             
+            # We remember the "center" hour for later, to make absolutely sure it matches after 
+            # we increment by a week. Daylight savings is too finicky to worry about, and
+            # we can't be guaranteed that the iso parse is timezone aware.
+            hour = tqc.hour
+           
+            # Plan is to go backwards to before our time, then forward to the first week after now.
             # This bit allows me to schedule something last minute.
-            while tq.timestamp() > now: tq -= week
-            while tq.timestamp() < now: tq += week
+            week = datetime.timedelta(days=7)
+            now  = time.time()
+            while tqc.timestamp() > now: 
+                for tq in tqs: tq -= week
+            while tqc.timestamp() < now: 
+                for tq in tqs: tq += week
 
-            # JACK: ADJUST FOR DAYLIGHT SAVINGS
+            # Now find the one with the matching hour
+            tqf = None
+            for tq in tqs: 
+                if tq.hour == hour:
+                    tqf = tq
+                    break
+            
+            # This should never happen unless something is crazy wrong.
+            if tqf is None: self.log('ERROR FINDING NEXT WEEK', tqs)
 
-            self.log('  ', tq.isoformat())
-            c['Events'][0]['Scheduled'] = tq.isoformat()
+            # Otherwise, update the scheduled date
+            else:
+                self.log('  ', tq.isoformat())
+                c['Events'][0]['Scheduled'] = tq.isoformat()
 
         # Write the new file.
         self.log('Saving championship')
