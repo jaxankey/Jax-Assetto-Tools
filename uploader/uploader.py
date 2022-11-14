@@ -57,7 +57,7 @@ class Uploader:
 
         # If we're in executable mode, close the splash screen
         if '_PYIBoot_SPLASH' in os.environ and importlib.util.find_spec("pyi_splash"):
-            import pyi_splash # Warning is ok; we don't get here outside of executable mode.
+            import pyi_splash # IDE warning is ok; we don't get here except in executable mode.
             pyi_splash.update_text('UI Loaded ...')
             pyi_splash.close()
 
@@ -1893,10 +1893,9 @@ class Uploader:
             # This bit allows me to schedule something last minute.
             week = datetime.timedelta(days=7)
             now  = time.time()
-            while tqc.timestamp() > now: 
-                for tq in tqs: tq -= week
-            while tqc.timestamp() < now: 
-                for tq in tqs: tq += week
+            for tq in tqs:
+                while tq.timestamp() > now: tq -= week
+                while tq.timestamp() < now: tq += week
 
             # Now find the one with the matching hour
             tqf = None
@@ -2197,6 +2196,9 @@ class Uploader:
         #self.log('Updating tracks...')
         paths = glob.glob(os.path.join(self.text_local(), 'content', 'tracks', '*'))
         paths.sort()
+
+        self.tracks = dict()
+
         for path in paths: self.combo_tracks.add_item(os.path.split(path)[-1])
         self._refilling_tracks = False
 
