@@ -367,7 +367,7 @@ class Uploader:
         self.grid_tyres.add(egg.gui.Label('Allowed Tyres:'))
         self.text_tyres = self.grid_tyres.add(egg.gui.TextBox('V;H;M;S;ST;SM;SV',
             tip='Allowed tyres list, usually one or two capital characters, separated by semicolons.',
-            signal_changed=self._any_server_setting_changed))
+            signal_changed=self._any_server_setting_changed)).set_width(200)
 
         # Server stuff
         self.tab_uploader.new_autorow()
@@ -1217,19 +1217,13 @@ class Uploader:
             self.log('Running pre-command')
             if self.system([self.text_precommand()]): return
 
-
-
         # Generate the appropriate config files
         if self.checkbox_modify() and not skins_only: 
             if self.combo_mode() == 0: self.generate_acserver_cfg()
             elif self.generate_acsm_cfg(): return
-        #else: self.log('*Skipping server config')
         
         # Collect and package all the data
-        if self.checkbox_package():
-            
-            # Package the content
-            self.package_content(skins_only)
+        if self.checkbox_package(): self.package_content(skins_only)
             
         # Package not checked
         #else: self.log('*Skipping package')
@@ -1763,7 +1757,7 @@ class Uploader:
 
         # Make sure there is a remote championship to upload to
         remote_championship = self.text_remote_championship().strip()
-        if remote_championship == '': 
+        if remote_championship == '' and self.checkbox_upload(): 
             self.log('No remote championship file specified?')
             return
         
@@ -1893,9 +1887,9 @@ class Uploader:
             # This bit allows me to schedule something last minute.
             week = datetime.timedelta(days=7)
             now  = time.time()
-            for tq in tqs:
-                while tq.timestamp() > now: tq -= week
-                while tq.timestamp() < now: tq += week
+            for n in range(len(tqs)):
+                while tqs[n].timestamp() > now: tqs[n] -= week
+                while tqs[n].timestamp() < now: tqs[n] += week
 
             # Now find the one with the matching hour
             tqf = None
@@ -1906,11 +1900,9 @@ class Uploader:
             
             # This should never happen unless something is crazy wrong.
             if tqf is None: self.log('ERROR FINDING NEXT WEEK', tqs)
-
-            # Otherwise, update the scheduled date
             else:
-                self.log('  ', tq.isoformat())
-                c['Events'][0]['Scheduled'] = tq.isoformat()
+                self.log('  ', tqf.isoformat())
+                c['Events'][0]['Scheduled'] = tqf.isoformat()
 
         # Write the new file.
         self.log('Saving championship')
