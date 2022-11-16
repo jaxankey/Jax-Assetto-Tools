@@ -1009,20 +1009,20 @@ class Monitor:
         reg_string2 = '' # Longer top one
 
         # If we are in premium mode, timestamps will be lists; otherwise, None.
-        if self['race_timestamp'] is not None:
+        if self['qual_timestamp'] is not None:
 
             # Flag for whether we include registration links with the time stamp.
             reg = url_registration != [None]
 
             # Loop over the time stamps and registration numbers
-            for n in range(len(self['race_timestamp'])):
+            for n in range(len(self['qual_timestamp'])):
 
                 # By default, these are set to None;
                 # when the race starts, acsm sets the start time to a negative number
-                if self['race_timestamp'][n] not in [0, None] and self['qual_timestamp'][n] > 0:
+                if self['qual_timestamp'][n] not in [0, None] and self['qual_timestamp'][n] > 0:
 
                     # Get the time stamp for this race
-                    ts = str(int(self['race_timestamp'][n]))
+                    ts = str(int(self['qual_timestamp'][n]))
 
                     # Create the full timestamp, optionally with name
                     nametime1 = '<t:' + ts + ':F>'
