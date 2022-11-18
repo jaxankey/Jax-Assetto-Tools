@@ -1026,9 +1026,10 @@ class Monitor:
                     nametime1 = '<t:' + tq + ':D>'
                     if registration_name[n]: nametime1 = registration_name[n] + ' '+nametime1
 
-                    # Add the details
-                    top_timestamp = top_timestamp + '\n`Qual:` ' + ' (<t:' + tq + ':t>)' + ' (<t:' + tq + ':R>)' # Top time stamp
-                    top_timestamp = top_timestamp + '\n`Race:` ' + ' (<t:' + tr + ':t>)' + ' (<t:' + tr + ':R>)' # Top time stamp
+                    # Create the top_timestamp.
+                    top_timestamp = nametime1 \
+                                  + '\n`Qual:` ' + ' <t:' + tq + ':t>' + ' (<t:' + tq + ':R>)' \
+                                  + '\n`Race:` ' + ' <t:' + tr + ':t>' + ' (<t:' + tr + ':R>)'
 
                 # Linkify it
                 if n < len(url_registration) and type(url_registration[n]) is str:
