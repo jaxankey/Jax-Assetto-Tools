@@ -1023,7 +1023,7 @@ class Monitor:
                     tr = str(int(self['race_timestamp'][n]))
 
                     # Create the full timestamp, optionally with name
-                    nametime1 = '<t:' + ts + ':D>'
+                    nametime1 = '<t:' + tq + ':D>'
                     if registration_name[n]: nametime1 = registration_name[n] + ' '+nametime1
 
                     # Add the details
