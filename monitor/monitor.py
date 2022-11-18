@@ -1028,8 +1028,8 @@ class Monitor:
 
                     # Create the top_timestamp.
                     top_timestamp = '\n' + nametime1 \
-                                  + '\n`Qual:` ' + ' <t:' + tq + ':t>' + ' (<t:' + tq + ':R>)' \
-                                  + '\n`Race:` ' + ' <t:' + tr + ':t>' + ' (<t:' + tr + ':R>)'
+                                  + '\nQ: ' + ' <t:' + tq + ':t>' + ' (<t:' + tq + ':R>)' \
+                                  + '\nR: ' + ' <t:' + tr + ':t>' + ' (<t:' + tr + ':R>)'
 
                 # Linkify it
                 if n < len(url_registration) and type(url_registration[n]) is str:
