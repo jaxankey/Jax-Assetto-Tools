@@ -1027,7 +1027,7 @@ class Monitor:
                     if registration_name[n]: nametime1 = registration_name[n] + ' '+nametime1
 
                     # Create the top_timestamp.
-                    top_timestamp = '\n' + nametime1 \
+                    top_timestamp = '\n\n' + nametime1 \
                                   + '\n`Qual:` ' + ' <t:' + tq + ':t>' + ' (<t:' + tq + ':R>)' \
                                   + '\n`Race:` ' + ' <t:' + tr + ':t>' + ' (<t:' + tr + ':R>)'
 
