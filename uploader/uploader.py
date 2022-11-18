@@ -2109,6 +2109,8 @@ class Uploader:
         # Dictionary to hold all the model names
         self.cars  = dict()
         self.srac  = dict() # Reverse-lookup
+        self.tracks = dict() # folder -> fancyname
+        self.skcart = dict() # Reverse-lookup (fancyname -> folder)
         self.skins = dict()
 
         # Get all the car paths
@@ -2189,9 +2191,16 @@ class Uploader:
         paths = glob.glob(os.path.join(self.text_local(), 'content', 'tracks', '*'))
         paths.sort()
 
+        # Lookup table for track to trackname
         self.tracks = dict()
+        self.skcart = dict()
 
-        for path in paths: self.combo_tracks.add_item(os.path.split(path)[-1])
+        # Loop over all the paths
+        for path in paths: 
+             
+            
+            
+            self.combo_tracks.add_item(os.path.split(path)[-1])
         self._refilling_tracks = False
 
 

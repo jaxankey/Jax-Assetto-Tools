@@ -1006,13 +1006,10 @@ class Monitor:
         # These are misnamed for historical reasons.
         # They contain the time stamp if there is premium mode.
         reg_string1 = '' # Shorter bottom one
-        reg_string2 = '' # Longer top one
+        top_timestamp = '' # Longer top one
 
         # If we are in premium mode, timestamps will be lists; otherwise, None.
-        if self['qual_timestamp'] is not None:
-
-            # Flag for whether we include registration links with the time stamp.
-            reg = url_registration != [None]
+        if self['qual_timestamp'] is not None and self['race_timestamp'] is not None:
 
             # Loop over the time stamps and registration numbers
             for n in range(len(self['qual_timestamp'])):
@@ -1022,18 +1019,19 @@ class Monitor:
                 if self['qual_timestamp'][n] not in [0, None] and self['qual_timestamp'][n] > 0:
 
                     # Get the time stamp for this race
-                    ts = str(int(self['qual_timestamp'][n]))
+                    tq = str(int(self['qual_timestamp'][n]))
+                    tr = str(int(self['race_timestamp'][n]))
 
                     # Create the full timestamp, optionally with name
-                    nametime1 = '<t:' + ts + ':F>'
+                    nametime1 = '<t:' + ts + ':D>'
                     if registration_name[n]: nametime1 = registration_name[n] + ' '+nametime1
 
-                    # nametime2 also has the relative time
-                    nametime2   = nametime1 + ' (<t:' + ts + ':R>)'
-                    reg_string2 = reg_string2 + '\n'+nametime2 # Top time stamp
+                    # Add the details
+                    top_timestamp = top_timestamp + '\n`Qual:` ' + ' (<t:' + tq + ':t>)' + ' (<t:' + tq + ':R>)' # Top time stamp
+                    top_timestamp = top_timestamp + '\n`Race:` ' + ' (<t:' + tr + ':t>)' + ' (<t:' + tr + ':R>)' # Top time stamp
 
                 # Linkify it
-                if reg:
+                if n < len(url_registration) and type(url_registration[n]) is str:
                     nametime1 = '**[Register (' + str(self['number_registered'][n]) + '/' + str(self['number_slots'][n]) + ')](' + url_registration[n] + ')**'
                     reg_string1 = nametime1  # Bottom registration stylized
 
@@ -1055,7 +1053,7 @@ class Monitor:
         body1 = venue_header + '**__'+title+'__**'
 
         # Subheader
-        body1 = body1 + reg_string2 + venue_subheader
+        body1 = body1 + top_timestamp + venue_subheader
         
         # Separate body for who's online (laps get cut first)
         if onlines:
