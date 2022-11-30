@@ -1331,6 +1331,14 @@ class Uploader:
             self.log('No cars selected?')
             return
 
+        # Add the missing directories to make skin uploading easier
+        if self.text_skins() != '':
+            for car in cars:
+                d = os.path.join(self.text_skins(), 'content', 'cars', car, 'skins')
+                if not os.path.exists(d): 
+                    self.log('  Creating skins folder for', car)
+                    os.makedirs(d, exist_ok=True)
+
         # Make sure we have a track
         if track == '' and not skins_only:
             self.log('No track selected?')
