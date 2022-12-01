@@ -1206,9 +1206,11 @@ class Monitor:
                         self.message_failures.pop(message_id)
                         
                         # Now try to get a new one...
-                        try: message_id = webhook.send('', embeds=[e], wait=True).id
+                        try: 
+                            message_id = webhook.send('', embeds=[e], wait=True).id
+                            log('  Sent new one!')
                         except Exception as x: 
-                            log('WHOOPS could not send message', message_id, e, x)
+                            log('  WHOOPS could not send message', message_id, e, x)
                             message_id = None
             
             # If we don't have a message_id, just try to send a new one.
