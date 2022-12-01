@@ -1200,7 +1200,7 @@ class Monitor:
                     log('WHOOPS could not edit message', message_id, e, x, 'failures =', self.message_failures[message_id])
 
                     # If we're above a certain number of failures, get a new message
-                    if self.message_failures[message_id] > 5:
+                    if self.message_failures[message_id] > 4:
 
                         # Get rid of the entry for this
                         self.message_failures.pop(message_id)
@@ -1216,7 +1216,7 @@ class Monitor:
                     # Otherwise try again
                     else:
                         time.sleep(3)
-                        self.send_message(webhook, body1, body2, footer, message_id, color)
+                        message_id = self.send_message(webhook, body1, body2, footer, message_id, color)
             
             # If we don't have a message_id, just try to send a new one.
             else:
