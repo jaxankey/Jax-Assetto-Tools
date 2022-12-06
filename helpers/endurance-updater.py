@@ -19,7 +19,7 @@ teams = dict()
 ids   = dict()
 
 # Reverse order to favor later submissions.
-for n in range(len(data['Team Name'])-1,-1,-1):
+for n in range(len(data['Team Name'])-1,-1,-1): 
     team_name = data['Team Name'][n].strip()
 
     # Get a dictionary for each team
