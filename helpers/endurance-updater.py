@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 import pandas, os, json, pprint, codecs, shutil
 
 # These are defined by endurance-updater.ini or endurance-updater.ini.private
