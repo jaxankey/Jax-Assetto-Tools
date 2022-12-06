@@ -24,7 +24,7 @@ for n in range(len(data['Team Name'])-1,-1,-1):
 
     # Get a dictionary for each team
     teams[team_name] = dict(ids=[], names=[], livery='')
-    teams[team_name]['livery'] = str(data['Livery Name'][n]).strip()
+    teams[team_name]['livery'] = str(data['Livery FOLDER Name'][n]).strip()
     
     print(n, team_name)
 
