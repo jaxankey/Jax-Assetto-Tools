@@ -77,7 +77,7 @@ for n in range(len(list(c['Events'][0]['EntryList'].keys()))):
     # If we have a team fill it
     if n < len(team_names):
         team_name = team_names[n]
-        if os.path.exists(os.join(skins_path, teams[team_name]['livery'])): 
+        if os.path.exists(os.path.join(skins_path, teams[team_name]['livery'])): 
             skin = teams[team_name]['livery']
         else:                                                               
             skin = ''
