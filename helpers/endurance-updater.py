@@ -2,6 +2,9 @@
 # -*- coding: utf-8 -*-
 import pandas, os, json, pprint, codecs, shutil
 
+# Change to the directory of this script
+os.chdir(os.path.dirname(os.path.abspath(__file__)))
+
 # These are defined by endurance-updater.ini or endurance-updater.ini.private
 csv_path          = ''
 championship_path = ''
