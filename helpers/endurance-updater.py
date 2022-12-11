@@ -51,9 +51,9 @@ for n in range(len(data['Team Name'])-1,-1,-1):
                 teams[team_name]['ids'].append(id)
                 teams[team_name]['names'].append(name)
 
-print('-----------------------------------------------')
-pprint.pprint(teams)
-print('-----------------------------------------------')
+# print('-----------------------------------------------')
+# pprint.pprint(teams)
+# print('-----------------------------------------------')
 
 def load_json(path):
     """
@@ -75,7 +75,7 @@ def load_json(path):
 c = load_json(championship_path)
 team_names = list(teams.keys())
 for n in range(len(list(c['Events'][0]['EntryList'].keys()))): 
-    print('Entry', n)
+    print('Entry', n+1)
 
     # If we have a team fill it
     if n < len(team_names):

@@ -850,7 +850,7 @@ class Monitor:
             for car in self.state['laps'][name]: # Each is a dictionary of {time, time_ms, cuts}
                 c = self.state['laps'][name][car]    
             
-                # Get a list of carsets to which this belongs
+                # +++Get a list of carsets to which this belongs
                 if   car in self.state['stesrac']: carsets = self.state['stesrac'][car]
                 else:                              carsets = ['Uncategorized']
                 
