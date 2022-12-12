@@ -92,6 +92,10 @@ for n in range(len(list(c['Events'][0]['EntryList'].keys()))):
         skin = ''
         ids = ''
 
+    # Get the internal UUID
+    uuid = c['Classes'][0]['Entrants']['CAR_%d'%(n+1)]['InternalUUID']
+    c['Events'][0]['EntryList']['CAR_%d'%(n  )]['InternalUUID'] = n
+
     c['Classes'][0]['Entrants']['CAR_%d'%(n+1)]['PitBox'] = n
     c['Events'][0]['EntryList']['CAR_%d'%(n  )]['PitBox'] = n
 
