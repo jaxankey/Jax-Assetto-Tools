@@ -92,6 +92,9 @@ for n in range(len(list(c['Events'][0]['EntryList'].keys()))):
         skin = ''
         ids = ''
 
+    c['Classes'][0]['Entrants']['CAR_%d'%(n+1)]['PitBox'] = n
+    c['Events'][0]['EntryList']['CAR_%d'%(n  )]['PitBox'] = n
+
     c['Classes'][0]['Entrants']['CAR_%d'%(n+1)]['Name'] = team_name
     c['Events'][0]['EntryList']['CAR_%d'%(n  )]['Name'] = team_name
 
