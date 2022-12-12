@@ -89,7 +89,7 @@ for n in range(len(list(c['Events'][0]['EntryList'].keys()))):
         print(' ', team_name, skin, ids)
     else: 
         team_name = ''
-        skin = ''
+        skin = 'nan'
         ids = ''
 
     # Get the internal UUID THIS CAUSES CRASHES; THEY NEED TO BE UNIQUE
