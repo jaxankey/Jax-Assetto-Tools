@@ -96,13 +96,13 @@ for n in range(len(list(c['Events'][0]['EntryList'].keys()))):
     c['Events'][0]['EntryList']['CAR_%d'%(n  )]['PitBox'] = n
 
     c['Classes'][0]['Entrants']['CAR_%d'%(n+1)]['Name'] = team_name
-    c['Events'][0]['EntryList']['CAR_%d'%(n  )]['Name'] = team_name
+    c['Events'][0]['EntryList']['CAR_%d'%(n  )]['Name'] = ''
 
     c['Classes'][0]['Entrants']['CAR_%d'%(n+1)]['Skin'] = skin
-    c['Events'][0]['EntryList']['CAR_%d'%(n  )]['Skin'] = skin
+    c['Events'][0]['EntryList']['CAR_%d'%(n  )]['Skin'] = ''
 
     c['Classes'][0]['Entrants']['CAR_%d'%(n+1)]['GUID'] = ids
-    c['Events'][0]['EntryList']['CAR_%d'%(n  )]['GUID'] = ids
+    c['Events'][0]['EntryList']['CAR_%d'%(n  )]['GUID'] = ''
 
 shutil.move(championship_path, championship_path+'.backup', )
 f = open(championship_path, 'w', encoding="utf8")
