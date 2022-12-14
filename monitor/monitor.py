@@ -150,7 +150,7 @@ class Monitor:
         # Discord webhook objects
         self.webhook_online  = None # List of webhooks
         self.webhook_info    = None
-        self.message_failures = dict() # when it times out or whatever this increments.
+        self.message_failure_timestamps = dict() # when it times out or whatever this increments.
 
         # List of all onlines seen during this session
 
@@ -1183,34 +1183,37 @@ class Monitor:
                 
                 # First try to edit the existing method
                 try:    
-                    # If it works, reset the message retries count
+                    # Try to edit the message
                     webhook.edit_message(message_id, embeds=[e])
-                    self.message_failures[message_id] = 0
+
+                    # If it works, remove the failure timestamp.
+                    if message_id in self.message_failure_timestamps.keys(): 
+                        self.message_failure_timestamps.pop(message_id)
                 
                 # It didn't work. Count the failures and then give up / send a new one
                 except Exception as x:
                     
-                    # Make sure we have a failures entry for this
-                    if not message_id in self.message_failures.keys(): self.message_failures[message_id] = 0
+                    # If we need to start counting, create a counter.
+                    if not message_id in self.message_failure_timestamps.keys(): self.message_failure_timestamps[message_id] = time.time()
                     
-                    # Increment the number of failures on this message
-                    self.message_failures[message_id] += 1
-
                     # Let the user know
-                    log('WHOOPS could not edit message', message_id, e, x, 'failures =', self.message_failures[message_id])
+                    log('WHOOPS could not edit message', message_id, e, x, 'dt =', 
+                        time.time() - self.message_failure_timestamps[message_id])
 
-                    # If we're above a certain number of failures, get a new message
-                    if self.message_failures[message_id] > 4:
-
+                    # If it's been awhile since the first failure, try again
+                    if time.time() - self.message_failure_timestamps[message_id] > 10:
+                        
                         # Get rid of the entry for this
-                        self.message_failures.pop(message_id)
+                        log('  Timeout! Popping id...')
+                        self.message_failure_timestamps.pop(message_id)
                         
                         # Now try to get a new one...
                         try: 
+                            log('  Trying to send a new message...')
                             message_id = webhook.send('', embeds=[e], wait=True).id
-                            log('  Sent new one!')
+                            log('  Sent id', message_id)
                         except Exception as x: 
-                            log('  WHOOPS could not send message', message_id, e, x)
+                            log('  WHOOPS (CRITICAL) could not send ', x)
                             message_id = None
                     
                     # Otherwise try again
