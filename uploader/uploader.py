@@ -687,6 +687,8 @@ class Uploader:
         
         # Clear existing
         self.combo_server.clear()
+
+        # Add default entry that is always at the top
         self.combo_server.add_item(_create_new_profile)
 
         if not os.path.exists('servers'): os.makedirs('servers')
@@ -727,6 +729,9 @@ class Uploader:
         # Now whatever we've chosen, load it.
         self._button_load_server_clicked()
         self.save_server_gui()
+
+        # remember the selection
+        self.combo_server.save_gui_settings()
 
     def load_server_json(self):
         """
