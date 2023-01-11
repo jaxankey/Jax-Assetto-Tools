@@ -343,7 +343,7 @@ class Monitor:
                     # Parse the scheduled timestamp and add the qualifying time, and registered
                     tq = dateutil.parser.parse(c['Events'][0]['Scheduled']).timestamp()
                     tr = tq + c['Events'][0]['RaceSetup']['Sessions']['QUALIFY']['Time'] * 60
-                    ns = c['Stats']['NumEntrants']
+                    ns = len(c['Events'][0]['EntryList'])
 
                     # Have to manually count these since people can cancel registrations
                     nr = 0
