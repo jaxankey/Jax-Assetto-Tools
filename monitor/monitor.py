@@ -347,9 +347,12 @@ class Monitor:
 
                     # Have to manually count these since people can cancel registrations
                     nr = 0
-                    if c['SignUpForm']['Responses']:
-                        for r in c['SignUpForm']['Responses']:
-                            if r['Status'] == 'Accepted': nr += 1
+                    # if c['SignUpForm']['Responses']:
+                    #     for r in c['SignUpForm']['Responses']:
+                    #         if r['Status'] == 'Accepted': nr += 1
+                    if c['Classes'] and len(c['Classes']):
+                        for r in c['Classes'][0]['Entrants'].values():
+                            if r['GUID'] != '' or r['Name'] != '': nr += 1
 
                     # If it's different, update the state and send messages
                     if tq != self['qual_timestamp'][n]    or tr != self['race_timestamp'][n] \
