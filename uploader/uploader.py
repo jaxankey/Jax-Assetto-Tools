@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+###############
+# TRACK NICE NAMES
+
 import glob, codecs, os, sys, shutil, random, json, pyperclip, webbrowser, stat
 import dateutil, subprocess, time, datetime, importlib
 
@@ -1753,17 +1756,7 @@ class Uploader:
         """
         self.log('Generating acsm config')
         
-        # Server info
-        # login   = self.text_login.get_text()
-        # port    = self.text_port .get_text()
-        # pem     = os.path.abspath(self.text_pem.get_text())
-
-        # Load the championship from the server    
-        # JACK: Downloading causes the problem where there are all kinds of results that won't go away and you can't restart it.    
-        # self.log('Downloading championship.json')
-        # #c = 'scp -P '+port+' -i "' + pem +'" '+ login+':"'+self.text_remote_championship()+'" championship.json'
-        # if self.system(['scp', '-T', '-P', port, '-i', pem, login+':"'+self.text_remote_championship()+'"', 'championship.json']): return True
-        #c = load_json('championship.json')
+        # Make sure we have a championship.
         if not 'championship' in self.server:
             self.log('ERROR: Championship json has not been downloaded yet.')
         c = self.server['championship']
@@ -1777,60 +1770,34 @@ class Uploader:
         # ID from file name
         c['ID'] = os.path.splitext(os.path.split(remote_championship)[-1])[0]
 
-        # Whether the venue has changed
-        new_venue = False
-
         # Name
-        new_name = self.combo_carsets.get_text()+' at '+self.track['name']+' ('+self.combo_server.get_text()+')'
-        # if c['Name'] != new_name: 
-        #     print('Venue:', c['Name'], '->', new_name)
-        #     new_venue = True
-        c['Name'] = new_name
+        c['Name'] = self.combo_carsets.get_text()+' at '+self.track['name']+' ('+self.combo_server.get_text()+')'
         
-        # One car class for simplicity
-        x = c['Classes'][0]
+        # The championship should have one car class for simplicity. We edit it.
         carset = self.combo_carsets.get_text()
-        if x['Name'] != carset: 
-            print('VENUE Carset:', x['Name'], '->', carset)
-            new_venue = True
-        x['Name'] = carset
+        c['Classes'][0]['Name'] = carset
         
         # Update the cars list, noting if it's completely changed (no overlap)
         selected_cars = self.get_selected_cars()
-        if len(set(x['AvailableCars']).intersection(set(selected_cars))) == 0: 
-            print('VENUE Cars:', x['AvailableCars'], '->', selected_cars)
-            new_venue = True
-        x['AvailableCars'] = selected_cars
+        c['Classes'][0]['AvailableCars'] = selected_cars
         
         # One event for simplicity
         e = c['Events'][0]
         
         # Other race setup
-        e['RaceSetup']['Cars']  = ';'.join(self.get_selected_cars())
+        e['RaceSetup']['Cars']  = ';'.join(selected_cars)
         track  = self.combo_tracks.get_text()
         layout = self.combo_layouts.get_text()
         if layout == _default_layout: layout = ''
 
-        # For this new_venue stuff to work, we'd have to download the entrants
-        # From the championship, but we cannot ALWAYS download the championship because
-        # it becomes irreparably mutilated after an event.
-        # if e['RaceSetup']['Track']       != track \
-        # or e['RaceSetup']['TrackLayout'] != layout:
-        #     print('VENUE Track or Layout change.')
-        #     new_venue = True
-        e['RaceSetup']['Track'] = track
+        e['RaceSetup']['Track']       = track
         e['RaceSetup']['TrackLayout'] = layout
-        e['RaceSetup']['LegalTyres'] = self.text_tyres() # JACK: UNPACK AND SCRAPE DATA.ACD? GROSS!!
+        e['RaceSetup']['LegalTyres']  = self.text_tyres() # JACK: UNPACK AND SCRAPE DATA.ACD? GROSS!!
         
-        # Reset the signup form, but only if the venue has changed.
-        if new_venue:
-            self.log('New venue detected, clearing signup.')
-            c['SignUpForm']['Responses'] = []
-        
-        # Now that we know if there are still responses, 
-        # We can fill up the Entrants and EntryList
-        x['Entrants'] = dict()
-        c['Events'][0]['EntryList'] = dict()
+        # Reset the signup form, classes and events entrants
+        c['SignUpForm']['Responses'] = [] # Always start clean now. Simpler
+        c['Classes'][0]['Entrants'] = dict()
+        c['Events'][0]['EntryList'] = dict() 
     
         # Find the number of pitboxes
         N = self.number_slots()
@@ -1840,16 +1807,11 @@ class Uploader:
         # Update the metadata
         c['Stats']['NumEntrants'] = N
         
-        # Get the list of cars from the tree
-        cars = self.get_selected_cars()
-        
         # Now fill the pitboxes
         for n in range(N):
             
-            # Get the car model
-            #car = cars[n%len(cars)]
-            
-            x['Entrants']['CAR_'+str(n+1)] = {
+            # Create an entry for this one.
+            c['Classes'][0]['Entrants']['CAR_'+str(n+1)] = {
                 "InternalUUID": "%08d-0000-0000-0000-000000000000" % (n+1),
                 "PitBox": n,
                 "Name": "",
@@ -1857,31 +1819,28 @@ class Uploader:
                 "GUID": "",
                 "Model": "any_car_model",
                 "Skin": "random_skin",
-                "ClassID": "00000000-0000-0000-0000-000000000000",
+                "ClassID": c['Classes'][0]['ClassID'],
                 "Ballast":    0, # self.tree_cars[car+'/ballast']    if car+'/ballast'    in self.tree_cars.keys() else 0,
                 "Restrictor": 0, # self.tree_cars[car+'/restrictor'] if car+'/restrictor' in self.tree_cars.keys() else 0,
                 "SpectatorMode": 0,
                 "FixedSetup": "",
                 "ConnectAsSpectator": False,
                 "IsPlaceHolder": False}
-            c['Events'][0]['EntryList']['CAR_'+str(n)] = dict(x['Entrants']['CAR_'+str(n+1)])
-     
-            # Manually cycle the cars (default server behavior is annoying)
-            c['Events'][0]['EntryList']['CAR_'+str(n)].update({
-                'Model' : selected_cars[n%len(selected_cars)], })
-     
-            # If we have a response in the sign-up form, modify the entrants
-            # if n < len(R):
-            #     x['Entrants']['CAR_'+str(n+1)].update({
-            #         'Name' : R[n]['Name'],
-            #         'GUID' : R[n]['GUID'],
-            #         'Team' : R[n]['Team'],
-            #         'Model': R[n]['Car'],
-            #         'Skin' : R[n]['Skin'], })
 
+            # Make the events entrylist match
+            c['Events'][0]['EntryList']['CAR_'+str(n)] = dict(c['Classes'][0]['Entrants']['CAR_'+str(n+1)])
+     
+            # Manually cycle the cars in the event so there are good cars for practice 
+            # (default server behavior is annoying)
+            c['Events'][0]['EntryList']['CAR_'+str(n)].update({'Model' : selected_cars[n%len(selected_cars)], })
+     
         # Finally, update the schedule, but only if we're in ACSM mode (we must be for this
-        # function to have been called!) and the key exists
-        if self.checkbox_autoweek() and c['Events'][0]['Scheduled']:
+        # function to have been called!) and the key exists, and it's actually scheduled!
+        if self.checkbox_autoweek() \
+        and c['Events']             \
+        and len(c['Events'])        \
+        and 'Scheduled' in c['Events'][0].keys() \
+        and dateutil.parser.isoparse(c['Events'][0]['Scheduled']).year > 1:
             self.log('  Auto-Week')
             self.log('  ',c['Events'][0]['Scheduled'], '->')
 
