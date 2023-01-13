@@ -77,6 +77,13 @@ class Uploader:
         self._refilling_tracks  = False
         self._refilling_carsets = False
 
+        # Dictionary to hold all the model names
+        self.cars  = dict()
+        self.srac  = dict() # Reverse-lookup
+        self.tracks = dict() # folder -> fancyname
+        self.skcart = dict() # Reverse-lookup (fancyname -> folder)
+        self.skins = dict()
+
         # Make sure we have a carset folder
         if not os.path.exists('carsets'): os.mkdir('carsets')
 
@@ -611,8 +618,8 @@ class Uploader:
         Sends the venue to the selected server
         """
         # Get the track, cars and carset
-        track  = self.combo_tracks.get_text()
-        layout = self.combo_layouts.get_text()
+        trackname  = self.combo_tracks.get_text()
+        layoutname = self.combo_layouts.get_text()
         carset = self.combo_carsets.get_text()
         cars   = self.get_selected_cars() # This should always return the directories.
         tyres  = self.text_tyres.get_text()
@@ -622,8 +629,8 @@ class Uploader:
             self.combo_server.set_text(self.combo_send_to.get_text())
 
             # Track and layout
-            self.combo_tracks.set_text(track)
-            if len(self.combo_layouts.get_all_items()) > 0: self.combo_layouts.set_text(layout)
+            self.combo_tracks.set_text(trackname)
+            if len(self.combo_layouts.get_all_items()) > 0: self.combo_layouts.set_text(layoutname)
 
             # JACK: Some problem here if we overwrite a carset
             # If we have an unsaved carset, use the list, otherwise just choose the carset
@@ -1330,8 +1337,8 @@ class Uploader:
         if os.path.exists('uploads'): rmtree('uploads')
         if os.path.exists('uploads.7z'): os.remove('uploads.7z')
         
-        # get the tracks and cars
-        track = self.combo_tracks.get_text() # Track directory
+        # get the tracks and cars folders
+        track = self.skcart[self.combo_tracks.get_text()] # Track directory
         cars  = self.get_selected_cars()     # List of car directories
 
         # Make sure we have at least one car
@@ -1530,24 +1537,42 @@ class Uploader:
         if self._refilling_tracks: return
         print('_combo_tracks_changed (populates layouts)')
         
-        track = self.combo_tracks.get_text()
+        track = self.skcart[self.combo_tracks.get_text()]
         if track == '': return
 
         # Update the layouts selector
         self._refilling_layouts = True
         self.combo_layouts.clear()
+        self.stuoyal = dict() # Reverse-lookup for layout directories
+        self.layouts = dict() # looup for fancy names
 
         # Search for the default layout if it exists
         if os.path.exists(os.path.join(self.text_local(),'content','tracks',track,'models.ini')):
             self.combo_layouts.add_item(_default_layout)
 
         # Search for models_*.ini
+        to_sort = [] # list of layouts to sort before adding
         root = os.path.join(self.text_local(), 'content', 'tracks', track, 'models_*.ini')
-        print(root)
         paths = glob.glob(root)
         for path in paths:
             layout = os.path.split(path)[-1].replace('models_','').replace('.ini','')
-            self.combo_layouts.add_item(layout)
+
+            # Get the layout name
+            layoutname = layout
+            ui_path = os.path.join(self.text_local(), 'content', 'tracks', track, 'ui', layout, 'ui_track.json')
+            if os.path.exists(ui_path): layoutname = load_json(ui_path)['name']
+
+            # Populate the lookup and reverse lookup
+            self.layouts[layout] = layoutname
+            self.stuoyal[layoutname] = layout
+
+            # Add to list
+            to_sort.append(layoutname)
+
+        to_sort.sort()
+        for layoutname in to_sort: self.combo_layouts.add_item(layoutname)
+        
+        # Ada
         self._refilling_layouts = False
 
         # No need to show nothing...
@@ -1566,8 +1591,8 @@ class Uploader:
         
         # Paths
         local  = self.text_local()
-        track  = self.combo_tracks.get_text()
-        layout = self.combo_layouts.get_text()
+        track  = self.skcart[self.combo_tracks.get_text()]
+        layout = self.stuoyal[self.combo_layouts.get_text()]
 
         # Path to ui.json
         if layout == _default_layout: p = os.path.join(local,'content','tracks',track,'ui',       'ui_track.json')
@@ -1786,8 +1811,8 @@ class Uploader:
         
         # Other race setup
         e['RaceSetup']['Cars']  = ';'.join(selected_cars)
-        track  = self.combo_tracks.get_text()
-        layout = self.combo_layouts.get_text()
+        track  = self.skcart[self.combo_tracks.get_text()]
+        layout = self.stuoyal[self.combo_layouts.get_text()]
         if layout == _default_layout: layout = ''
 
         e['RaceSetup']['Track']       = track
@@ -1903,7 +1928,7 @@ class Uploader:
             return
 
         # Get the selected track directory
-        track = self.combo_tracks.get_text()
+        track = self.skcart[self.combo_tracks.get_text()]
         if track == '':
             self.log('OOPS: generate_acserver_cfg() with no track selected!')
 
@@ -1963,7 +1988,7 @@ class Uploader:
 
             # Layout
             elif key == 'CONFIG_TRACK': ls[n] = 'CONFIG_TRACK=' \
-                +self.combo_layouts.get_text() if self.combo_layouts.get_text() != _default_layout else ''+'\n'
+                + self.stuoyal[self.combo_layouts.get_text()] if self.combo_layouts.get_text() != _default_layout else ''+'\n'
 
             # Slots
             elif key == 'MAX_CLIENTS': ls[n] = 'MAX_CLIENTS='+str(N)+'\n'
@@ -2081,8 +2106,6 @@ class Uploader:
         # Dictionary to hold all the model names
         self.cars  = dict()
         self.srac  = dict() # Reverse-lookup
-        self.tracks = dict() # folder -> fancyname
-        self.skcart = dict() # Reverse-lookup (fancyname -> folder)
         self.skins = dict()
 
         # Get all the car paths
@@ -2157,6 +2180,7 @@ class Uploader:
         # Clear existing
         self._refilling_tracks = True
         self.combo_tracks.clear()
+        tracknames_to_sort = []
 
         # Get all the paths
         #self.log('Updating tracks...')
@@ -2168,11 +2192,64 @@ class Uploader:
         self.skcart = dict()
 
         # Loop over all the paths
-        for path in paths: 
-             
-            
-            
-            self.combo_tracks.add_item(os.path.split(path)[-1])
+        for trackpath in paths: 
+
+            # Track folder name
+            track = os.path.split(trackpath)[-1]
+
+            # Get the track fancy name.
+            trackname = track # Default to the folder name
+
+            # Simplest case: one layout, with ui_track.json right there
+            ui_default = os.path.join(trackpath, 'ui', 'ui_track.json')
+            if os.path.exists(ui_default):
+                trackname = load_json(ui_default)['name']
+                
+            # Complicated case: many layouts, each having the same root name
+            else:
+
+                # Collect all possible tracknames from layout folders
+                tracknames = []
+                shortest   = trackname # shortest trackname
+                N = 0 # Min string length for later
+                for p in glob.glob(os.path.join(trackpath, 'ui', '*')):
+                    ui_path = os.path.join(p, 'ui_track.json')
+                    if os.path.exists(ui_path):
+                        tracknames.append(load_json(ui_path)['name'])
+                        if N==0 or len(tracknames[-1]) < N: 
+                            shortest = tracknames[-1]
+                            N = len(shortest)
+                
+                # Find the index at which the strings diverge
+                trackname = shortest # Default
+                for n in range(N):
+                    
+                    # Get the next characters to compare
+                    to_compare = []
+                    for i in range(len(tracknames)): to_compare.append(tracknames[i][n])
+
+                    # If they are not identical, quit
+                    if len(set(to_compare)) > 1: 
+                        trackname = shortest[0:n]
+                        break
+
+                # Clear the '-' and spaces.
+                trackname = trackname.replace('-','').strip()
+
+            # Store the lookup and reverse-lookup.
+            self.tracks[track] = trackname
+            self.skcart[trackname] = track
+                
+            # add to the list to sort
+            tracknames_to_sort.append(trackname)
+
+        # Sort them
+        tracknames_to_sort.sort()
+
+        # Add them
+        for trackname in tracknames_to_sort: self.combo_tracks.add_item(trackname)
+
+        # Ada
         self._refilling_tracks = False
 
 
