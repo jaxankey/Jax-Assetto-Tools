@@ -151,6 +151,9 @@ class Monitor:
         self.info          = None
         self.live_timings  = None
 
+        # Server status
+        self.server_is_up = True # Optimistic by default.
+
         # Discord webhook objects
         self.webhook_online  = None # List of webhooks
         self.webhook_info    = None
@@ -263,10 +266,10 @@ class Monitor:
         if debug: log('\n_premium_get_latest_data')
 
         # Test if the server is up
-        server_is_up = port_is_open('localhost', tcp_data_port)
+        self.server_is_up = port_is_open('localhost', tcp_data_port)
 
         # If we're down, send a message
-        if not server_is_up:
+        if not self.server_is_up:
 
             # But only if we're supposed to and there isn't already one
             if not no_down_warning and not self['down_message_id']:
@@ -275,7 +278,13 @@ class Monitor:
                 self.save_and_archive_state()
 
             # If we don't have a championship to parse, quit out to avoid looping.
-            if not path_championship[0]: return
+            if not path_championship[0]: 
+                
+                # Send state messages
+                try: self.send_state_messages()
+                except Exception as e: 
+                    print('ERROR: server down and cannot send state', e)
+                return
 
         # Otherwise, the server is up; if there is a down message, clear it
         elif self.state['down_message_id']:
@@ -294,7 +303,7 @@ class Monitor:
         session_changed          = False  # If the session changes
 
         # If the server is up, try to grab the "details" from 8081/api/details to learn who is online.
-        if server_is_up:
+        if self.server_is_up:
             try: details = json.loads(urllib.request.urlopen(url_api_details, timeout=5).read(), strict=False)
             except Exception as e:
                 log('\n\nERROR: Could not open', url_api_details, e)
@@ -985,11 +994,16 @@ class Monitor:
         # Generate the join link if we're supposed to
         join_link = ''
         if join_link_finish:
-            try: 
-                server_ip = requests.get('https://ifconfig.me', timeout=3).text
-                join_link = '**[Join](<https://acstuff.ru/s/q:race/online/join?ip=' + server_ip + join_link_finish + '>)**'
-            except Exception as e: 
-                log('  WARNING: no join link', e)
+            
+            if self.server_is_up:
+                try: 
+                    server_ip = requests.get('https://ifconfig.me', timeout=3).text
+                    join_link = '**[Join](<https://acstuff.ru/s/q:race/online/join?ip=' + server_ip + join_link_finish + '>)**'
+                except Exception as e: 
+                    log('  WARNING: no join link', e)
+
+            else:
+                join_link = '**Join**'
 
         return join_link
 
