@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-###############
-# TRACK NICE NAMES
 
 import glob, codecs, os, sys, shutil, random, json, pyperclip, webbrowser, stat
 import dateutil, subprocess, time, datetime, importlib
@@ -76,6 +74,7 @@ class Uploader:
         self._refilling_layouts = False
         self._refilling_tracks  = False
         self._refilling_carsets = False
+        self._updating_cars     = False
 
         # Dictionary to hold all the model names
         self.cars  = dict()
@@ -359,13 +358,13 @@ class Uploader:
         self.grid2c = self.tab_uploader.add(egg.gui.GridLayout(False), alignment=0)
 
         # Car folder list
-        self.list_cars = self.grid2c.add(egg.pyqtgraph.QtGui.QListWidget(), alignment=0)
-        self.list_cars.setSelectionMode(egg.pyqtgraph.QtGui.QAbstractItemView.ExtendedSelection)
+        self.list_cars = self.grid2c.add(egg.pyqtgraph.Qt.QtWidgets.QListWidget(), alignment=0)
+        self.list_cars.setSelectionMode(egg.pyqtgraph.Qt.QtWidgets.QAbstractItemView.ExtendedSelection)
         self.list_cars.itemSelectionChanged.connect(self._list_cars_changed)
 
         # Car fancy name list
-        self.list_carnames = self.grid2c.add(egg.pyqtgraph.QtGui.QListWidget(), alignment=0)
-        self.list_carnames.setSelectionMode(egg.pyqtgraph.QtGui.QAbstractItemView.ExtendedSelection)
+        self.list_carnames = self.grid2c.add(egg.pyqtgraph.Qt.QtWidgets.QListWidget(), alignment=0)
+        self.list_carnames.setSelectionMode(egg.pyqtgraph.Qt.QtWidgets.QAbstractItemView.ExtendedSelection)
         self.list_carnames.itemSelectionChanged.connect(self._list_carnames_changed)
 
         # Settings for each car. Auto-populated so no autosettings.
@@ -773,7 +772,7 @@ class Uploader:
         """
         if self.combo_server() == 0: return
 
-        name, ok = egg.pyqtgraph.QtGui.QInputDialog.getText(egg.pyqtgraph.QtGui.QWidget(), 'New Server Profile', 'Name your new server profile:')
+        name, ok = egg.pyqtgraph.Qt.QtWidgets.QInputDialog.getText(egg.pyqtgraph.Qt.QtWidgets.QWidget(), 'New Server Profile', 'Name your new server profile:')
         name = name.strip()
 
         # If someone cancels out do nothing
@@ -794,7 +793,7 @@ class Uploader:
         """
         if self.combo_server() == 0: return
 
-        name, ok = egg.pyqtgraph.QtGui.QInputDialog.getText(egg.pyqtgraph.QtGui.QWidget(), 'Rename Server Profile', 'Rename your server profile:')
+        name, ok = egg.pyqtgraph.Qt.QtWidgets.QInputDialog.getText(egg.pyqtgraph.Qt.QtWidgets.QWidget(), 'Rename Server Profile', 'Rename your server profile:')
         name = name.strip()
 
         # If someone cancels out do nothing
@@ -929,7 +928,7 @@ class Uploader:
 
         # Special case: first element in combo box is new carset
         if self.combo_server() == 0:
-            name, ok = egg.pyqtgraph.QtGui.QInputDialog.getText(egg.pyqtgraph.QtGui.QWidget(), 'New Server', 'Name your new server:')
+            name, ok = egg.pyqtgraph.Qt.QtWidgets.QInputDialog.getText(egg.pyqtgraph.Qt.QtWidgets.QWidget(), 'New Server', 'Name your new server:')
             name = name.strip()
 
             # If someone cancels out, don't take no for an answer.
@@ -1033,21 +1032,21 @@ class Uploader:
         Warn the user about this.
         """
         if self.checkbox_clean():
-            msg = egg.pyqtgraph.QtGui.QMessageBox()
-            msg.setIcon(egg.pyqtgraph.QtGui.QMessageBox.Information)
+            msg = egg.pyqtgraph.Qt.QtWidgets.QMessageBox()
+            msg.setIcon(egg.pyqtgraph.Qt.QtWidgets.QMessageBox.Information)
             msg.setText("WARNING: After uploading, this step will remotely "+
                         "delete all content from the following folders:")
             msg.setInformativeText(
                 self.text_remote.get_text()+'/content/cars/\n'+
                 self.text_remote.get_text()+'/content/tracks/')
             msg.setWindowTitle("HAY!")
-            msg.setStandardButtons(egg.pyqtgraph.QtGui.QMessageBox.Ok)
+            msg.setStandardButtons(egg.pyqtgraph.Qt.QtWidgets.QMessageBox.Ok)
             msg.exec_()
 
     def _list_carnames_changed(self, e=None):
         """
         """
-        if self._loading_uploader: return
+        if self._loading_uploader or self._loading_cars: return
         print('_list_carnames_changed')
 
         # If we changed something, unselect the carset since that's not valid any more
@@ -1068,7 +1067,7 @@ class Uploader:
         """
         Just set the carset combo when anything changes.
         """
-        if self._loading_uploader: return
+        if self._loading_uploader or self._loading_cars: return
         print('_list_cars_changed')
 
         # If we changed something, unselect the carset since that's not valid any more
@@ -1221,7 +1220,7 @@ class Uploader:
         Uploads the current configuration to the server.
         """
         # Make sure!
-        qmb = egg.pyqtgraph.QtGui.QMessageBox
+        qmb = egg.pyqtgraph.Qt.QtWidgets.QMessageBox
         ret = qmb.question(self.window._window, '******* WARNING *******', "This action can clear the server and overwrite\nthe existing championship!", qmb.Ok | qmb.Cancel, qmb.Cancel)
         if ret == qmb.Cancel: return
 
@@ -1592,11 +1591,16 @@ class Uploader:
         # Paths
         local  = self.text_local()
         track  = self.skcart[self.combo_tracks.get_text()]
-        layout = self.stuoyal[self.combo_layouts.get_text()]
+        layout = self.combo_layouts.get_text()
+
+        self.log(layout)
+        if layout != _default_layout: layout = self.stuoyal[layout]
 
         # Path to ui.json
         if layout == _default_layout: p = os.path.join(local,'content','tracks',track,'ui',       'ui_track.json')
         else:                         p = os.path.join(local,'content','tracks',track,'ui',layout,'ui_track.json')
+        print('HAY', p)
+        
         if not os.path.exists(p): return
 
         # Load it and get the pit number
@@ -1683,7 +1687,7 @@ class Uploader:
         # Special case: first element in combo box is new carset
         if self.combo_carsets.get_index() == 0:
             print('opening save dialog')
-            name, ok = egg.pyqtgraph.QtGui.QInputDialog.getText(self.window._widget, 'New Carset', 'Name your carset:')
+            name, ok = egg.pyqtgraph.Qt.QtWidgets.QInputDialog.getText(self.window._widget, 'New Carset', 'Name your carset:')
             print('got', name)
             name = name.strip()
             if not ok or name == '': return
@@ -1812,8 +1816,9 @@ class Uploader:
         # Other race setup
         e['RaceSetup']['Cars']  = ';'.join(selected_cars)
         track  = self.skcart[self.combo_tracks.get_text()]
-        layout = self.stuoyal[self.combo_layouts.get_text()]
+        layout = self.combo_layouts.get_text()
         if layout == _default_layout: layout = ''
+        else:                         layout = self.stuoyal[layout]
 
         e['RaceSetup']['Track']       = track
         e['RaceSetup']['TrackLayout'] = layout
@@ -1844,7 +1849,7 @@ class Uploader:
                 "GUID": "",
                 "Model": "any_car_model",
                 "Skin": "random_skin",
-                "ClassID": c['Classes'][0]['ClassID'],
+                "ClassID": "00000000-0000-0000-0000-000000000000",
                 "Ballast":    0, # self.tree_cars[car+'/ballast']    if car+'/ballast'    in self.tree_cars.keys() else 0,
                 "Restrictor": 0, # self.tree_cars[car+'/restrictor'] if car+'/restrictor' in self.tree_cars.keys() else 0,
                 "SpectatorMode": 0,
@@ -2096,8 +2101,9 @@ class Uploader:
         print('update_cars')
         
         # Disconnect the update signal until the end
-        self.list_cars    .itemSelectionChanged.disconnect()
-        self.list_carnames.itemSelectionChanged.disconnect()
+        self._updating_cars = True
+        # self.list_cars    .itemSelectionChanged.disconnect()
+        # self.list_carnames.itemSelectionChanged.disconnect()
 
         # Clear out the list 
         self.list_cars.clear()
@@ -2137,8 +2143,8 @@ class Uploader:
         self.srac_keys = list(self.srac.keys())
         self.cars_keys.sort()
         self.srac_keys.sort()
-        for key in self.cars_keys: egg.pyqtgraph.QtGui.QListWidgetItem(key, self.list_cars)
-        for key in self.srac_keys: egg.pyqtgraph.QtGui.QListWidgetItem(key, self.list_carnames)
+        for key in self.cars_keys: egg.pyqtgraph.Qt.QtWidgets.QListWidgetItem(key, self.list_cars)
+        for key in self.srac_keys: egg.pyqtgraph.Qt.QtWidgets.QListWidgetItem(key, self.list_carnames)
         
         # Filter
         #self._text_filter_cars_changed()

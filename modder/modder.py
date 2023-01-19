@@ -68,7 +68,7 @@ class Modder:
     GUI class for searching and modding content.
     """
 
-    def __init__(self, blocking=True):
+    def __init__(self, blocking=False):
 
         # When updating cars, we want to suppress some signals.
         self._init_running = True
@@ -94,8 +94,8 @@ class Modder:
             'SETUP.INI'         : {},
         }
 
-        # This will hold all the configs with the files above as keys.
-        self.ini_files = dict()
+        # This will hold all the config parsers with the files above as keys.
+        self.ini_parsers = dict()
 
 
         ######################
@@ -200,8 +200,6 @@ class Modder:
                 for key in self.ini[file][section]:
                     self.tree.add(file+'/'+section+'/'+key, '')
 
-        #self.tree.load_gui_settings()
-        
         # Make the plotter
         self.plot = self.grid_middle2.add(egg.gui.DataboxPlot(autosettings_path='plot'), alignment=0)
 
@@ -256,7 +254,6 @@ class Modder:
         """
         w = self.tree.get_widget(tree_key)
         
-        
         f = w.font(0)
         f.setBold(True)
         
@@ -284,9 +281,9 @@ class Modder:
 
         # Uncheck them all
         self._tree_changing = True
-        for file in self.ini_files: 
+        for file in self.ini_parsers: 
             self.tree[file] = False
-            for section in self.ini_files[file]: self.tree[file+'/'+section] = False
+            for section in self.ini_parsers[file]: self.tree[file+'/'+section] = False
             for section in self.ini[file]:       self.tree[file+'/'+section] = False
             
         self._tree_changing = False
@@ -384,7 +381,7 @@ class Modder:
             if file in self.ini and self.tree[file]:
                     
                 # Get the config parser for this file
-                c = self.ini_files[file]
+                c = self.ini_parsers[file]
                 
                 # If there is a section
                 if len(s) > 1:
@@ -400,8 +397,8 @@ class Modder:
                         c[section][s[2]] = self.tree[k]
                 
         # Write the files
-        for file in self.ini_files:
-            c = self.ini_files[file]
+        for file in self.ini_parsers:
+            c = self.ini_parsers[file]
             self.log('  Writing ', file.lower())
             with open(os.path.join(mod_car_path, 'data', file.lower()),'w') as f: 
                 c.write(f, space_around_delimiters=False)
@@ -457,7 +454,7 @@ class Modder:
 
     def reload_ini_files(self):
         """
-        Resets self.ini_files to the defaults.
+        Resets self.ini_parsers to the defaults.
         """
         # Get the path to the car
         car  = self.combo_car.get_text()
@@ -476,7 +473,7 @@ class Modder:
             c.optionxform = str
             try: c.read(os.path.join(data, file.lower()))
             except ParsingError: pass
-            self.ini_files[file] = c
+            self.ini_parsers[file] = c
 
     def load_car_data(self):
         """
@@ -516,7 +513,7 @@ class Modder:
             try: c.read(os.path.join(data, file.lower()))
             except ParsingError: pass
             
-            self.ini_files[file] = c
+            self.ini_parsers[file] = c
 
             # loop over the keys
             for section in c:
@@ -528,9 +525,13 @@ class Modder:
                 # Add keys
                 for key in c[section]:
                     k = s+'/'+key
+                    
+                    # Create or update the value from the parser
                     if k not in self.tree.keys():
-                        self.tree.add(k, self.get_ini_value(file, section, key))
-                    self.tree[k] = self.get_ini_value(file, section, key)
+                        x = self.get_ini_value(file, section, key)
+                        self.tree.add(k, x, tip='Original: '+str(x))
+                    else: 
+                        self.tree[k] = self.get_ini_value(file, section, key)
 
         # If we have already saved a tree for this car, load that data
         saved_tree_path = os.path.join(self.text_local(), 'content', 'cars', car, 'ui', 'jax-minimodder.txt')
@@ -550,12 +551,12 @@ class Modder:
 
     def get_ini_value(self, file, section, key):
         """
-        Returns the value string from self.ini_files.
+        Returns the value string from self.ini_parsers.
         """
-        if file    in self.ini_files and \
-           section in self.ini_files[file] and \
-           key     in self.ini_files[file][section]:
-               return str(self.ini_files[file][section][key].split(';')[0].strip())
+        if file    in self.ini_parsers and \
+           section in self.ini_parsers[file] and \
+           key     in self.ini_parsers[file][section]:
+               return str(self.ini_parsers[file][section][key].split(';')[0].strip())
         return None
 
     def set_tree_item_highlighted(self, key, highlighted=False):
@@ -565,9 +566,9 @@ class Modder:
         # Get the widget
         w = self.tree.get_widget(key)
         
+        # Set whether highlighted
         if highlighted: color = egg.pyqtgraph.QtGui.QColor(255,200,200)
         else:           color = w.background(0)
-        
         w.setBackground(1, color)
 
             
@@ -591,10 +592,10 @@ class Modder:
             file, section, key = s
             
             # If the file is not in the config parser set, skip
-            if file not in self.ini_files: continue
+            if file not in self.ini_parsers: continue
             
             # Get the config parser for this file
-            c = self.ini_files[file]
+            c = self.ini_parsers[file]
             
             # If the section isn't in there, we highlight
             if section not in c or self.tree[tk] != self.get_ini_value(file, section, key):  
@@ -608,11 +609,13 @@ class Modder:
         Highlights the changed items.
         """        
         self.log('Highlighting changed items...')
+        
         changed = self.get_changed_tree_keys()
         for tk in self.tree.keys():
-            if len(tk.split('/')) == 3:
+            tks = tk.split('/')
+            if len(tks) == 3:
                 self.set_tree_item_highlighted(tk, tk in changed)
-            
+                    
         
 
     def hide_unchanged(self):
@@ -627,8 +630,8 @@ class Modder:
         self.reload_ini_files()
         
         # Load default settings from the ini files themselves
-        for file in self.ini_files:
-            c = self.ini_files[file]
+        for file in self.ini_parsers:
+            c = self.ini_parsers[file]
             
             # loop over the keys
             for section in c:
@@ -706,7 +709,7 @@ class Modder:
                 self.tree.set_expanded(file, self.tree[file])
 
             # Expand sections
-            for section in self.ini_files[file]:
+            for section in self.ini_parsers[file]:
                 s = file+'/'+section
                 if s in self.tree.keys(): self.tree.set_expanded(s, self.tree[s])
             

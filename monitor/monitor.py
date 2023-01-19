@@ -12,7 +12,7 @@
 # The problem is that live_timings.json sticks around from the old venue (!). Let's add to monitor.ini the path to live_timings
 # and delete this on new venue.
 
-import os, json, discord, shutil, pprint, glob, time, datetime, urllib, dateutil.parser, socket
+import os, json, discord, shutil, pprint, glob, time, datetime, urllib, dateutil.parser, socket, requests
 
 # Change to the directory of this script
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
@@ -50,6 +50,10 @@ venue_header        = ''
 venue_subheader     = ''
 venue_recycle_message = True
 laps_footer         = ''
+
+# Join link construction
+join_link_finish = None
+server_ip        = None
 
 # Other
 web_archive_history = 0
@@ -974,6 +978,21 @@ class Monitor:
         return s
         
 
+    def get_join_link(self):
+        """
+        Generates a join link string.
+        """
+        # Generate the join link if we're supposed to
+        join_link = ''
+        if join_link_finish:
+            try: 
+                server_ip = requests.get('https://ifconfig.me', timeout=3).text
+                join_link = '[Join](<https://acstuff.ru/s/q:race/online/join?ip=' + server_ip + join_link_finish + '>)'
+            except Exception as e: 
+                log('  WARNING: no join link', e)
+
+        return join_link
+
     def send_state_messages(self):
         """
         Sends the state to the discord server. This includes a general info
@@ -981,6 +1000,9 @@ class Monitor:
         and a "hey!" post if people come online.
         """
         log('send_state_messages()')
+
+        # Generate the join link (or returns '' if disabled)
+        join_link = self.get_join_link()
 
         # Rescanning the track and car ui's already happens when the venue changes anyway.
         # self.load_ui_data()
@@ -1039,8 +1061,8 @@ class Monitor:
                     nametime1 = '**[Register (' + str(self['number_registered'][n]) + '/' + str(self['number_slots'][n]) + ')](' + url_registration[n] + ')**'
                     reg_string1 = nametime1  # Bottom registration stylized
 
-        # Get the footer now for later computing the length
-        footer = '\n\n'+reg_string1+laps_footer
+        # Get the laps info footer now for later computing the length
+        footer = '\n\n'+reg_string1+laps_footer+join_link
 
         # Track name
         track_name = self.state['track_name']
@@ -1094,7 +1116,7 @@ class Monitor:
             body1 = '**' + online_header + '**\n' + onlines
 
             # Send the message
-            self.state['online_message_id'] = self.send_message(self.webhook_online, body1, '', '\n\n'+online_footer, self.state['online_message_id'])
+            self.state['online_message_id'] = self.send_message(self.webhook_online, body1, '', '\n\n'+online_footer+join_link, self.state['online_message_id'])
             if self.state['online_message_id'] is None: log('DID NOT EDIT OR SEND ONLINES')
 
         # No one is currently online. 
@@ -1124,7 +1146,7 @@ class Monitor:
             # is an online_message_id, except on startup or new venue.
             if len(errbody):
                 body1 = session_complete_header+'\n\nParticipants:\n'+'\n'.join(errbody)
-                self.state['online_message_id'] = self.send_message(self.webhook_online, body1, '', '\n\n'+online_footer, self.state['online_message_id'], 0)
+                self.state['online_message_id'] = self.send_message(self.webhook_online, body1, '', '\n\n'+online_footer+self.get_join_link(), self.state['online_message_id'], 0)
                 
                 # Remember the time this message was "closed". If a new session
                 # starts within a little time of this, use the same message id
