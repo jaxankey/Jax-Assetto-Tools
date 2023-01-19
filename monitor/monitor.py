@@ -987,7 +987,7 @@ class Monitor:
         if join_link_finish:
             try: 
                 server_ip = requests.get('https://ifconfig.me', timeout=3).text
-                join_link = '[Join](<https://acstuff.ru/s/q:race/online/join?ip=' + server_ip + join_link_finish + '>)'
+                join_link = '**[Join](<https://acstuff.ru/s/q:race/online/join?ip=' + server_ip + join_link_finish + '>)**'
             except Exception as e: 
                 log('  WARNING: no join link', e)
 
