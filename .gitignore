@@ -12,3 +12,5 @@ egg_settings
 uploader/build
 uploader/uploader.spec
 *.pyc
+apps/send.bat
+*.pdf
