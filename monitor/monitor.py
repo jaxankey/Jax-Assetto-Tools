@@ -304,15 +304,18 @@ class Monitor:
         track_changed            = False  # for making new venue
         carset_fully_changed     = False  # for making new venue
         session_changed          = False  # If the session changes
+        server_state_changed     = False  # If the server has changed state
 
         # If the server is up, try to grab the "details" from 8081/api/details to learn who is online.
         if self.tcp_data_port_open:
             try: 
                 details = json.loads(urllib.request.urlopen(url_api_details, timeout=5).read(), strict=False)
+                if self.server_is_up == False: server_state_changed = True
                 self.server_is_up = True
             except Exception as e:
                 log('\n\nERROR: Could not open', url_api_details, e)
                 details = None
+                if self.server_is_up: server_state_changed = True
                 self.server_is_up = False
 
         # Sever is down, we don't know anything
@@ -483,7 +486,8 @@ class Monitor:
         or track_changed \
         or carset_fully_changed \
         or event_time_slots_changed \
-        or session_changed:
+        or session_changed \
+        or server_state_changed:
             self.send_state_messages()
             self.first_run = False
 
