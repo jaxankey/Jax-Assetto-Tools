@@ -1004,7 +1004,7 @@ class Monitor:
         if join_link_finish:
             
             # If the server is up, return the full join link etc.
-            if self.tcp_data_port_open:
+            if self.server_is_up:
                 try: 
                     server_ip = requests.get('https://ifconfig.me', timeout=3).text
                     join_link = '**[Join](<https://acstuff.ru/s/q:race/online/join?ip=' + server_ip + join_link_finish + '>)**'
