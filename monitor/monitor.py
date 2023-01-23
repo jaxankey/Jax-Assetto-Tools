@@ -152,7 +152,8 @@ class Monitor:
         self.live_timings  = None
 
         # Server status
-        self.server_is_up = True # Optimistic by default.
+        self.tcp_data_port_open = True # This is the 9600 port that is open when the server is "up". Stays open after a race.
+        self.server_is_up       = True # This is whether we have access to api_details (sever is actually up)
 
         # Discord webhook objects
         self.webhook_online  = None # List of webhooks
@@ -266,10 +267,10 @@ class Monitor:
         if debug: log('\n_premium_get_latest_data')
 
         # Test if the server is up
-        self.server_is_up = port_is_open('localhost', tcp_data_port)
+        self.tcp_data_port_open = port_is_open('localhost', tcp_data_port)
 
         # If we're down, send a message
-        if not self.server_is_up:
+        if not self.tcp_data_port_open:
 
             # But only if we're supposed to and there isn't already one
             if not no_down_warning and not self['down_message_id']:
@@ -285,6 +286,8 @@ class Monitor:
                 except Exception as e: 
                     print('ERROR: server down and cannot send state', e)
                 return
+            
+            # Otherwise we parse the championship and then send state messages
 
         # Otherwise, the server is up; if there is a down message, clear it
         elif self.state['down_message_id']:
@@ -303,14 +306,19 @@ class Monitor:
         session_changed          = False  # If the session changes
 
         # If the server is up, try to grab the "details" from 8081/api/details to learn who is online.
-        if self.server_is_up:
-            try: details = json.loads(urllib.request.urlopen(url_api_details, timeout=5).read(), strict=False)
+        if self.tcp_data_port_open:
+            try: 
+                details = json.loads(urllib.request.urlopen(url_api_details, timeout=5).read(), strict=False)
+                self.server_is_up = True
             except Exception as e:
                 log('\n\nERROR: Could not open', url_api_details, e)
                 details = None
+                self.server_is_up = False
 
         # Sever is down, we don't know anything
-        else: details = None
+        else: 
+            details = None
+            self.server_is_up = False
 
         # Get the previous set of onlines
         old = set()
@@ -995,13 +1003,15 @@ class Monitor:
         join_link = ''
         if join_link_finish:
             
-            if self.server_is_up:
+            # If the server is up, return the full join link etc.
+            if self.tcp_data_port_open:
                 try: 
                     server_ip = requests.get('https://ifconfig.me', timeout=3).text
                     join_link = '**[Join](<https://acstuff.ru/s/q:race/online/join?ip=' + server_ip + join_link_finish + '>)**'
                 except Exception as e: 
                     log('  WARNING: no join link', e)
 
+            # Otherwise return an unlinked "join" so people know where it WILL be when the server is up.
             else:
                 join_link = '**Join**'
 
@@ -1037,7 +1047,7 @@ class Monitor:
 
         # Get the list of who is online
         onlines = self.get_onlines_string()
-        log('  Online:\n', onlines)
+        #log('  Online:\n', onlines)
 
         ################################################################################################
         # INFO MESSAGE WITH LAPS AND ONLINE
