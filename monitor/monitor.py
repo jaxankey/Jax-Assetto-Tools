@@ -281,10 +281,10 @@ class Monitor:
             # If we don't have a championship to parse, quit out to avoid looping.
             if not path_championship[0]: 
                 
-                # Send state messages
-                try: self.send_state_messages()
-                except Exception as e: 
-                    print('ERROR: server down and cannot send state', e)
+                # Send state messages (not sure why this was here; there is one send_state_messages at the end if something changed)
+                # try: self.send_state_messages()
+                # except Exception as e: 
+                #     print('ERROR: server down and cannot send state', e)
                 return
             
             # Otherwise we parse the championship and then send state messages
