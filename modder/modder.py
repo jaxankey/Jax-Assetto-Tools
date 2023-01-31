@@ -10,8 +10,6 @@ import sys
 import spinmob
 import spinmob.egg as egg
 
-from configparser import RawConfigParser as ConfigParser
-from configparser import ParsingError
 from numpy import interp, linspace, isnan, unravel_index
 from scipy.signal import savgol_filter
 
@@ -22,6 +20,7 @@ print('WORKING DIRECTORY:')
 print(os.getcwd())
 
 exceptions = egg.gui.TimerExceptions()
+exceptions.start()
 
 # Function for loading a json at the specified path
 def load_json(path):
@@ -69,6 +68,8 @@ class Modder:
     """
 
     def __init__(self, blocking=False):
+
+        # JACK: self.ini vs self.ini_parsers
 
         # When updating cars, we want to suppress some signals.
         self._init_running = True
@@ -228,11 +229,12 @@ class Modder:
         """
     
         if not self.tree[file]: return
-        self.log('Generating '+file)
+        self.log('  Generating '+file)
         
         # Get the range of targeted ratio floats
-        rs = spinmob.fun.erange(self.tree[file+'/Start'], self.tree[file+'/Stop'], self.tree[file+'/Steps'])
-        
+        #rs = spinmob.fun.erange(self.tree[file+'/Start'], self.tree[file+'/Stop'], self.tree[file+'/Steps'])
+        rs = linspace(self.tree[file+'/Start'], self.tree[file+'/Stop'], self.tree[file+'/Steps'])
+
         # Open the ratios file
         with open(self.get_mod_path('data',file.lower()), 'w') as f:
         
@@ -300,6 +302,7 @@ class Modder:
         mod_car  = self.combo_car.get_text()+'_'+self.tree['Mod Tag'].lower().replace(' ', '_')
         return os.path.realpath(os.path.join(self.text_local(), 'content', 'cars', mod_car, *args))
     
+
     def _button_create_mod_clicked(self, *a):
         """
         Duplicates the currently selected car and creates a modded version.
@@ -315,7 +318,7 @@ class Modder:
         mod_car_path = os.path.realpath(os.path.join(self.text_local(), 'content', 'cars', mod_car))
 
         # Create a warning dialog and quit if cancelled
-        qmb = egg.pyqtgraph.QtGui.QMessageBox
+        qmb = egg.pyqtgraph.QtWidgets.QMessageBox
         ret = qmb.question(self.window._window, '******* WARNING *******',
           "This will create the mod '"+mod_name+"' and create / overwrite the folder "+mod_car_path,
           qmb.Ok | qmb.Cancel, qmb.Cancel)
@@ -388,7 +391,7 @@ class Modder:
                     section = s[1]
                     
                     # If there is not already a section in the config parser, add it
-                    if not section in c: c.add_section(section)
+                    if not section in c: c[section] = dict()
                     
                     # If we're supposed to modify the section and there is a key
                     if self.tree[file + '/' + section] and len(s) > 2:
@@ -398,10 +401,11 @@ class Modder:
                 
         # Write the files
         for file in self.ini_parsers:
-            c = self.ini_parsers[file]
-            self.log('  Writing ', file.lower())
-            with open(os.path.join(mod_car_path, 'data', file.lower()),'w') as f: 
-                c.write(f, space_around_delimiters=False)
+            self.write_ini_file(self.ini_parsers[file], mod_car_path, 'data', file.lower())
+
+            # self.log('  Writing ', file.lower())
+            # with open(os.path.join(mod_car_path, 'data', file.lower()),'w') as f: 
+            #     c.write(f, space_around_delimiters=False)
 
         # Now delete the data.acd
         mod_data_acd = os.path.join(mod_car_path, 'data.acd')
@@ -452,6 +456,63 @@ class Modder:
         """
         self.load_car_data()
 
+    def read_ini_file(self, *paths):
+        """
+        My own parser because dammit the other one is annoying af and doesn't like to play nice.
+        """
+        path = os.path.join(*paths)
+        print('read_ini_file', path)
+        with open(path, 'r') as f:
+
+            # Get the lines
+            lines = f.readlines()
+
+            # Organization: section, key, value
+            c = dict()
+            section = ''
+
+            # Loop over lines
+            for line in lines:
+
+                # Strip the comment
+                line = line.split(';')[0].strip()
+
+                # If it's empty or just a comment
+                if line == '': continue
+
+                # If it's a new section
+                if line[0] == '[':
+                    section = line[1:len(line)-1]
+                    continue
+            
+                # If it's a key-value pair
+                s = line.split('=')
+                if len(s) < 2: continue
+
+                # Create the section in the output dictionary
+                if not section in c: c[section] = dict()
+
+                # Store the key and value (string)
+                c[section][s[0].strip()] = s[1].strip()
+            
+        return c
+
+    def write_ini_file(self, c, *paths):
+        """
+        Writes the dictionary 'c' to the ini file format specified by paths
+        """
+        path = os.path.join(*paths)
+        self.log('  Overwriting', paths[-1])
+        with open(path,'w') as f: 
+            for section in c:
+
+                # Write the section header
+                f.write('\n['+section+']\n')
+
+                # Loop over sub-keys
+                for key in c[section]: f.write(key+'='+c[section][key]+'\n')
+
+
     def reload_ini_files(self):
         """
         Resets self.ini_parsers to the defaults.
@@ -468,12 +529,12 @@ class Modder:
         for file in self.ini:
             self.log('  Reloading', file)
             
-            # Load the existing data as dictionary
-            c = ConfigParser()
-            c.optionxform = str
-            try: c.read(os.path.join(data, file.lower()))
-            except ParsingError: pass
-            self.ini_parsers[file] = c
+            # # Load the existing data as dictionary
+            # c = ConfigParser()
+            # c.optionxform = str
+            # try: c.read(os.path.join(data, file.lower()))
+            # except ParsingError: pass
+            self.ini_parsers[file] = self.read_ini_file(data, file.lower())
 
     def load_car_data(self):
         """
@@ -508,10 +569,11 @@ class Modder:
             self.log('  Loading', file)
             
             # Load the existing data as dictionary
-            c = ConfigParser()
-            c.optionxform = str
-            try: c.read(os.path.join(data, file.lower()))
-            except ParsingError: pass
+            # c = ConfigParser()
+            # c.optionxform = str
+            # try: c.read(os.path.join(data, file.lower()))
+            # except ParsingError: pass
+            c = self.read_ini_file(data, file.lower())
             
             self.ini_parsers[file] = c
 
@@ -792,7 +854,8 @@ class Modder:
 
             # Make sure it exists.
             path_json = os.path.join(path, 'ui', 'ui_car.json')
-            if not os.path.exists(path_json): continue
+            path_data = os.path.join(path, 'data')
+            if not os.path.exists(path_json) or not os.path.exists(path_data): continue
 
             # Get the fancy car name (the jsons are not always well formatted, so I have to manually search!)
             s = load_json(path_json)
@@ -816,6 +879,8 @@ class Modder:
         for key in self.cars_keys: self.combo_car.add_item(key)
 
         self._updating_cars = False
+
+        self._combo_car_changed()
 
 
 # Start the show!

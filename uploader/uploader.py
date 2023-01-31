@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+# JACK: selecting from list doesn't seem to sync them. Not firing signal; 
+# also doesn't automatically select "[unsaved carset]"
+
 
 import glob, codecs, os, sys, shutil, random, json, pyperclip, webbrowser, stat
 import dateutil, subprocess, time, datetime, importlib
@@ -11,6 +14,9 @@ print('WORKING DIRECTORY:')
 print(os.getcwd())
 
 import spinmob.egg as egg
+
+error_timer = egg.gui.TimerExceptions()
+error_timer.start()
 
 _default_layout = '[default layout]'
 _unsaved_carset = '[Unsaved Carset]'
@@ -1046,7 +1052,7 @@ class Uploader:
     def _list_carnames_changed(self, e=None):
         """
         """
-        if self._loading_uploader or self._loading_cars: return
+        if self._loading_uploader or self._updating_cars: return
         print('_list_carnames_changed')
 
         # If we changed something, unselect the carset since that's not valid any more
@@ -1067,7 +1073,7 @@ class Uploader:
         """
         Just set the carset combo when anything changes.
         """
-        if self._loading_uploader or self._loading_cars: return
+        if self._loading_uploader or self._updating_cars: return
         print('_list_cars_changed')
 
         # If we changed something, unselect the carset since that's not valid any more
@@ -1098,8 +1104,9 @@ class Uploader:
         # Syncrhonize the selections from this list to the other one
         cars = []
         for car in self.get_selected_carnames(): cars.append(self.srac[car])
+        
         self.set_list_selection(cars, self.list_cars, self._list_cars_changed)
-    
+        
     # def _tree_cars_changed(self, *a):
     #     """
     #     Something changed in the tree.
@@ -1641,7 +1648,8 @@ class Uploader:
         Selects the specified list of cars.
         """
         # Disconnect the update signal until the end
-        widget.itemSelectionChanged.disconnect()
+        self._updating_cars = True
+        #widget.itemSelectionChanged.disconnect()
 
         # Update the list selection
         widget.clearSelection()
@@ -1652,7 +1660,8 @@ class Uploader:
                 except: self.log('WARNING: '+s+' not in list')
         
         # Reconnect and call it for good measure.
-        widget.itemSelectionChanged.connect(itemSelectionChanged)
+        self._updating_cars = False
+        #widget.itemSelectionChanged.connect(itemSelectionChanged)
         
     def _button_load_clicked(self,e):
         """
@@ -2153,6 +2162,8 @@ class Uploader:
         self.list_cars    .itemSelectionChanged.connect(self._list_cars_changed)
         self.list_carnames.itemSelectionChanged.connect(self._list_carnames_changed)
     
+        self._updating_cars = False
+
     def update_skins(self, wait_for_zip=False):
         """
         Runs the pre-script (presumably copies latest skins into local assetto),
