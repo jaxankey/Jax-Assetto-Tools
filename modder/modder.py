@@ -90,10 +90,10 @@ class Modder:
 
         # Lookup table for which files to mod, with extra sections possible
         self.ini_seed = {
+            'AERO.INI'          : {},
             'CAR.INI'           : {'RULES': {'MIN_HEIGHT': '0.000'}},
             'DRIVETRAIN.INI'    : {},
-            'SUSPENSIONS.INI'   : {},
-            'TYRES.INI'         : {},
+            'ENGINE.INI'        : {},
             'SETUP.INI'         : {
                 'FINAL_GEAR_RATIO': {
                     'RATIOS' : 'final.rto',
@@ -103,11 +103,13 @@ class Modder:
                     'HELP'   : 'HELP_REAR_GEAR'
                 }
             },
+            'SUSPENSIONS.INI'   : {},
+            'TYRES.INI'         : {},
         }
 
-        # This will hold all the config parsers with the files above as keys.
-        self.ini_data = dict()
-
+        # This will hold all the data from the ini files.
+        self.ini_source = dict()
+        
 
         ######################
         # Build the GUI
@@ -215,7 +217,7 @@ class Modder:
             for section in self.ini_seed[file]:
                 self.tree.add(file+'/'+section, ['leave', 'modify', 'remove'])
                 for key in self.ini_seed[file][section]:
-                    self.tree.add(file+'/'+section+'/'+key, self.ini_seed[file][section][key])
+                    self.tree.add(file+'/'+section+'/'+key, self.ini_seed[file][section][key], tip='(manually created)')
 
         print('\nMAKING PLOTTER')
         # Make the plotter
@@ -323,10 +325,10 @@ class Modder:
 
         # Uncheck them all
         self._tree_changing = True
-        for file in self.ini_data: 
+        for file in self.ini_source: 
             self.tree[file] = False
-            for section in self.ini_data[file]: self.tree[file+'/'+section] = False
-            for section in self.ini_seed[file]:         self.tree[file+'/'+section] = False
+            for section in self.ini_source[file]: self.tree[file+'/'+section] = False
+            for section in self.ini_seed[file]:   self.tree[file+'/'+section] = False
             
         self._tree_changing = False
 
@@ -421,6 +423,8 @@ class Modder:
         # INI FILES
         ##################
         
+        ini_modded = dict(self.ini_source)
+
         # Loop over all the tree keys, e.g. SETUP.INI/SPRING_RATE_LF/NAME
         for k in self.tree.keys():
 
@@ -438,13 +442,13 @@ class Modder:
                 # Section
                 section = s[1] # e.g. 'SPRING_RATE_LF'
 
-                # Get the dictionary for this file
-                c = self.ini_data[file]
+                # We will populated this with the modded values from the tree
+                c = ini_modded[file]
 
                 # If we're supposed to modify the section and there is a key
                 if self.tree[file + '/' + section] == 'modify' and len(s) > 2:
 
-                    # If there is not already a section in the config parser, add it
+                    # If there is not already a section in the tree, add it
                     if not section in c: c[section] = dict()
                                     
                     # Update the key to the tree value
@@ -457,9 +461,9 @@ class Modder:
                     c.pop(section)
             
         # Write the files
-        for file in self.ini_data:
+        for file in ini_modded:
             if self.tree[file] == 'modify':
-                self.write_ini_file(self.ini_data[file], mod_car_path, 'data', file.lower())
+                self.write_ini_file(ini_modded[file], mod_car_path, 'data', file.lower())
 
         # Now delete the data.acd
         mod_data_acd = os.path.join(mod_car_path, 'data.acd')
@@ -571,22 +575,22 @@ class Modder:
                 for key in c[section]: f.write(key+'='+c[section][key]+'\n')
 
 
-    def reload_ini_files(self):
-        """
-        Resets self.ini_data to the defaults.
-        """
-        # Get the path to the car
-        car  = self.combo_car.get_text()
-        data = os.path.realpath(os.path.join(self.text_local(), 'content', 'cars', car, 'data'))
+    # def reload_ini_files(self):
+    #     """
+    #     Resets self.ini_source to the defaults.
+    #     """
+    #     # Get the path to the car
+    #     car  = self.combo_car.get_text()
+    #     data = os.path.realpath(os.path.join(self.text_local(), 'content', 'cars', car, 'data'))
         
-        if not os.path.exists(data):
-            self.log('ERROR: Data folder not present. Make sure you unpack data.acd.')
-            return
+    #     if not os.path.exists(data):
+    #         self.log('ERROR: Data folder not present. Make sure you unpack data.acd.')
+    #         return
         
-        # Load default settings from the ini files themselves
-        for file in self.ini_seed:
-            self.log('  Reloading', file)
-            self.ini_data[file] = self.read_ini_file(data, file.lower())
+    #     # Load default settings from the ini files themselves
+    #     for file in self.ini_seed:
+    #         print('  Reloading', file)
+    #         self.ini_source[file] = self.read_ini_file(data, file.lower())
 
     def load_car_data(self):
         """
@@ -623,8 +627,8 @@ class Modder:
             
             # Start clean
             c = self.read_ini_file(data, file.lower())
-            self.ini_data[file] = c
-
+            self.ini_source[file] = dict(c) # make a copy we will not change
+            
             # loop over the keys
             for section in c:
 
@@ -636,12 +640,12 @@ class Modder:
                 for key in c[section]:
                     k = s+'/'+key
                     
-                    # Create or update the value from the parser
+                    # Create or update the item
                     if k not in self.tree.keys():
-                        x = self.get_ini_value(file, section, key)
+                        x = self.get_ini_source_value(file, section, key)
                         self.tree.add(k, x, tip='Original: '+str(x))
                     else: 
-                        self.tree[k] = self.get_ini_value(file, section, key)
+                        self.tree[k] = self.get_ini_source_value(file, section, key)
 
         # Load USER settings from the saved json
         saved_tree_path = os.path.join(self.text_local(), 'content', 'cars', car, 'ui', 'jax-minimodder.txt')
@@ -659,14 +663,15 @@ class Modder:
         
         return True
 
-    def get_ini_value(self, file, section, key):
+    def get_ini_source_value(self, file, section, key):
         """
-        Returns the value string from self.ini_data.
+        Returns the value string from self.ini_source if it's there, or self.ini_source if not.
         """
-        if file    in self.ini_data and \
-           section in self.ini_data[file] and \
-           key     in self.ini_data[file][section]:
-               return str(self.ini_data[file][section][key].split(';')[0].strip())
+        if file  in self.ini_source         and \
+           section in self.ini_source[file] and \
+           key     in self.ini_source[file][section]:
+               return str(self.ini_source[file][section][key].split(';')[0].strip())
+        
         return None
 
     def set_tree_item_highlighted(self, key, highlighted=False):
@@ -689,27 +694,31 @@ class Modder:
         """
         print('get_changed_tree_keys')
         
-        # Reload car data to original values
-        self.reload_ini_files()
-        
-        # Loop over all keys
-        changed_keys = []
+        # Loop over all keys in the tree
+        changed_keys = [] # Just a list to return at the end
         for tk in self.tree.keys():
-            s = tk.split('/')
+            s = tk.split('/') # [file, section, key]
+            
+            # If we're length 1, it's a file
+            if len(s) == 1: 
+                if self.tree[tk] in ['modify', 'remove']: changed_keys.append(tk)
+            
+            # If we're length 2 it s file/section
+            elif len(s) == 2:
+                if self.tree[tk] in ['modify', 'remove']: changed_keys.append(tk)
             
             # If we're length 3, that means we have file/section/key
-            if len(s) < 3: continue
-            file, section, key = s
-            
-            # If the file is not in the config parser set, skip
-            if file not in self.ini_data: continue
-            
-            # Get the config parser for this file
-            c = self.ini_data[file]
-            
-            # If the section isn't in there, we highlight
-            if section not in c or self.tree[tk] != self.get_ini_value(file, section, key):  
-                changed_keys.append(tk)
+            else:
+                file, section, key = s
+                
+                # We don't highlight things that aren't regular ini files
+                if file not in self.ini_source: continue
+
+                # If the section is not in the source data 
+                # or the value is different from the source data, append
+                if section not in self.ini_source[file] \
+                or self.tree[tk] != self.get_ini_source_value(file, section, key):  
+                    changed_keys.append(tk)
                 
         return changed_keys
             
@@ -718,7 +727,7 @@ class Modder:
         """
         Highlights the changed items.
         """        
-        self.log('Highlighting changed items...')
+        print('\nHighlighting changed items...')
         
         changed = self.get_changed_tree_keys()
         for tk in self.tree.keys():
@@ -734,32 +743,57 @@ class Modder:
         """
         print('hide_unchanged')
         
+        # Toggle
         unhide = not self.button_hide_unchanged()
         
         # Reload car data to original values
-        self.reload_ini_files()
+        #self.reload_ini_files()
         
-        # Load default settings from the ini files themselves
-        for file in self.ini_data:
-            c = self.ini_data[file]
-            
-            # loop over the keys
-            for section in c:
-                ts = file + '/' + section
-                
-                # Hide the section if it's unchecked
-                if ts in self.tree.keys(): 
-                    self.tree.hide_parameter(ts, self.tree[ts] or unhide)
-                
-                    # Hide keys that aren't different.
-                    for key in c[section]:
-                        tk = file + '/' + section + '/' + key
-                        self.tree.hide_parameter(tk, self.tree[tk] != self.get_ini_value(file, section, key) or unhide)
+        # Try to freeze the system so it doesn't generate signals
+        self.window.block_signals()
 
-            # loop over the extras
-            for section in self.ini_seed[file]:
-                ts = file + '/' + section
-                self.tree.hide_parameter(ts, self.tree[ts] or unhide)
+        # Loop over all the tree keys
+        for tk in self.tree.keys():
+            s = tk.split('/')
+
+            # If we have one element, it's a file
+            if len(s) == 1:
+                if tk == 'Mod Tag': continue 
+                
+                # If the file is not to be modified, hide
+                if self.tree[tk] == 'leave': self.tree.hide_parameter(tk, unhide)
+            
+            # If we have two, it's a file/section situation
+            elif len(s) == 2:
+                if self.tree[tk] == 'leave': self.tree.hide_parameter(tk, unhide)
+            
+            # If it's 3, we have file/section/parameter and need to see if it's different
+            elif len(s) == 3:
+                if self.tree[tk] == self.get_ini_source_value(*s): self.tree.hide_parameter(tk, unhide)
+
+        self.window.unblock_signals()
+
+        # # Load default settings from the ini files themselves
+        # for file in self.ini_source:
+        #     c = self.ini_source[file]
+            
+        #     # loop over the keys
+        #     for section in c:
+        #         ts = file + '/' + section
+                
+        #         # Hide the section if it's unchecked
+        #         if ts in self.tree.keys(): 
+        #             self.tree.hide_parameter(ts, self.tree[ts] or unhide)
+                
+        #             # Hide keys that have the same values.
+        #             for key in c[section]:
+        #                 tk = file + '/' + section + '/' + key
+        #                 self.tree.hide_parameter(tk, self.tree[tk] != self.get_ini_source_value(file, section, key) or unhide)
+
+        #     # loop over the extras
+        #     for section in self.ini_seed[file]:
+        #         ts = file + '/' + section
+        #         self.tree.hide_parameter(ts, self.tree[ts] or unhide)
                 
 
 
@@ -822,7 +856,7 @@ class Modder:
                 self.tree.set_expanded(file, self.tree[file]=='modify')
 
             # Expand sections
-            for section in self.ini_data[file]:
+            for section in self.ini_source[file]:
                 s = file+'/'+section
                 if s in self.tree.keys(): self.tree.set_expanded(s, self.tree[s]=='modify')
             
