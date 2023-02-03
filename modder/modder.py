@@ -41,7 +41,8 @@ def rmtree(top):
     """
     Implemented to take care of chmod
     """
-    def rm_readonly(func, path):
+    def rm_readonly(func, path, *a):
+        #if len(a): print('rm_readonly:', a)
         os.chmod(path, stat.S_IWRITE)
         func(path)
         
@@ -77,6 +78,7 @@ class Modder:
         self._loading_car_data = False
         self._expanding_tree = False
         self._tree_changing = False
+        self._creating_mod = False
 
         # Other variables
         self.source_power_lut = None # Used to hold the source power.lut data.
@@ -87,16 +89,24 @@ class Modder:
         self.srac_keys = None
 
         # Lookup table for which files to mod, with extra sections possible
-        self.ini = {
-            'CAR.INI'           : {'RULES': ['MIN_HEIGHT']},
+        self.ini_seed = {
+            'CAR.INI'           : {'RULES': {'MIN_HEIGHT': '0.000'}},
             'DRIVETRAIN.INI'    : {},
             'SUSPENSIONS.INI'   : {},
             'TYRES.INI'         : {},
-            'SETUP.INI'         : {},
+            'SETUP.INI'         : {
+                'FINAL_GEAR_RATIO': {
+                    'RATIOS' : 'final.rto',
+                    'NAME'   : 'Final Gear Ratio',
+                    'POS_X'  : '1',
+                    'POS_Y'  : '8',
+                    'HELP'   : 'HELP_REAR_GEAR'
+                }
+            },
         }
 
         # This will hold all the config parsers with the files above as keys.
-        self.ini_parsers = dict()
+        self.ini_data = dict()
 
 
         ######################
@@ -165,7 +175,7 @@ class Modder:
         
         self.tree.add('Mod Tag', 'R')
 
-        self.tree.add('POWER.LUT', ['leave', 'change'])
+        self.tree.add('POWER.LUT', ['leave', 'modify'])
         self.set_tree_item_style_header('POWER.LUT')
         
         self.tree.add('POWER.LUT/Restrictor', False)
@@ -176,7 +186,7 @@ class Modder:
         self.tree.add('POWER.LUT/Smooth/Window', 5)
         self.tree.add('POWER.LUT/Smooth/Order', 3)
         
-        self.tree.add('RATIOS.RTO', ['leave', 'change'])
+        self.tree.add('RATIOS.RTO', ['leave', 'modify'])
         self.set_tree_item_style_header('RATIOS.RTO')
 
         self.tree.add('RATIOS.RTO/Start', 2.64, bounds=(0,None))
@@ -184,8 +194,9 @@ class Modder:
         self.tree.add('RATIOS.RTO/Steps', 24)
         self.tree.add('RATIOS.RTO/Min',   7)
         self.tree.add('RATIOS.RTO/Max',  37)
+        self.tree.add_button('RATIOS.RTO/Preview', tip='Generate and send the output to the log', signal_clicked=self._button_test_ratios_clicked)
         
-        self.tree.add('FINAL.RTO', ['leave', 'change'])
+        self.tree.add('FINAL.RTO', ['leave', 'modify'])
         self.set_tree_item_style_header('FINAL.RTO')
 
         self.tree.add('FINAL.RTO/Start', 4, bounds=(0,None))
@@ -193,17 +204,18 @@ class Modder:
         self.tree.add('FINAL.RTO/Steps', 24)
         self.tree.add('FINAL.RTO/Min',   7)
         self.tree.add('FINAL.RTO/Max',   42)
+        self.tree.add_button('FINAL.RTO/Preview', tip='Generate and send the output to the log', signal_clicked=self._button_test_final_clicked)
+        
         
         # Populate those specified outside the file itself        
-        for file in self.ini:
-            self.tree.add(file, ['leave', 'change'])
+        for file in self.ini_seed:
+            self.tree.add(file, ['leave', 'modify'])
             self.set_tree_item_style_header(file)
             
-            for section in self.ini[file]:
-                self.tree.add(file+'/'+section, ['leave', 'change', 'remove'])
-                for key in self.ini[file][section]:
-                    self.tree.add(file+'/'+section+'/'+key, '')
-
+            for section in self.ini_seed[file]:
+                self.tree.add(file+'/'+section, ['leave', 'modify', 'remove'])
+                for key in self.ini_seed[file][section]:
+                    self.tree.add(file+'/'+section+'/'+key, self.ini_seed[file][section][key])
 
         print('\nMAKING PLOTTER')
         # Make the plotter
@@ -234,25 +246,42 @@ class Modder:
         print('\nSHOWING')
         self.window.show(blocking)
 
-    def generate_rto(self, file='RATIOS.RTO'):
+    def _button_test_ratios_clicked(self, *a):
+        """
+        Generates ratio file contents for the log.
+        """
+        self.generate_rto('RATIOS.RTO', test=True)
+
+    def _button_test_final_clicked(self, *a):
+        """
+        Generates final.rto for log.
+        """
+        self.generate_rto('FINAL.RTO', test=True)
+
+    def generate_rto(self, file='RATIOS.RTO', test=False):
         """
         Generates the ratio selection.
         """
     
         if not self.tree[file]: return
-        self.log('  Generating '+file)
         
         # Get the range of targeted ratio floats
         #rs = spinmob.fun.erange(self.tree[file+'/Start'], self.tree[file+'/Stop'], self.tree[file+'/Steps'])
         rs = linspace(self.tree[file+'/Start'], self.tree[file+'/Stop'], self.tree[file+'/Steps'])
 
-        # Open the ratios file
-        with open(self.get_mod_path('data',file.lower()), 'w') as f:
-        
-            # Get the nearest fraction for each
-            for r in rs:
-                n,d = nearest_fraction(r, self.tree[file+'/Min'], self.tree[file+'/Max'])
-                f.write('%i//%i|%0.3f\n' % (d, n, n/d) )
+        # Get the nearest fraction for each
+        s = ''
+        for r in rs:
+            n,d = nearest_fraction(r, self.tree[file+'/Min'], self.tree[file+'/Max'])
+            s = s+'%i//%i|%0.3f\n' % (d, n, n/d)
+
+        # Write the file or show it.
+        if not test:
+            with open(self.get_mod_path('data',file.lower()), 'w') as f:
+                self.log('  Creating new '+file)
+                f.write(s)
+        else:  self.log('\n'+file+'\n', s)
+                
                 
 
     def _button_hide_unchanged_toggled(self, *a):
@@ -294,10 +323,10 @@ class Modder:
 
         # Uncheck them all
         self._tree_changing = True
-        for file in self.ini_parsers: 
+        for file in self.ini_data: 
             self.tree[file] = False
-            for section in self.ini_parsers[file]: self.tree[file+'/'+section] = False
-            for section in self.ini[file]:         self.tree[file+'/'+section] = False
+            for section in self.ini_data[file]: self.tree[file+'/'+section] = False
+            for section in self.ini_seed[file]:         self.tree[file+'/'+section] = False
             
         self._tree_changing = False
 
@@ -314,16 +343,19 @@ class Modder:
         return os.path.realpath(os.path.join(self.text_local(), 'content', 'cars', mod_car, *args))
     
 
-    def _button_create_mod_clicked(self, *a):
+    def _button_create_mod_clicked(self, *a): self.create_mod()
+    def create_mod(self):
         """
         Duplicates the currently selected car and creates a modded version.
         """
+        self._creating_mod = True
 
-        # Get the mod name and new folder name
+        # Source car 
         car      = self.combo_car.get_text()
         car_name = self.cars[car]
         car_path = os.path.realpath(os.path.join(self.text_local(), 'content', 'cars', car))
         
+        # Mod name, folder, and path
         mod_name = car_name + '-'+self.tree['Mod Tag']
         mod_car  = car+'_'+self.tree['Mod Tag'].lower().replace(' ', '_')
         mod_car_path = os.path.realpath(os.path.join(self.text_local(), 'content', 'cars', mod_car))
@@ -349,7 +381,7 @@ class Modder:
         self.log('  Copying '+car+' -> '+mod_car)
         shutil.copytree(car_path, mod_car_path)
 
-        # Now update power.lut
+        # POWER.LUT
         d = self.plot
         if self.tree['POWER.LUT']:
             self.log('  Updating power.lut')
@@ -361,7 +393,7 @@ class Modder:
                     f.write(line)
             f.close()
 
-        # Now update the ui.json
+        # UI.JSON
         self.log('  Updating ui_car.json')
         mod_ui = os.path.realpath(os.path.join(mod_car_path, 'ui', 'ui_car.json'))
         x = load_json(mod_ui)
@@ -381,7 +413,7 @@ class Modder:
         x['minimodder'] = self.tree.get_dictionary()[1]
         json.dump(x, open(mod_ui, 'w'), indent=2)
 
-        # Gear Ratios
+        # RATIOS AND FINAL RTO
         self.generate_rto('RATIOS.RTO')
         self.generate_rto('FINAL.RTO')
 
@@ -389,39 +421,45 @@ class Modder:
         # INI FILES
         ##################
         
-        # Update the config parser for each file
+        # Loop over all the tree keys, e.g. SETUP.INI/SPRING_RATE_LF/NAME
         for k in self.tree.keys():
 
             # k is something like SETUP.INI/SPRING_RATE_LF/NAME
             s = k.split('/') # ['SETUP.INI', 'SPRING_RATE_LF', 'NAME']
             file = s[0]      # 'SETUP.INI'
             
-            # If it's a file we modify and we have it checked
-            if file in self.ini and self.tree[file]:
+            # If it's an ini file (not another category) 
+            # and we have it set to be changed, modify it
+            if file in self.ini_seed and self.tree[file] == 'modify':
                                     
                 # Only proceed if there is a section
                 if len(s) <= 1: continue
-                section = s[1] # 'SPRING_RATE_LF'
+                
+                # Section
+                section = s[1] # e.g. 'SPRING_RATE_LF'
 
                 # Get the dictionary for this file
-                c = self.ini_parsers[file]
+                c = self.ini_data[file]
 
                 # If we're supposed to modify the section and there is a key
-                if self.tree[file + '/' + section] and len(s) > 2:
+                if self.tree[file + '/' + section] == 'modify' and len(s) > 2:
 
                     # If there is not already a section in the config parser, add it
                     if not section in c: c[section] = dict()
                                     
                     # Update the key to the tree value
                     c[section][s[2]] = self.tree[k]
+                
+                # If we're supposed to remove it, pop it from the dictionary
+                # so it's not written
+                elif self.tree[file + '/' + section] == 'remove' and len(s) == 2: 
+                    print('  popping', file, section)
+                    c.pop(section)
             
         # Write the files
-        for file in self.ini_parsers:
-            self.write_ini_file(self.ini_parsers[file], mod_car_path, 'data', file.lower())
-
-            # self.log('  Writing ', file.lower())
-            # with open(os.path.join(mod_car_path, 'data', file.lower()),'w') as f: 
-            #     c.write(f, space_around_delimiters=False)
+        for file in self.ini_data:
+            if self.tree[file] == 'modify':
+                self.write_ini_file(self.ini_data[file], mod_car_path, 'data', file.lower())
 
         # Now delete the data.acd
         mod_data_acd = os.path.join(mod_car_path, 'data.acd')
@@ -443,6 +481,9 @@ class Modder:
 
         # Remember our selection and scan
         self.button_scan.click()
+
+        # All done
+        self._creating_mod = False
         self.combo_car.set_index(self.combo_car.get_index(car))
 
         # Open the mod car path
@@ -462,7 +503,9 @@ class Modder:
         """
         Someone changed the car combo.
         """
-        if self._updating_cars or self._init_running: return
+        if self._updating_cars \
+        or self._init_running  \
+        or self._creating_mod: return
         self.log('New car selected.')
         self.load_car_data()
 
@@ -530,7 +573,7 @@ class Modder:
 
     def reload_ini_files(self):
         """
-        Resets self.ini_parsers to the defaults.
+        Resets self.ini_data to the defaults.
         """
         # Get the path to the car
         car  = self.combo_car.get_text()
@@ -541,15 +584,9 @@ class Modder:
             return
         
         # Load default settings from the ini files themselves
-        for file in self.ini:
+        for file in self.ini_seed:
             self.log('  Reloading', file)
-            
-            # # Load the existing data as dictionary
-            # c = ConfigParser()
-            # c.optionxform = str
-            # try: c.read(os.path.join(data, file.lower()))
-            # except ParsingError: pass
-            self.ini_parsers[file] = self.read_ini_file(data, file.lower())
+            self.ini_data[file] = self.read_ini_file(data, file.lower())
 
     def load_car_data(self):
         """
@@ -581,19 +618,19 @@ class Modder:
         self.source_power_lut = spinmob.data.load(power_lut, delimiter='|')
 
         # Load DEFAULT settings from the ini files themselves
-        for file in self.ini:
+        for file in self.ini_seed:
             self.log('  Loading', file)
             
             # Start clean
             c = self.read_ini_file(data, file.lower())
-            self.ini_parsers[file] = c
+            self.ini_data[file] = c
 
             # loop over the keys
             for section in c:
 
                 # Add section
                 s = file + '/' + section
-                if s not in self.tree.keys(): self.tree.add(s, ['leave', 'change', 'remove'])
+                if s not in self.tree.keys(): self.tree.add(s, ['leave', 'modify', 'remove'])
                     
                 # Add keys
                 for key in c[section]:
@@ -624,12 +661,12 @@ class Modder:
 
     def get_ini_value(self, file, section, key):
         """
-        Returns the value string from self.ini_parsers.
+        Returns the value string from self.ini_data.
         """
-        if file    in self.ini_parsers and \
-           section in self.ini_parsers[file] and \
-           key     in self.ini_parsers[file][section]:
-               return str(self.ini_parsers[file][section][key].split(';')[0].strip())
+        if file    in self.ini_data and \
+           section in self.ini_data[file] and \
+           key     in self.ini_data[file][section]:
+               return str(self.ini_data[file][section][key].split(';')[0].strip())
         return None
 
     def set_tree_item_highlighted(self, key, highlighted=False):
@@ -665,10 +702,10 @@ class Modder:
             file, section, key = s
             
             # If the file is not in the config parser set, skip
-            if file not in self.ini_parsers: continue
+            if file not in self.ini_data: continue
             
             # Get the config parser for this file
-            c = self.ini_parsers[file]
+            c = self.ini_data[file]
             
             # If the section isn't in there, we highlight
             if section not in c or self.tree[tk] != self.get_ini_value(file, section, key):  
@@ -703,8 +740,8 @@ class Modder:
         self.reload_ini_files()
         
         # Load default settings from the ini files themselves
-        for file in self.ini_parsers:
-            c = self.ini_parsers[file]
+        for file in self.ini_data:
+            c = self.ini_data[file]
             
             # loop over the keys
             for section in c:
@@ -720,7 +757,7 @@ class Modder:
                         self.tree.hide_parameter(tk, self.tree[tk] != self.get_ini_value(file, section, key) or unhide)
 
             # loop over the extras
-            for section in self.ini[file]:
+            for section in self.ini_seed[file]:
                 ts = file + '/' + section
                 self.tree.hide_parameter(ts, self.tree[ts] or unhide)
                 
@@ -774,25 +811,25 @@ class Modder:
 
         self._expanding_tree = True
         
-        self.tree.set_expanded('POWER.LUT',  self.tree['POWER.LUT']=='change')
-        self.tree.set_expanded('RATIOS.RTO', self.tree['POWER.LUT']=='change')
-        self.tree.set_expanded('FINAL.RTO',  self.tree['POWER.LUT']=='change')
+        self.tree.set_expanded('POWER.LUT',  self.tree['POWER.LUT']=='modify')
+        self.tree.set_expanded('RATIOS.RTO', self.tree['RATIOS.RTO']=='modify')
+        self.tree.set_expanded('FINAL.RTO',  self.tree['FINAL.RTO']=='modify')
         
-        for file in self.ini:
+        for file in self.ini_seed:
 
             # Expand top level
             if file in self.tree.keys():
-                self.tree.set_expanded(file, self.tree[file]=='change')
+                self.tree.set_expanded(file, self.tree[file]=='modify')
 
             # Expand sections
-            for section in self.ini_parsers[file]:
+            for section in self.ini_data[file]:
                 s = file+'/'+section
-                if s in self.tree.keys(): self.tree.set_expanded(s, self.tree[s]=='change')
+                if s in self.tree.keys(): self.tree.set_expanded(s, self.tree[s]=='modify')
             
             # Expand added sections
-            for section in self.ini[file]:
+            for section in self.ini_seed[file]:
                 s = file+'/'+section
-                if s in self.tree.keys(): self.tree.set_expanded(s, self.tree[s]=='change')
+                if s in self.tree.keys(): self.tree.set_expanded(s, self.tree[s]=='modify')
 
         self.window.process_events()
         self._expanding_tree = False
