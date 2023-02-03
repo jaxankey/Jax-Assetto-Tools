@@ -159,7 +159,7 @@ class Modder:
             tip='Undoes all changes to the files below.',
             signal_clicked=self._button_reset_inis_clicked))
 
-        self.button_hide_unchanged = self.grid_middle.add(egg.gui.Button('Hide Unchanged', 
+        self.button_hide_unchanged = self.grid_middle.add(egg.gui.CheckBox('Hide Unchanged', 
             True, tip='Hides everything that will not be changed.',
             autosettings_path='button_hide'))
         self.button_hide_unchanged.signal_toggled.connect(self._button_hide_unchanged_toggled)
@@ -678,8 +678,10 @@ class Modder:
         """
         Sets whether the item is highlighted.
         """
+        if len(key.split('/')) < 3: print(key, highlighted)
+
         # Get the widget
-        w = self.tree.get_widget(key)
+        w = self.tree.get_widget(key) 
         
         # Set whether highlighted
         if highlighted: color = egg.pyqtgraph.QtGui.QColor(255,200,200)
@@ -701,7 +703,7 @@ class Modder:
             
             # If we're length 1, it's a file
             if len(s) == 1: 
-                if self.tree[tk] in ['modify', 'remove']: changed_keys.append(tk)
+                if self.tree[tk] in ['modify']: changed_keys.append(tk)
             
             # If we're length 2 it s file/section
             elif len(s) == 2:
@@ -728,12 +730,14 @@ class Modder:
         Highlights the changed items.
         """        
         print('\nHighlighting changed items...')
-        
+        self.window.block_signals()
+
         changed = self.get_changed_tree_keys()
         for tk in self.tree.keys():
             tks = tk.split('/')
-            if len(tks) == 3:
-                self.set_tree_item_highlighted(tk, tk in changed)
+            self.set_tree_item_highlighted(tk, tk in changed)
+        
+        self.window.unblock_signals()
                     
         
 
