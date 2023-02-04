@@ -9,7 +9,7 @@ import stat
 import sys
 import spinmob
 import spinmob.egg as egg
-
+from copy import deepcopy
 from numpy import interp, linspace, isnan, unravel_index
 from scipy.signal import savgol_filter
 
@@ -21,6 +21,15 @@ print(os.getcwd())
 
 exceptions = egg.gui.TimerExceptions()
 exceptions.start()
+
+def generate_linear_gears(start=2.6, stop=1.2, steps=6):
+        """
+        Just prints out a list of gear values having equal steps in top speed.
+        """
+        x1 = 1/start
+        x2 = 1/stop
+        xs = linspace(x1,x2,steps)
+        return 1/xs
 
 # Function for loading a json at the specified path
 def load_json(path):
@@ -248,6 +257,8 @@ class Modder:
         print('\nSHOWING')
         self.window.show(blocking)
 
+    
+
     def _button_test_ratios_clicked(self, *a):
         """
         Generates ratio file contents for the log.
@@ -269,7 +280,7 @@ class Modder:
         
         # Get the range of targeted ratio floats
         #rs = spinmob.fun.erange(self.tree[file+'/Start'], self.tree[file+'/Stop'], self.tree[file+'/Steps'])
-        rs = linspace(self.tree[file+'/Start'], self.tree[file+'/Stop'], self.tree[file+'/Steps'])
+        rs = generate_linear_gears(self.tree[file+'/Start'], self.tree[file+'/Stop'], self.tree[file+'/Steps'])
 
         # Get the nearest fraction for each
         s = ''
@@ -423,7 +434,7 @@ class Modder:
         # INI FILES
         ##################
         
-        ini_modded = dict(self.ini_source)
+        ini_modded = deepcopy(self.ini_source)
 
         # Loop over all the tree keys, e.g. SETUP.INI/SPRING_RATE_LF/NAME
         for k in self.tree.keys():
@@ -458,7 +469,7 @@ class Modder:
                 # so it's not written
                 elif self.tree[file + '/' + section] == 'remove' and len(s) == 2: 
                     print('  popping', file, section)
-                    c.pop(section)
+                    if section in c: c.pop(section)
             
         # Write the files
         for file in ini_modded:
@@ -574,24 +585,6 @@ class Modder:
                 # Loop over sub-keys
                 for key in c[section]: f.write(key+'='+c[section][key]+'\n')
 
-
-    # def reload_ini_files(self):
-    #     """
-    #     Resets self.ini_source to the defaults.
-    #     """
-    #     # Get the path to the car
-    #     car  = self.combo_car.get_text()
-    #     data = os.path.realpath(os.path.join(self.text_local(), 'content', 'cars', car, 'data'))
-        
-    #     if not os.path.exists(data):
-    #         self.log('ERROR: Data folder not present. Make sure you unpack data.acd.')
-    #         return
-        
-    #     # Load default settings from the ini files themselves
-    #     for file in self.ini_seed:
-    #         print('  Reloading', file)
-    #         self.ini_source[file] = self.read_ini_file(data, file.lower())
-
     def load_car_data(self):
         """
         Loads the car data.
@@ -678,13 +671,16 @@ class Modder:
         """
         Sets whether the item is highlighted.
         """
-        if len(key.split('/')) < 3: print(key, highlighted)
 
         # Get the widget
         w = self.tree.get_widget(key) 
         
         # Set whether highlighted
-        if highlighted: color = egg.pyqtgraph.QtGui.QColor(255,200,200)
+        if highlighted:
+            n = len(key.split('/')) 
+            if   n == 3: color = egg.pyqtgraph.QtGui.QColor(255,230,230)
+            elif n == 2: color = egg.pyqtgraph.QtGui.QColor(255,200,200)
+            elif n == 1: color = egg.pyqtgraph.QtGui.QColor(150,150,255)
         else:           color = w.background(0)
         w.setBackground(1, color)
 
@@ -716,7 +712,7 @@ class Modder:
                 # We don't highlight things that aren't regular ini files
                 if file not in self.ini_source: continue
 
-                # If the section is not in the source data 
+                # If it's a new section
                 # or the value is different from the source data, append
                 if section not in self.ini_source[file] \
                 or self.tree[tk] != self.get_ini_source_value(file, section, key):  
@@ -733,9 +729,7 @@ class Modder:
         self.window.block_signals()
 
         changed = self.get_changed_tree_keys()
-        for tk in self.tree.keys():
-            tks = tk.split('/')
-            self.set_tree_item_highlighted(tk, tk in changed)
+        for tk in self.tree.keys(): self.set_tree_item_highlighted(tk, tk in changed)
         
         self.window.unblock_signals()
                     
@@ -776,28 +770,6 @@ class Modder:
                 if self.tree[tk] == self.get_ini_source_value(*s): self.tree.hide_parameter(tk, unhide)
 
         self.window.unblock_signals()
-
-        # # Load default settings from the ini files themselves
-        # for file in self.ini_source:
-        #     c = self.ini_source[file]
-            
-        #     # loop over the keys
-        #     for section in c:
-        #         ts = file + '/' + section
-                
-        #         # Hide the section if it's unchecked
-        #         if ts in self.tree.keys(): 
-        #             self.tree.hide_parameter(ts, self.tree[ts] or unhide)
-                
-        #             # Hide keys that have the same values.
-        #             for key in c[section]:
-        #                 tk = file + '/' + section + '/' + key
-        #                 self.tree.hide_parameter(tk, self.tree[tk] != self.get_ini_source_value(file, section, key) or unhide)
-
-        #     # loop over the extras
-        #     for section in self.ini_seed[file]:
-        #         ts = file + '/' + section
-        #         self.tree.hide_parameter(ts, self.tree[ts] or unhide)
                 
 
 
