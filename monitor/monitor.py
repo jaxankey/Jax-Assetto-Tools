@@ -920,7 +920,7 @@ class Monitor:
         laps = self.sort_best_laps_by_carset()
 
         # Loop over all the carsets
-        lines = ['**PACE**']
+        lines = ['**MID-PACK PACE**']
         for carset in laps:
             
             # Get the number of participants
