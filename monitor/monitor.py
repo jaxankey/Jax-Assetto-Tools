@@ -907,10 +907,13 @@ class Monitor:
                 # Finally, add this best to the carset
                 if carset not in laps: laps[carset] = []
                 laps[carset].append(driver_laps[carset][0])
-            
+        
+        # Now sort all the group bests
+        for carset in laps: laps[carset].sort(key=lambda x: x[0])
+        
         return laps
 
-    def get_stats_string(self, N):
+    def get_stats_string(self, chars):
         """
         Returns a string with just some basic stats about lap times.
         """
@@ -922,7 +925,7 @@ class Monitor:
         laps = self.sort_best_laps_by_carset()
 
         # Loop over all the carsets
-        s = 'PACE\n'
+        lines = ['**MID-PACK PACE**']
         for carset in laps:
             
             # Get the number of participants
@@ -935,13 +938,22 @@ class Monitor:
             tm = laps[carset][int(N/2)][1][0]
 
             # Append this to the string
-            s = s + carset + ' ('+str(N)+'): ' + tm + '\n'
+            lines.append('**' + carset + ' ('+str(N)+'): ' + tm + '**')
 
-        return s.strip()
+        # Make sure we don't have too many characters
+        popped = False
+        while len(lines) > 0 and len('\n'.join(lines)) > chars-4: # -4 for \n... 
+            lines.pop(-1)
+            popped = True
 
-    def get_laps_string(self, N):
+        # If we removed some lines, hint that there are more.
+        if popped: lines.append('...')
+
+        return '\n'.join(lines)
+
+    def get_laps_string(self, chars):
         """
-        Returns a string list of driver best laps for sending to discord. N is
+        Returns a string list of driver best laps for sending to discord. chars is
         the number of characters remaining.
         """
 
@@ -950,18 +962,12 @@ class Monitor:
 
         laps = self.sort_best_laps_by_carset()
 
-        # Output string
-        s = ''
- 
         # Now sort all the group bests
         for carset in laps: 
             
             # Carset title
             title = '\n\n**'+carset+'**\n'
             
-            # Sort by milliseconds
-            laps[carset].sort(key=lambda x: x[0])
-        
             # Now loop over the entries and build a string
             lines = []; n=1
             for x in laps[carset]: 
@@ -972,7 +978,7 @@ class Monitor:
             
             # Pop lines until the message is short enough to fit
             popped = False
-            while len(lines) > 0 and len(s+title+'\n'.join(lines)) > N-4: # -4 for \n... 
+            while len(lines) > 0 and len(s+title+'\n'.join(lines)) > chars-4: # -4 for \n... 
                 lines.pop(-1)
                 popped = True
 
@@ -985,7 +991,7 @@ class Monitor:
             if popped: lines.append('...')
                       
             # Append this to the master
-            s = s + title + '\n'.join(lines)
+            s = title + '\n'.join(lines)
 
         return s.strip()       
 
