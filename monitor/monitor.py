@@ -865,28 +865,16 @@ class Monitor:
         if car in self.state['carnames']: return self.state['carnames'][car]
         return car
     
-    def get_stats_string(self, N):
+    def sort_best_laps_by_carset(self):
         """
-        Returns a string with just some basic stats about lap times.
-        """
+        Returns a dictionary with carset keys and an ordered list of driver laps, e.g.:
 
-        # If there are no laps, return None so we know not to use them.
-        if not self.state['laps'] or len(self.state['laps'].keys()) == 0: return None
-
-        
-
-    def get_laps_string(self, N):
-        """
-        Returns a string list of driver best laps for sending to discord. N is
-        the number of characters remaining.
-        """
-
-        # If there are no laps, return None so we know not to use them.
-        if not self.state['laps'] or len(self.state['laps'].keys()) == 0: return None
+        {carset:[(time_ms,(time,name,car,count)), (time_ms,(time,name,car,count))...]}
+        """   
 
         # Scan through the state and collect the driver best laps
         # for each group
-        laps = dict() # will eventually be a dictionary like {carset:[(driver,(time,car)), (driver,(time,car))...]}
+        laps = dict() # will eventually be a dictionary like {carset:[(time_ms,(time,name,car,count)), (time_ms,(time,name,car,count))...]}
         if debug: log('DRIVER BESTS:')
         for name in self.state['laps']:
             
@@ -898,14 +886,14 @@ class Monitor:
             for car in self.state['laps'][name]: # Each is a dictionary of {time, time_ms, cuts}
                 c = self.state['laps'][name][car]    
             
-                # +++Get a list of carsets to which this belongs
+                # Get a list of carsets to which this belongs
                 if   car in self.state['stesrac']: carsets = self.state['stesrac'][car]
                 else:                              carsets = ['Uncategorized']
                 
                 # for each of these carsets, do the sorting
                 for carset in carsets:
                     if carset not in driver_laps: driver_laps[carset] = []
-                    driver_laps[carset].append((c['time_ms'],(c['time'],name,car)))
+                    driver_laps[carset].append((c['time_ms'],(c['time'],name,car,c['count'])))
                 
             # Now loop over the driver_laps carsets, and get the best for each
             for carset in driver_laps:
@@ -914,7 +902,49 @@ class Monitor:
                 # Finally, add this best to the carset
                 if carset not in laps: laps[carset] = []
                 laps[carset].append(driver_laps[carset][0])
- 
+            
+        return laps
+
+    def get_stats_string(self, N):
+        """
+        Returns a string with just some basic stats about lap times.
+        """
+
+        # If there are no laps, return None so we know not to use them.
+        if not self.state['laps'] or len(self.state['laps'].keys()) == 0: return None
+
+        # {carset:[(time_ms,(time,name,car,count)), (time_ms,(time,name,car,count))...]}
+        laps = self.sort_best_laps_by_carset()
+
+        # Loop over all the carsets
+        s = 'PACE'
+        for carset in laps:
+            
+            # Get the number of participants
+            N = len(laps[carset])
+
+            # If N==0: skip
+            if N==0: continue
+
+            # Get the median time string
+            tm = laps[carset][int(N/2)][1][0]
+
+            # Append this to the string
+            s = s + carset + '('+str(N)+'): ' + tm + '\n'
+
+        return s.strip()
+
+    def get_laps_string(self, N):
+        """
+        Returns a string list of driver best laps for sending to discord. N is
+        the number of characters remaining.
+        """
+
+        # If there are no laps, return None so we know not to use them.
+        if not self.state['laps'] or len(self.state['laps'].keys()) == 0: return None
+
+        laps = self.sort_best_laps_by_carset()
+
         # Output string
         s = ''
  
