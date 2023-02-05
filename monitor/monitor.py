@@ -893,8 +893,13 @@ class Monitor:
                 # for each of these carsets, do the sorting
                 for carset in carsets:
                     if carset not in driver_laps: driver_laps[carset] = []
-                    driver_laps[carset].append((c['time_ms'],(c['time'],name,car,c['count'])))
-                
+                    # JACK: temporary fix not needed later
+                    if 'count' in c:
+                        driver_laps[carset].append((c['time_ms'],(c['time'],name,car,c['count'])))
+                    else:
+                        driver_laps[carset].append((c['time_ms'],(c['time'],name,car)))
+
+
             # Now loop over the driver_laps carsets, and get the best for each
             for carset in driver_laps:
                 driver_laps[carset].sort(key=lambda x: x[0])
