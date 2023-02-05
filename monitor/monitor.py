@@ -50,6 +50,7 @@ venue_header        = ''
 venue_subheader     = ''
 venue_recycle_message = True
 laps_footer         = ''
+no_leaderboard      = False
 
 # Join link construction
 join_link_finish = None
@@ -464,8 +465,10 @@ class Monitor:
                     # self['laps'][name][car] = {'time': '12:32:032', 'time_ms':12345, 'cuts': 3, 'laps': 23}
                     # If best exists and either 
                     #   the car doesn't exist in state.json,
-                    #   this is better than what's in state.json, or
-                    #   the lap count is different, update the laps.
+                    #   this is better than what's in state.json, 
+                    #   There is no 'count' key, or
+                    #   the lap count is different
+                    # update the laps for this car and driver.
                     if best and (car not in self['laps'][name]   \
                     or best < self['laps'][name][car]['time_ms'] \
                     or 'count' not in self['laps'][name][car]    \
@@ -474,8 +477,6 @@ class Monitor:
                         # Get the string time
                         ts = self.from_ms(best)
 
-                        log('Lap:', name, car, ts)
-
                         self['laps'][name][car] = dict(
                             time    = ts,
                             time_ms = best,
@@ -483,7 +484,7 @@ class Monitor:
                             count   = count,
                         )
 
-                        log(self['laps'][name][car])
+                        log('Lap:', name, car, self['laps'][name][car])
 
                         # Remember to update the messages
                         laps_or_onlines_changed = True
