@@ -917,7 +917,7 @@ class Monitor:
         laps = self.sort_best_laps_by_carset()
 
         # Loop over all the carsets
-        s = 'PACE'
+        s = 'PACE\n'
         for carset in laps:
             
             # Get the number of participants
@@ -930,7 +930,7 @@ class Monitor:
             tm = laps[carset][int(N/2)][1][0]
 
             # Append this to the string
-            s = s + carset + '('+str(N)+'): ' + tm + '\n'
+            s = s + carset + ' ('+str(N)+'): ' + tm + '\n'
 
         return s.strip()
 
