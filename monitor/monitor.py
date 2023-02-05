@@ -466,8 +466,9 @@ class Monitor:
                     #   the car doesn't exist in state.json,
                     #   this is better than what's in state.json, or
                     #   the lap count is different, update the laps.
-                    if best and (car not in self['laps'][name] \
+                    if best and (car not in self['laps'][name]   \
                     or best < self['laps'][name][car]['time_ms'] \
+                    or 'count' not in self['laps'][name][car]    \
                     or self['laps'][name][car]['count'] != count):
 
                         # Get the string time
