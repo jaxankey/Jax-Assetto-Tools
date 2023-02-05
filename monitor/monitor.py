@@ -936,6 +936,7 @@ class Monitor:
             lines.append('**' + carset + ' ('+str(N)+'): ' + tm + '**')
 
         # Make sure we don't have too many characters
+        popped = False
         while len(lines) > 0 and len('\n'.join(lines)) > chars-4: # -4 for \n... 
             lines.pop(-1)
             popped = True
