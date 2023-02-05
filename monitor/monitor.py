@@ -460,7 +460,9 @@ class Monitor:
                     # Get the current best in ms (it was nanoseconds LULZ)
                     best = self.live_timings['Drivers'][guid]['Cars'][car]['BestLap']*1e-6
 
-                    # self['laps'][name][car] = {'time': '12:32:032', 'time_ms':12345, 'cuts': 3}
+                    # self['laps'][name][car] = {'time': '12:32:032', 'time_ms':12345, 'cuts': 3, 'laps': 23}
+                    # If best exists and either the car doesn't exist or this is better than what's
+                    # in state.json, update the laps.
                     if best and (car not in self['laps'][name] \
                     or best < self['laps'][name][car]['time_ms']):
 
@@ -472,7 +474,9 @@ class Monitor:
                         self['laps'][name][car] = dict(
                             time    = ts,
                             time_ms = best,
-                            cuts    = 0)
+                            cuts    = 0,
+                            laps    = self.live_timings['Drivers'][guid]['Cars'][car]['NumLaps']
+                        )
 
                         log(self['laps'][name][car])
 
