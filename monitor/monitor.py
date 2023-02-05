@@ -902,7 +902,10 @@ class Monitor:
                 # Finally, add this best to the carset
                 if carset not in laps: laps[carset] = []
                 laps[carset].append(driver_laps[carset][0])
-            
+        
+        # Now sort all the group bests
+        for carset in laps: laps[carset].sort(key=lambda x: x[0])
+        
         return laps
 
     def get_stats_string(self, N):
@@ -954,9 +957,6 @@ class Monitor:
             # Carset title
             title = '\n\n**'+carset+'**\n'
             
-            # Sort by milliseconds
-            laps[carset].sort(key=lambda x: x[0])
-        
             # Now loop over the entries and build a string
             lines = []; n=1
             for x in laps[carset]: 
