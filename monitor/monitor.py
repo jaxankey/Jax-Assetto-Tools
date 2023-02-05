@@ -864,7 +864,17 @@ class Monitor:
         # Get the fancy carname if possible.
         if car in self.state['carnames']: return self.state['carnames'][car]
         return car
+    
+    def get_stats_string(self, N):
+        """
+        Returns a string with just some basic stats about lap times.
+        """
+
+        # If there are no laps, return None so we know not to use them.
+        if not self.state['laps'] or len(self.state['laps'].keys()) == 0: return None
+
         
+
     def get_laps_string(self, N):
         """
         Returns a string list of driver best laps for sending to discord. N is
@@ -1128,7 +1138,9 @@ class Monitor:
             color = 0
 
         # Get the list of driver best laps 4070 leaves a little buffer for ... and stuff.
-        laps = self.get_laps_string(4070-len(body1+body2+footer))
+        N = 4070-len(body1+body2+footer)
+        if no_leaderboard: laps = self.get_stats_string(N)
+        else:              laps = self.get_laps_string(N)
         if debug and laps: log('LAPS\n'+laps)
 
         # Below the venue and above laps
