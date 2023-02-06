@@ -973,6 +973,12 @@ class Monitor:
 
             # Append this to the string
             lines.append('**Mid-Pack Pace ('+str(N)+'): ' + tm + '**')
+        
+        # Do the same per car
+        for car in laps_by_car:
+            N = len(laps_by_car[car])
+            tm = laps_by_name[list(laps_by_car[car].keys())[int(N/2)]]['time']
+            lines.append(self.state['cars'][car]+' ('+str(N)+'): ' + tm)
 
         # Make sure we don't have too many characters
         popped = False
