@@ -13,6 +13,7 @@
 # and delete this on new venue.
 
 import os, json, discord, shutil, pprint, glob, time, datetime, urllib, dateutil.parser, socket, requests
+from copy import deepcopy
 
 # Change to the directory of this script
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
@@ -893,12 +894,7 @@ class Monitor:
                 # for each of these carsets, do the sorting
                 for carset in carsets:
                     if carset not in driver_laps: driver_laps[carset] = []
-                    # JACK: temporary fix not needed later
-                    if 'count' in c:
-                        driver_laps[carset].append((c['time_ms'],(c['time'],name,car,c['count'])))
-                    else:
-                        driver_laps[carset].append((c['time_ms'],(c['time'],name,car)))
-
+                    driver_laps[carset].append((c['time_ms'],(c['time'],name,car,c['count'])))
 
             # Now loop over the driver_laps carsets, and get the best for each
             for carset in driver_laps:
@@ -913,6 +909,45 @@ class Monitor:
         
         return laps
 
+    def sort_best_laps_by_name_and_car(self):
+        """
+        Returns a dictionary with car keys and an ordered list of driver laps, e.g.:
+
+        {car:[(time_ms,(time,name,count)), (time_ms,(time,name,count))...]}
+        """   
+
+        # Scan through the state and collect the driver best laps
+        # for each group
+        laps_by_car  = dict() # car -indexed list of best laps
+        laps_by_name = dict() # name-indexed list of best laps
+        for name in self.state['laps']:
+
+            # For each person, we have to loop through all their car bests,
+            # then add these to the carset bests
+            for car in self.state['laps'][name]: # Each is a dictionary of {time, time_ms, cuts}
+
+                # Get the laps info, e.g.
+                # "time": "2:04.461",
+                # "time_ms": 124461.0,
+                # "cuts": 0,
+                # "count": 9
+                # "car": porsche_whatever      # added
+                c = deepcopy(self.state['laps'][name][car])
+                c['car']  = car
+                
+                # Make sure the car exists in laps as a dictionary by name
+                if car not in laps_by_car : laps_by_car[car] = dict()
+
+                # Add everyone's best lap to the list.
+                if name not in laps_by_car[car] or c['time_ms'] < laps_by_car[car][name]['time_ms']: laps_by_car[car][name] = c
+                if name not in laps_by_name     or c['time_ms'] < laps_by_name    [name]['time_ms']: laps_by_name    [name] = c
+
+        # Sort laps
+        laps_by_name                             = {k: v for k, v in sorted(laps_by_name    .items(), key=lambda item: item[1]['time_ms'])}    
+        for car in laps_by_car: laps_by_car[car] = {k: v for k, v in sorted(laps_by_car[car].items(), key=lambda item: item[1]['time_ms'])}
+        
+        return laps_by_name, laps_by_car
+
     def get_stats_string(self, chars):
         """
         Returns a string with just some basic stats about lap times.
@@ -921,24 +956,23 @@ class Monitor:
         # If there are no laps, return None so we know not to use them.
         if not self.state['laps'] or len(self.state['laps'].keys()) == 0: return None
 
-        # {carset:[(time_ms,(time,name,car,count)), (time_ms,(time,name,car,count))...]}
-        laps = self.sort_best_laps_by_carset()
+        # Get the sorted laps by name and car
+        laps_by_name, laps_by_car = self.sort_best_laps_by_name_and_car()
 
         # Loop over all the carsets
-        lines = ['**MID-PACK PACE**']
-        for carset in laps:
-            
-            # Get the number of participants
-            N = len(laps[carset])
+        lines = []
+        
+        # Get the number of participants
+        N = len(laps_by_name)
 
-            # If N==0: skip
-            if N==0: continue
+        # If we have none, do nothing
+        if N > 0:
 
             # Get the median time string
-            tm = laps[carset][int(N/2)][1][0]
+            tm = laps_by_name[laps_by_name.keys()[int(N/2)]]['time']
 
             # Append this to the string
-            lines.append('**' + carset + ' ('+str(N)+'): ' + tm + '**')
+            lines.append('**Mid-Pack Pace ('+str(N)+'): ' + tm + '**')
 
         # Make sure we don't have too many characters
         popped = False
