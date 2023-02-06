@@ -976,10 +976,8 @@ class Monitor:
         
         # Do the same per car
         for car in laps_by_car:
-            print('\n\n'+car+'\n'+str(laps_by_car[car]))
             N = len(laps_by_car[car])
             m = list(laps_by_car[car].keys())[int(N/2)]
-            print(' ', N, m)
             tm = laps_by_car[car][m]['time']
             lines.append(tm + ' ' + self['carnames'][car] + ' (' + str(N) + ')')
 
