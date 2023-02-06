@@ -980,7 +980,7 @@ class Monitor:
             N = len(laps_by_car[car])
             m = list(laps_by_car[car].keys())[int(N/2)]
             print(' ', N, m)
-            tm = laps_by_car[m]['time']
+            tm = laps_by_car[car][m]['time']
             lines.append(tm + ' ' + self['carnames'][car] + ' (' + str(N) + ')')
 
         # Make sure we don't have too many characters
