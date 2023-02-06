@@ -978,7 +978,7 @@ class Monitor:
         for car in laps_by_car:
             N = len(laps_by_car[car])
             tm = laps_by_name[list(laps_by_car[car].keys())[int(N/2)]]['time']
-            lines.append(tm + ' ' self['carnames'][car] + ' (' + str(N) + ')')
+            lines.append(tm + ' ' + self['carnames'][car] + ' (' + str(N) + ')')
 
         # Make sure we don't have too many characters
         popped = False
