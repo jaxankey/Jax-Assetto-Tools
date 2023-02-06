@@ -969,7 +969,7 @@ class Monitor:
         if N > 0:
 
             # Get the median time string
-            tm = laps_by_name[laps_by_name.keys()[int(N/2)]]['time']
+            tm = laps_by_name[list(laps_by_name.keys())[int(N/2)]]['time']
 
             # Append this to the string
             lines.append('**Mid-Pack Pace ('+str(N)+'): ' + tm + '**')
