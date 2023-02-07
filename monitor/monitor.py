@@ -941,7 +941,7 @@ class Monitor:
 
                 # Add everyone's best lap to the list.
                 if (name not in laps_by_car[car] or c['time_ms'] < laps_by_car[car][name]['time_ms']) \
-                    and laps_by_car[car][name]['count'] > 10: laps_by_car[car][name] = c
+                    and name in laps_by_car[car][name] and laps_by_car[car][name]['count'] > 10: laps_by_car[car][name] = c
                 if name not in laps_by_name or c['time_ms'] < laps_by_name[name]['time_ms']: laps_by_name[name] = c
 
         # Sort laps
