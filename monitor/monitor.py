@@ -972,14 +972,22 @@ class Monitor:
             tm = laps_by_name[list(laps_by_name.keys())[int(N/2)]]['time']
 
             # Append this to the string
-            lines.append('**Mid-Pack Pace ('+str(N)+'): ' + tm + '**')
+            lines.append('**Mid-Pace ('+str(N)+' drivers): ' + tm + '**')
         
         # Do the same per car
+        car_medians = dict() # {time_ms: line_string}
         for car in laps_by_car:
             N = len(laps_by_car[car])
             m = list(laps_by_car[car].keys())[int(N/2)]
-            tm = laps_by_car[car][m]['time']
-            lines.append(tm + ' ' + self['carnames'][car] + ' (' + str(N) + ')')
+            tm    = laps_by_car[car][m]['time']
+            tm_ms = laps_by_car[car][m]['time_ms']
+            car_medians[tm_ms] = tm + ' (' + str(N) + ')' + self['carnames'][car]
+
+        # Sort car_medians by time
+        car_medians = {k: v for k, v in sorted(car_medians.items(), key=lambda item: item[0])}
+
+        # Append to lines
+        for tm_ms in car_medians: lines.append(car_medians[tm_ms])
 
         # Make sure we don't have too many characters
         popped = False
