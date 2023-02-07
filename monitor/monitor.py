@@ -766,13 +766,14 @@ class Monitor:
         f.write('\n'.join(paths))
         f.close()
 
-    def from_ms(self, t):
+    def from_ms(self, t, short=False):
         """
         Converts milliseconds to a nice string.
         """
         m = int(t/60000)
         s = (t-m*60000)*0.001
-        return '%d:%02d.%03d' % (m,int(s),(s%1)*1000)
+        if short: return '%d:%02d.%03d' % (m,int(s),(s%1)*1000)
+        else    : return '%d:%02d.%01d' % (m,int(s),(s%1)*1000)
 
     def to_ms(self, s):
         """
@@ -979,15 +980,16 @@ class Monitor:
         for car in laps_by_car:
             N = len(laps_by_car[car])
             m = list(laps_by_car[car].keys())[int(N/2)]
-            tm    = laps_by_car[car][m]['time']
             tm_ms = laps_by_car[car][m]['time_ms']
-            car_medians[tm_ms] = tm + ' (' + str(N) + ')' + self['carnames'][car]
+            tm = self.from_ms(tm_ms, True)
+            car_medians[tm_ms] = tm + ' (' + str(N) + ') ' + self['carnames'][car]
 
         # Sort car_medians by time
         car_medians = {k: v for k, v in sorted(car_medians.items(), key=lambda item: item[0])}
 
         # Append to lines
         for tm_ms in car_medians: lines.append(car_medians[tm_ms])
+        lines.append('```')
 
         # Make sure we don't have too many characters
         popped = False
