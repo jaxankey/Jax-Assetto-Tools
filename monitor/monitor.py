@@ -940,8 +940,9 @@ class Monitor:
                 if car not in laps_by_car : laps_by_car[car] = dict()
 
                 # Add everyone's best lap to the list.
-                if name not in laps_by_car[car] or c['time_ms'] < laps_by_car[car][name]['time_ms']: laps_by_car[car][name] = c
-                if name not in laps_by_name     or c['time_ms'] < laps_by_name    [name]['time_ms']: laps_by_name    [name] = c
+                if (name not in laps_by_car[car] or c['time_ms'] < laps_by_car[car][name]['time_ms']) \
+                    and laps_by_car[car][name]['count'] > 10: laps_by_car[car][name] = c
+                if name not in laps_by_name or c['time_ms'] < laps_by_name[name]['time_ms']: laps_by_name[name] = c
 
         # Sort laps
         laps_by_name                             = {k: v for k, v in sorted(laps_by_name    .items(), key=lambda item: item[1]['time_ms'])}    
