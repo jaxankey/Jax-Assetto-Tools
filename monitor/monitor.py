@@ -970,7 +970,7 @@ class Monitor:
         if N > 0:
 
             # Get the median time string
-            self.from_ms(laps_by_name[list(laps_by_name.keys())[int(N/2)]]['time_ms'], True)
+            tm = self.from_ms(laps_by_name[list(laps_by_name.keys())[int(N/2)]]['time_ms'], True)
 
             # Append this to the string
             lines.append('**Mid-Pace ('+str(N)+' drivers): `' + tm + '`**')
