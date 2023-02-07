@@ -766,14 +766,16 @@ class Monitor:
         f.write('\n'.join(paths))
         f.close()
 
-    def from_ms(self, t, short=False):
+    def from_ms(self, t, decimals=3):
         """
         Converts milliseconds to a nice string.
         """
+        
+        # Round to the appropriate decimals first
+        t = round(t*0.1**(3-decimals)) * 10**(3-decimals)
         m = int(t/60000)
         s = (t-m*60000)*0.001
-        if short: return '%d:%02d.%d' % (m,int(s),round(s%1*10))
-        else    : return '%d:%02d.%03d' % (m,int(s),(s%1)*1000)
+        return '%d:%02d.%d' % (m,int(s),s%1*10**decimals)
 
     def to_ms(self, s):
         """
