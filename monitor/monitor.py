@@ -970,10 +970,10 @@ class Monitor:
         if N > 0:
 
             # Get the median time string
-            tm = laps_by_name[list(laps_by_name.keys())[int(N/2)]]['time']
+            self.from_ms(laps_by_name[list(laps_by_name.keys())[int(N/2)]]['time_ms'], True)
 
             # Append this to the string
-            lines.append('**Mid-Pace ('+str(N)+' drivers): ' + tm + '**')
+            lines.append('**Mid-Pace ('+str(N)+' drivers): `' + tm + '`**')
         
         # Do the same per car
         car_medians = dict() # {time_ms: line_string}
@@ -982,15 +982,14 @@ class Monitor:
             m = list(laps_by_car[car].keys())[int(N/2)]
             tm_ms = laps_by_car[car][m]['time_ms']
             tm = self.from_ms(tm_ms, True)
-            car_medians[tm_ms] = tm + ' (' + str(N) + ') ' + self['carnames'][car]
+            car_medians[tm_ms] = '`'+ tm + ' ('+str(N)+')` ' + self['carnames'][car]
 
         # Sort car_medians by time
         car_medians = {k: v for k, v in sorted(car_medians.items(), key=lambda item: item[0])}
 
         # Append to lines
         for tm_ms in car_medians: lines.append(car_medians[tm_ms])
-        lines.append('```')
-
+        
         # Make sure we don't have too many characters
         popped = False
         while len(lines) > 0 and len('\n'.join(lines)) > chars-4: # -4 for \n... 
