@@ -772,7 +772,7 @@ class Monitor:
         """
         m = int(t/60000)
         s = (t-m*60000)*0.001
-        if short: return '%d:%02d.%01d' % (m,int(s),(s%1)*1000)
+        if short: return '%d:%02d.%d' % (m,int(s),(s%1)*10)
         else    : return '%d:%02d.%03d' % (m,int(s),(s%1)*1000)
 
     def to_ms(self, s):
