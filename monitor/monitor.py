@@ -772,8 +772,8 @@ class Monitor:
         """
         m = int(t/60000)
         s = (t-m*60000)*0.001
-        if short: return '%d:%02d.%03d' % (m,int(s),(s%1)*1000)
-        else    : return '%d:%02d.%01d' % (m,int(s),(s%1)*1000)
+        if short: return '%d:%02d.%01d' % (m,int(s),(s%1)*1000)
+        else    : return '%d:%02d.%03d' % (m,int(s),(s%1)*1000)
 
     def to_ms(self, s):
         """
@@ -982,7 +982,7 @@ class Monitor:
             m = list(laps_by_car[car].keys())[int(N/2)]
             tm_ms = laps_by_car[car][m]['time_ms']
             tm = self.from_ms(tm_ms, True)
-            car_medians[tm_ms] = '`'+ tm + ' ('+str(N)+')` ' + self['carnames'][car]
+            car_medians[tm_ms] = '`'+ tm + '` ' + self['carnames'][car]  + ' ('+str(N)+')'
 
         # Sort car_medians by time
         car_medians = {k: v for k, v in sorted(car_medians.items(), key=lambda item: item[0])}
