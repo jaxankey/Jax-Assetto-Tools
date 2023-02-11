@@ -2,15 +2,17 @@
 # -*- coding: utf-8 -*-
 
 ##################################################################
-# This script monitors the acServer log file for key events,     #
+# This script monitors for key events,                           #
 # sending messages for people joining / leaving and lap times.   #
 #                                                                #
 # See monitor.ini for configuration!                             #
 ##################################################################
 
-# Problem seems to coincide with 8081/API/details being unavailable, even when I remove state, it finds laps somewhere!!
-# The problem is that live_timings.json sticks around from the old venue (!). Let's add to monitor.ini the path to live_timings
-# and delete this on new venue.
+# JACK: 
+# Add registration and qual warning strings (None to disable) to monitor.ini
+# Add message_id's for registration and qual announcements to state
+# Update info: Check current time against qual and send or delete messages accordingly
+
 
 import os, json, discord, shutil, pprint, glob, time, datetime, urllib, dateutil.parser, socket, requests
 from copy import deepcopy
@@ -52,6 +54,8 @@ venue_subheader     = ''
 venue_recycle_message = True
 laps_footer         = ''
 no_leaderboard      = False
+registration_warning_message = None # String if enabled
+qualifying_open_message      = None # String if enabled
 
 # Join link construction
 join_link_finish = None
