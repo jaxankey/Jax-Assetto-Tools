@@ -54,8 +54,8 @@ venue_subheader     = ''
 venue_recycle_message = True
 laps_footer         = ''
 no_leaderboard      = False
-registration_warning_message = None # String if enabled
-qualifying_open_message      = None # String if enabled
+registration_message = None # String if enabled
+qualifying_message   = None # String if enabled
 
 # Join link construction
 join_link_finish = None
@@ -237,7 +237,9 @@ class Monitor:
         """
         self.state = dict(
             online=dict(),  # Dictionary of online user info, indexed by name = {car:'car_dir'}
-            online_message_id=None,  # List of message ids for the "who is online" messages
+            online_message_id=None,  # Message id for the "who is online" messages
+            registration_message_id = None, # Message id for "qual in an hour" message
+            qualifying_message_id   = None, # Message id for "qual open" message
 
             timestamp=None,  # Timestamp of the first observation of this venue.
             qual_timestamp=None,  # Timestamp of the qual
@@ -280,8 +282,8 @@ class Monitor:
 
             # But only if we're supposed to and there isn't already one
             if not no_down_warning and not self['down_message_id']:
-                self['down_message_id'] = self.send_message(self.webhook_info,
-                    'Server is down. I need an adult! :(', '', '')
+                self['down_message_id'] = self.send_message(self.webhook_info, 
+                    '', 'Server is down. I need an adult! :(', '', '')
                 self.save_and_archive_state()
 
             # If we don't have a championship to parse, quit out to avoid looping.
@@ -291,7 +293,7 @@ class Monitor:
                 # try: self.send_state_messages()
                 # except Exception as e: 
                 #     print('ERROR: server down and cannot send state', e)
-                return
+                return # Only return in this method
             
             # Otherwise we parse the championship and then send state messages
 
@@ -301,7 +303,7 @@ class Monitor:
             self['down_message_id'] = None
             self.save_and_archive_state()
 
-        # Regardless, we see what informationn is available and post it if something
+        # Regardless, we see what information is available and post it if something
         # changed.
 
         # Flag for information that changed
@@ -392,6 +394,27 @@ class Monitor:
                         self['race_timestamp'][n]    = tr
                         self['number_registered'][n] = nr
                         self['number_slots'][n]      = ns
+                    
+                    # Get the current time
+                    t = time.time()
+
+                    # If we're within an hour of the qual send the registration warning if we haven't
+                    if registration_message and tq-3600 < t < tq and not self['registration_message_id']:
+                        self['registration_message_id'] = self.send_message(self.webhook_info, registration_message, message_id=self['registration_message_id'])
+
+                    # Otherwise, we shouldn't have a registration message so, delete it if it exists
+                    elif self['registration_message_id']:
+                        self.delete_message(self.webhook_info, self['registration_message_id'])
+                        self['registration_message_id'] = None
+
+                    # If we're between qual and race and haven't already, send that message
+                    if qualifying_message and tq < t < tr and not self['qualifying_message_id']:
+                        self['qualifying_message_id'] = self.send_message(self.webhook_info, qualifying_message, message_id=self['qualifying_message_id'])
+
+                    # Otherwise, delete it if it exists
+                    elif self['qualifying_message_id']:
+                        self.delete_message(self.webhook_info, self['qualifying_message_id'])
+                        self['qualifying_message_id'] = None
 
             # Get the track, layout, and cars from the website if there is no championship
             track  = 'Unknown Track'
@@ -1245,7 +1268,7 @@ class Monitor:
 
 
         # Send the main info message. Body 1 is the laps list, body 2 includes previous onlines
-        self.state['laps_message_id'] = self.send_message(self.webhook_info, body1, body2, footer, self.state['laps_message_id'], color=color)
+        self.state['laps_message_id'] = self.send_message(self.webhook_info, '', body1, body2, footer, self.state['laps_message_id'], color=color)
         if self.state['laps_message_id'] is None: log('DID NOT EDIT OR SEND LAPS MESSAGE')
 
 
@@ -1263,7 +1286,7 @@ class Monitor:
             body1 = '**' + online_header + '**\n' + onlines
 
             # Send the message
-            self.state['online_message_id'] = self.send_message(self.webhook_online, body1, '', '\n\n'+online_footer+join_link, self.state['online_message_id'])
+            self.state['online_message_id'] = self.send_message(self.webhook_online, '', body1, '', '\n\n'+online_footer+join_link, self.state['online_message_id'])
             if self.state['online_message_id'] is None: log('DID NOT EDIT OR SEND ONLINES')
 
         # No one is currently online. 
@@ -1293,7 +1316,7 @@ class Monitor:
             # is an online_message_id, except on startup or new venue.
             if len(errbody):
                 body1 = session_complete_header+'\n\nParticipants:\n'+'\n'.join(errbody)
-                self.state['online_message_id'] = self.send_message(self.webhook_online, body1, '', '\n\n'+online_footer+self.get_join_link(), self.state['online_message_id'], 0)
+                self.state['online_message_id'] = self.send_message(self.webhook_online, '', body1, '', '\n\n'+online_footer+self.get_join_link(), self.state['online_message_id'], 0)
                 
                 # Remember the time this message was "closed". If a new session
                 # starts within a little time of this, use the same message id
@@ -1321,12 +1344,15 @@ class Monitor:
             try: webhook.delete_message(message_id)
             except: pass
 
-    def send_message(self, webhook, body1, body2, footer, message_id=None, color=15548997):
+    def send_message(self, webhook, message='', body1='', body2='', footer='', message_id=None, color=15548997):
         """
-        Sends a message with the supplied header and footer, making sure it's
-        less than 4096 characters total. Returns the message id
+        Sends a message (message, 2000 character limit) and an embed
+        (body1, body2, footer, 4096 characters total). Returns the message id
         """
         log('\nsend_message()')
+
+        # We can call this with None webhook without fail
+        if not webhook: return
 
         # Keep the total character limit below 4096, cutting body1 first, then body 2
         if len(body1+body2+footer) > 4070: # 4070 gives a little buffer for ... and stuff. I don't wanna count.
@@ -1340,67 +1366,77 @@ class Monitor:
         # Otherwise just use the whole thing
         else: body = body1 + body2 + footer
 
-        if debug: log(body)
+        # Keep the message characters below 2000
+        if len(message) > 2000: message = message[0:1995] + '\n...'
 
-        # If the message_id is supplied, edit, otherwise, send
-        if webhook:
+        if debug: 
+            log(message)
+            log(body)
 
-            # Sending by embed makes it prettier and larger
-            e = discord.Embed()
-            e.color       = color
-            e.description = body
+        # Sending by embed makes it prettier and larger
+        e = discord.Embed()
+        e.color       = color
+        e.description = body
 
-            # If we have a message_id it means we should edit the existing post
-            if message_id:
-                
-                # First try to edit the existing method
-                try:    
-                    # Try to edit the message
-                    webhook.edit_message(message_id, embeds=[e])
-
-                    # If it works, remove the failure timestamp.
-                    if message_id in self.message_failure_timestamps.keys(): 
-                        self.message_failure_timestamps.pop(message_id)
-                
-                # It didn't work. Count the failures and then give up / send a new one
-                except Exception as x:
-                    
-                    # If we need to start counting, create a counter.
-                    if not message_id in self.message_failure_timestamps.keys(): self.message_failure_timestamps[message_id] = time.time()
-                    
-                    # Let the user know
-                    log('WHOOPS could not edit message', message_id, e, x, 'dt =', 
-                        time.time() - self.message_failure_timestamps[message_id])
-
-                    # If it's been awhile since the first failure, try again
-                    if time.time() - self.message_failure_timestamps[message_id] > 10:
-                        
-                        # Get rid of the entry for this
-                        log('  Timeout! Popping id...')
-                        self.message_failure_timestamps.pop(message_id)
-                        
-                        # Now try to get a new one...
-                        try: 
-                            log('  Trying to send a new message...')
-                            message_id = webhook.send('', embeds=[e], wait=True).id
-                            log('  Sent id', message_id)
-                        except Exception as x: 
-                            log('  WHOOPS (CRITICAL) could not send ', x)
-                            message_id = None
-                    
-                    # Otherwise try again
-                    else:
-                        time.sleep(3)
-                        message_id = self.send_message(webhook, body1, body2, footer, message_id, color)
+        # If we have a message_id it means we should edit the existing post
+        if message_id:
             
-            # If we don't have a message_id, just try to send a new one.
-            else:
+            # First try to edit the existing method
+            try:    
+                # Try to edit the message
+                if len(e.description): webhook.edit_message(message_id, content=message, embeds=[e])
+                else:                  webhook.edit_message(message_id, content=message, embeds=[] )
                 
-                # Try to send it
-                try: message_id = webhook.send('', embeds=[e], wait=True).id
-                except Exception as x:
-                    log('WHOOPS could not send message', message_id, e, x)
-                    message_id = None
+                # If it works, remove the failure timestamp.
+                if message_id in self.message_failure_timestamps.keys(): 
+                    self.message_failure_timestamps.pop(message_id)
+            
+            # It didn't work. Count the failures and then give up / send a new one
+            except Exception as x:
+                
+                # If we need to start counting, create a counter.
+                if not message_id in self.message_failure_timestamps.keys(): self.message_failure_timestamps[message_id] = time.time()
+                
+                # Let the user know
+                log('WHOOPS could not edit message', message_id, e, x, 'dt =', 
+                    time.time() - self.message_failure_timestamps[message_id])
+
+                # If it's been awhile since the first failure, try again
+                if time.time() - self.message_failure_timestamps[message_id] > 10:
+                    
+                    # Get rid of the entry for this
+                    log('  Timeout! Popping id...')
+                    self.message_failure_timestamps.pop(message_id)
+                    
+                    # Now try to get a new one...
+                    try: 
+                        log('  Trying to send a new message...')
+                        
+                        if len(e.description): message_id = webhook.send(message, embeds=[e], wait=True).id
+                        else:                  message_id = webhook.send(message, embeds=[],  wait=True).id
+                        
+                        log('  Sent id', message_id)
+                    
+                    # Couldn't send
+                    except Exception as x: 
+                        log('  WHOOPS (CRITICAL) could not send ', x)
+                        message_id = None
+                
+                # Otherwise try again
+                else:
+                    time.sleep(3)
+                    message_id = self.send_message(webhook, message, body1, body2, footer, message_id, color)
+        
+        # If we don't have a message_id, just try to send a new one.
+        else:
+            
+            # Try to send it
+            try: 
+                if len(e.description): message_id = webhook.send(message, embeds=[e], wait=True).id
+                else:                  message_id = webhook.send(message, embeds=[ ], wait=True).id
+            except Exception as x:
+                log('WHOOPS could not send message', message_id, e, x)
+                message_id = None
 
         # Return it.
         return message_id
