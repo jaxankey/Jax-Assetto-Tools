@@ -15,6 +15,7 @@
 
 
 import os, json, discord, shutil, pprint, glob, time, datetime, urllib, dateutil.parser, socket, requests
+from numpy import median
 from copy import deepcopy
 
 # Change to the directory of this script
@@ -1008,8 +1009,10 @@ class Monitor:
 
         # Scan through the state and collect the driver best laps
         # for each group
-        laps_by_car  = dict() # car -indexed list of best laps
-        laps_by_name = dict() # name-indexed list of best laps
+        laps_by_car   = dict() # car -indexed list of best laps
+        laps_by_name  = dict() # name-indexed list of best laps
+        car_bests     = dict() # car-indexed lists of all best lap times
+        all_bests     = []     # everyone's bests in one list (any car)
         for name in self.state['laps']:
 
             # For each person, we have to loop through all their car bests,
@@ -1027,16 +1030,26 @@ class Monitor:
                 
                 # Make sure the car exists in laps as a dictionary by name
                 if car not in laps_by_car : laps_by_car[car] = dict()
+                if car not in car_bests   : car_bests[car]   = []
 
-                # Add everyone's best lap to the list.
-                if name not in laps_by_car[car] or c['time_ms'] < laps_by_car[car][name]['time_ms']: laps_by_car[car][name] = c
-                if name not in laps_by_name     or c['time_ms'] < laps_by_name    [name]['time_ms']: laps_by_name    [name] = c
+                # Car-specific bests
+                if name not in laps_by_car[car] or c['time_ms'] < laps_by_car[car][name]['time_ms']: 
+                    laps_by_car[car][name] = c
+                    car_bests[car].append(c['time_ms'])
+                
+                # Any car bests
+                if name not in laps_by_name     or c['time_ms'] < laps_by_name    [name]['time_ms']: 
+                    laps_by_name[name] = c
+                    all_bests.append(c['time_ms'])
 
         # Sort laps
-        laps_by_name                             = {k: v for k, v in sorted(laps_by_name    .items(), key=lambda item: item[1]['time_ms'])}    
-        for car in laps_by_car: laps_by_car[car] = {k: v for k, v in sorted(laps_by_car[car].items(), key=lambda item: item[1]['time_ms'])}
-        
-        return laps_by_name, laps_by_car
+        laps_by_name = {k: v for k, v in sorted(laps_by_name.items(), key=lambda item: item[1]['time_ms'])}    
+        all_bests.sort()
+        for car in laps_by_car: 
+            laps_by_car[car] = {k: v for k, v in sorted(laps_by_car[car].items(), key=lambda item: item[1]['time_ms'])}
+            car_bests[car].sort()
+
+        return all_bests, car_bests
 
     def get_stats_string(self, chars):
         """
@@ -1047,30 +1060,33 @@ class Monitor:
         if not self.state['laps'] or len(self.state['laps'].keys()) == 0: return None
 
         # Get the sorted laps by name and car
-        laps_by_name, laps_by_car = self.sort_best_laps_by_name_and_car()
+        all_bests, car_bests = self.sort_best_laps_by_name_and_car()
 
         # Loop over all the carsets
         lines = []
         
         # Get the number of participants
-        N = len(laps_by_name)
+        N = len(all_bests)
 
         # If we have none, do nothing
         if N > 0:
 
             # Get the median time string
-            tm = self.from_ms(laps_by_name[list(laps_by_name.keys())[int(N/2)]]['time_ms'], True)
+            tm = self.from_ms(median(all_bests), True)
 
             # Append this to the string
             lines.append('**Mid-Pace ('+str(N)+' drivers): `' + tm + '`**')
         
         # Do the same per car
         car_medians = dict() # {time_ms: line_string}
-        for car in laps_by_car:
-            N = len(laps_by_car[car])
-            m = list(laps_by_car[car].keys())[int(N/2)]
-            tm_ms = laps_by_car[car][m]['time_ms']
+        for car in car_bests:
+            N = len(car_bests[car])
+
+            # Get the median in ms and the string
+            tm_ms = median(car_bests[car])
             tm = self.from_ms(tm_ms, True)
+            
+            # Store by ms for sorting
             car_medians[tm_ms] = '`'+ tm + '` ' + self['carnames'][car]  + ' ('+str(N)+')'
 
         # Sort car_medians by time
