@@ -101,11 +101,15 @@ def auto_week(tq):
 
     Returns a unix timestamp
     """
-    # Get the current timestamp
-    now  = time.time()
+    # How much time past qual we should wait before flipping to the next week
+    dt = (timestamp_qual_minutes+30)*60 
 
-    # If tq is ahead of us, it's fine
-    if tq > now: return tq
+    # Get the current timestamp
+    now = time.time()
+
+    # If the transition time (ideally after the race has started) is ahead of us, 
+    # don't increment the week
+    if tq + dt > now: return tq
 
     # Parse the scheduled timestamp and add the qualifying time.
     # We do the algorithm for the current time +/- an hour to allow for timezone shenanigans
@@ -124,11 +128,12 @@ def auto_week(tq):
     week = datetime.timedelta(days=7)
     for n in range(len(tqs)):
 
-        # Reverse until we reach now, just to be safe
-        while tqs[n].timestamp() > now: tqs[n] -= week
+        
+        # Reverse until we reach a few hours from now, just to be safe
+        while tqs[n].timestamp() + dt > now: tqs[n] -= week
 
         # Now increment until we find the next weekly event
-        while tqs[n].timestamp() < now: tqs[n] += week
+        while tqs[n].timestamp() + dt < now: tqs[n] += week
 
     # Now find the one with the matching hour
     tqf = tqc
