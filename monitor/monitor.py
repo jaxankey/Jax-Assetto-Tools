@@ -1229,7 +1229,7 @@ class Monitor:
         carset = None
         if self.state['carset']: carset = str(self.state['carset']).upper()
         elif len(self.state['carnames']) == 1:
-            carset = str(list(self.state['carnames'].keys())[0])
+            carset = str(list(self.state['carnames'].values())[0])
 
         # Add the carset to the title if needed
         if carset: title = title + carset + ' @ '
