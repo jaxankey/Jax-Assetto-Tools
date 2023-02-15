@@ -1227,12 +1227,12 @@ class Monitor:
 
         title = ''
         carset = None
-        if self.state['carset']: carset = str(self.state['carset']).upper()
+        if self.state['carset']: carset = str(self.state['carset'])
         elif len(self.state['carnames']) == 1:
             carset = str(list(self.state['carnames'].values())[0])
 
         # Add the carset to the title if needed
-        if carset: title = title + carset + ' @ '
+        if carset: title = title + carset.upper() + ' @ '
         if track_name: title = title + track_name.upper()
         if url_event_info not in [None, False, '']:
             title = '[' + title +']('+url_event_info+')'
