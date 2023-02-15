@@ -1075,7 +1075,7 @@ class Monitor:
             tm = self.from_ms(median(all_bests), True)
 
             # Append this to the string
-            lines.append('**Mid-Pace**\n`' + tm + '` Any car + ('+str(N)+')**')
+            lines.append('**Mid-Pace\n`' + tm + '` Driver Bests ('+str(N)+')**')
         
         # Do the same per car
         car_medians = dict() # {time_ms: line_string}
