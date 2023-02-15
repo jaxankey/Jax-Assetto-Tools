@@ -1075,7 +1075,7 @@ class Monitor:
             tm = self.from_ms(median(all_bests), True)
 
             # Append this to the string
-            if len(car_bests) > 1: lines.append('**Mid-Pace**\n`' + tm + '` All Drivers ('+str(N)+')')
+            lines.append('**Mid-Pace**\n`' + tm + '` All Drivers ('+str(N)+')')
         
         # Do the same per car
         car_medians = dict() # {time_ms: line_string}
