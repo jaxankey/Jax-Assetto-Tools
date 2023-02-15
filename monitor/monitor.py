@@ -32,7 +32,7 @@ url_api_details   = None
 tcp_data_port     = None
 no_down_warning   = False
 path_live_timings = None
-path_championship = None
+path_race_json    = None
 url_registration  = None
 registration_name = None
 
@@ -69,11 +69,6 @@ debug               = False
 if os.path.exists('monitor.ini.private'): p = 'monitor.ini.private'
 else                                    : p = 'monitor.ini'
 exec(open(p, 'r', encoding="utf8").read())
-
-# Tweak
-if type(path_championship) is not list: path_championship = [path_championship]
-if type(url_registration)  is not list: url_registration  = [url_registration]
-if type(registration_name) is not list: registration_name = [registration_name]
 
 def log(*a):
     """
@@ -244,8 +239,8 @@ class Monitor:
             timestamp=None,  # Timestamp of the first observation of this venue.
             qual_timestamp=None,  # Timestamp of the qual
             race_timestamp=None,  # Timestamp of the race
-            number_slots=None,  # Number of slots in championship
-            number_registered=None,  # Number of people registered in championship
+            number_slots=None,    # Number of slots in race_json if it is a championship
+            number_registered=None,  # Number of people registered in race_json if it is a championship
             track_name=None,  # Track / layout name
             track=None,  # Directory name of the track
             layout=None,  # Layout name
@@ -286,16 +281,10 @@ class Monitor:
                     '', 'Server is down. I need an adult! :(', '', '')
                 self.save_and_archive_state()
 
-            # If we don't have a championship to parse, quit out to avoid looping.
-            if not path_championship[0]: 
-                
-                # Send state messages (not sure why this was here; there is one send_state_messages at the end if something changed)
-                # try: self.send_state_messages()
-                # except Exception as e: 
-                #     print('ERROR: server down and cannot send state', e)
-                return # Only return in this method
+            # If we don't have a race_json to parse, quit out to avoid looping.
+            if not path_race_json or len(path_race_json) == 0: return # Only return in this method
             
-            # Otherwise we parse the championship and then send state messages
+            # Otherwise we parse the race_json and then send state messages
 
         # Otherwise, the server is up; if there is a down message, clear it
         elif self.state['down_message_id']:
@@ -355,22 +344,22 @@ class Monitor:
 
         # JACK: THIS MAY BE THE CAUSE OF THE WEIRD STAMPS WHEN THE EVENT STARTS
         # If we don't have a qual or race timestamp list, make them with the right number of elements
-        if not self['qual_timestamp']:    self['qual_timestamp']    = [None] * len(path_championship)
-        if not self['race_timestamp']:    self['race_timestamp']    = [None] * len(path_championship)
-        if not self['number_registered']: self['number_registered'] = [None] * len(path_championship)
-        if not self['number_slots']:      self['number_slots']      = [None] * len(path_championship)
+        if not self['qual_timestamp']:    self['qual_timestamp']    = None
+        if not self['race_timestamp']:    self['race_timestamp']    = None
+        if not self['number_registered']: self['number_registered'] = None
+        if not self['number_slots']:      self['number_slots']      = None
 
-        # Now load all the supplied championships
+        # Now load the race json data
         try:
-            # Loop over the championships to get time stamps
-            championships = [] # We only keep this list to get info from the first Championship
-            for n in range(len(path_championship)):
-                c = load_json(path_championship[n])
-                championships.append(c)
+            race_json = c = load_json(path_race_json)
+            
+            # c comes back None if path_race_json is None
+            # If it's NOT None, we get timestamp information.
+            if c is not None:
 
-                # c comes back None if path_championships[n] is None
-                # If it's NOT None, we get timestamp information.
-                if c is not None:
+                # We only get timestamps and registration warnings etc for championships,
+                # which have a sign-up form in the top level.
+                if 'SignUpForm' in c:
 
                     # Parse the scheduled timestamp and add the qualifying time, and registered
                     tq = dateutil.parser.parse(c['Events'][0]['Scheduled']).timestamp()
@@ -379,22 +368,19 @@ class Monitor:
 
                     # Have to manually count these since people can cancel registrations
                     nr = 0
-                    # if c['SignUpForm']['Responses']:
-                    #     for r in c['SignUpForm']['Responses']:
-                    #         if r['Status'] == 'Accepted': nr += 1
                     if c['Classes'] and len(c['Classes']):
                         for r in c['Classes'][0]['Entrants'].values():
                             if r['GUID'] != '' or r['Name'] != '': nr += 1
 
                     # If it's different, update the state and send messages
-                    if tq != self['qual_timestamp'][n]    or tr != self['race_timestamp'][n] \
-                    or nr != self['number_registered'][n] or ns != self['number_slots'][n]:
+                    if tq != self['qual_timestamp']    or tr != self['race_timestamp'] \
+                    or nr != self['number_registered'] or ns != self['number_slots']:
                         event_time_slots_changed = True
-                        self['qual_timestamp'][n]    = tq
-                        self['race_timestamp'][n]    = tr
-                        self['number_registered'][n] = nr
-                        self['number_slots'][n]      = ns
-                    
+                        self['qual_timestamp']    = tq
+                        self['race_timestamp']    = tr
+                        self['number_registered'] = nr
+                        self['number_slots']      = ns
+                
                     # Get the current time
                     t = time.time()
 
@@ -416,16 +402,16 @@ class Monitor:
                         self.delete_message(self.webhook_info, self['qualifying_message_id'])
                         self['qualifying_message_id'] = None
 
-            # Get the track, layout, and cars from the website if there is no championship
+            # Get the track, layout, and cars from the website if there is no race_json
             track  = 'Unknown Track'
             layout = ''
             cars   = []
             #
-            # With no championship, we use details (if we got them above!)
-            if championships[0] is None:
+            # With no race_json, we use details (if we got them above!)
+            if race_json is None:
 
-                # We already got the details above; these can be out of date, which is why we use
-                # the championship when available
+                # We already got the details above; these can be out of date sometimes, which is why we use
+                # the race_json when available (below)
                 if details:
                     track_layout = details['track'].split('-')
                     track = track_layout[0]
@@ -433,9 +419,14 @@ class Monitor:
                     else:                      layout = ''
                     cars = details['cars']
 
-            # Otherwise we use the more reliable championship information
+            # Otherwise we use the more reliable race_json information
             else:
-                rs = championships[0]['Events'][0]['RaceSetup']
+                
+                # If this is a championship json or custom race, we get the race info differently.
+                if 'Events' in race_json: rs = race_json['Events'][0]['RaceSetup']
+                else:                     rs = race_json['RaceConfig']
+                
+                # Get the race info
                 cars   = rs['Cars'].split(';') if rs['Cars'] else []
                 track  = rs['Track']
                 layout = rs['TrackLayout']
@@ -450,7 +441,7 @@ class Monitor:
             self.state['layout'] = layout
 
         except Exception as e:
-            log('ERROR with championship.json(s):', e)
+            log('ERROR with race_json.json(s):', e)
 
         # If the venue changed, do the new venue stuff.
         if track_changed or carset_fully_changed \
@@ -1198,36 +1189,33 @@ class Monitor:
 
         # These are misnamed for historical reasons.
         # They contain the time stamp if there is premium mode.
-        reg_string1 = '' # Shorter bottom one
+        reg_string1   = '' # Shorter bottom one
         top_timestamp = '' # Longer top one
 
         # If we are in premium mode, timestamps will be lists; otherwise, None.
         if self['qual_timestamp'] is not None and self['race_timestamp'] is not None:
 
-            # Loop over the time stamps and registration numbers
-            for n in range(len(self['qual_timestamp'])):
+            # By default, these are set to None;
+            # when the race starts, acsm sets the start time to a negative number
+            if self['qual_timestamp'] not in [0, None] and self['qual_timestamp'] > 0:
 
-                # By default, these are set to None;
-                # when the race starts, acsm sets the start time to a negative number
-                if self['qual_timestamp'][n] not in [0, None] and self['qual_timestamp'][n] > 0:
+                # Get the time stamp for this race
+                tq = str(int(self['qual_timestamp']))
+                tr = str(int(self['race_timestamp']))
 
-                    # Get the time stamp for this race
-                    tq = str(int(self['qual_timestamp'][n]))
-                    tr = str(int(self['race_timestamp'][n]))
+                # Create the full timestamp, optionally with name
+                nametime1 = '<t:' + tq + ':D>'
+                if registration_name: nametime1 = registration_name + ' '+nametime1
 
-                    # Create the full timestamp, optionally with name
-                    nametime1 = '<t:' + tq + ':D>'
-                    if registration_name[n]: nametime1 = registration_name[n] + ' '+nametime1
+                # Create the top_timestamp.
+                top_timestamp = '\n' + nametime1 \
+                                + '\n`Qual:` ' + ' <t:' + tq + ':t>' + ' (<t:' + tq + ':R>)' \
+                                + '\n`Race:` ' + ' <t:' + tr + ':t>' + ' (<t:' + tr + ':R>)'
 
-                    # Create the top_timestamp.
-                    top_timestamp = '\n' + nametime1 \
-                                  + '\n`Qual:` ' + ' <t:' + tq + ':t>' + ' (<t:' + tq + ':R>)' \
-                                  + '\n`Race:` ' + ' <t:' + tr + ':t>' + ' (<t:' + tr + ':R>)'
-
-                # Linkify it
-                if n < len(url_registration) and type(url_registration[n]) is str:
-                    nametime1 = '**[Register (' + str(self['number_registered'][n]) + '/' + str(self['number_slots'][n]) + ')](' + url_registration[n] + ')**'
-                    reg_string1 = nametime1  # Bottom registration stylized
+            # Linkify it if there is registration info
+            if type(url_registration) is str and self['number_slots']:
+                nametime1 = '**[Register (' + str(self['number_registered']) + '/' + str(self['number_slots']) + ')](' + url_registration + ')**'
+                reg_string1 = nametime1  # Bottom registration stylized
 
         # Get the laps info footer now for later computing the length
         footer = '\n\n'+reg_string1+laps_footer+join_link
