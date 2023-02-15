@@ -1075,7 +1075,7 @@ class Monitor:
             tm = self.from_ms(median(all_bests), True)
 
             # Append this to the string
-            lines.append('**Mid-Pace**\n`' + tm + '` All Drivers ('+str(N)+')')
+            if len(car_bests) > 1: lines.append('**Mid-Pace**\n`' + tm + '` All Drivers ('+str(N)+')')
         
         # Do the same per car
         car_medians = dict() # {time_ms: line_string}
@@ -1092,8 +1092,9 @@ class Monitor:
         # Sort car_medians by time
         car_medians = {k: v for k, v in sorted(car_medians.items(), key=lambda item: item[0])}
 
-        # Append to lines
-        for tm_ms in car_medians: lines.append(car_medians[tm_ms])
+        # Append to lines if there are more than one (to avoid double-information)
+        if len(car_medians) > 1:
+            for tm_ms in car_medians: lines.append(car_medians[tm_ms])
         
         # Make sure we don't have too many characters
         popped = False
