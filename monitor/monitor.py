@@ -54,16 +54,26 @@ venue_subheader     = ''
 venue_recycle_message = True
 laps_footer         = ''
 no_leaderboard      = False
-registration_message = None # String if enabled
-qualifying_message   = None # String if enabled
+
+# Timed messages about the event
+one_hour_message    = None # String if enabled
+qualifying_message  = None # String if enabled
+
+# Auto week for timestamps and messages
+timestamp_qual_start   = None # If a unix timestamp, enables auto-week timestamps 
+timestamp_qual_minutes = 60   # Duration of qual
 
 # Join link construction
 join_link_finish = None
 server_ip        = None
 
+
+
 # Other
 web_archive_history = 0
 debug               = False
+
+
 
 # Get the user values from the ini file
 if os.path.exists('monitor.ini.private'): p = 'monitor.ini.private'
@@ -83,6 +93,50 @@ def get_unix_timestamp(y, M, d, h, m):
     """
     dt = datetime.datetime(y, M, d, h, m)
     return time.mktime(dt.timetuple())
+
+def auto_week(tq):
+    """
+    Given a unix timestamp, increments the week until the first instance ahead of now,
+    taking into acount daylight savings.
+
+    Returns a unix timestamp
+    """
+    # Get the current timestamp
+    now  = time.time()
+
+    # If tq is ahead of us, it's fine
+    if tq > now: return tq
+
+    # Parse the scheduled timestamp and add the qualifying time.
+    # We do the algorithm for the current time +/- an hour to allow for timezone shenanigans
+    tqc = datetime.datetime.fromtimestamp(tq)
+    tqp = tqc + datetime.timedelta(hours=1)
+    tqm = tqc - datetime.timedelta(hours=1)
+    tqs = [tqc, tqp, tqm]
+    
+    # We remember the "center" hour for later, to make absolutely sure it matches after 
+    # we increment by a week. Daylight savings is too finicky to worry about, and
+    # we can't be guaranteed that everything is timezone aware.
+    hour = tqc.hour
+    
+    # Plan is to go backwards to before our time, then forward to the first week after now.
+    # This bit allows me to schedule something last minute.
+    week = datetime.timedelta(days=7)
+    for n in range(len(tqs)):
+
+        # Reverse until we reach now, just to be safe
+        while tqs[n].timestamp() > now: tqs[n] -= week
+
+        # Now increment until we find the next weekly event
+        while tqs[n].timestamp() < now: tqs[n] += week
+
+    # Now find the one with the matching hour
+    tqf = tqc
+    for tq in tqs: 
+        if tq.hour == hour: tqf = tq
+    
+    # Return the timestamp
+    return tqf.timestamp()
 
 
 def tail(f, start_from_end=False):
@@ -233,7 +287,7 @@ class Monitor:
         self.state = dict(
             online=dict(),  # Dictionary of online user info, indexed by name = {car:'car_dir'}
             online_message_id=None,  # Message id for the "who is online" messages
-            registration_message_id = None, # Message id for "qual in an hour" message
+            one_hour_message_id = None, # Message id for "qual in an hour" message
             qualifying_message_id   = None, # Message id for "qual open" message
 
             timestamp=None,  # Timestamp of the first observation of this venue.
@@ -342,12 +396,10 @@ class Monitor:
             self.state['online'] = dict()
             for item in new: self.state['online'][item[0]] = dict(car=item[1])
 
-        # JACK: THIS MAY BE THE CAUSE OF THE WEIRD STAMPS WHEN THE EVENT STARTS
-        # If we don't have a qual or race timestamp list, make them with the right number of elements
-        if not self['qual_timestamp']:    self['qual_timestamp']    = None
-        if not self['race_timestamp']:    self['race_timestamp']    = None
-        if not self['number_registered']: self['number_registered'] = None
-        if not self['number_slots']:      self['number_slots']      = None
+        # If we do not have timestamps but DO have timestamp_qual_start set it
+        if not self['qual_timestamp'] and timestamp_qual_start:
+            self['qual_timestamp'] = timestamp_qual_start
+            self['race_timestamp'] = timestamp_qual_start + timestamp_qual_minutes*60
 
         # Now load the race json data
         try:
@@ -381,27 +433,6 @@ class Monitor:
                         self['number_registered'] = nr
                         self['number_slots']      = ns
                 
-                    # Get the current time
-                    t = time.time()
-
-                    # If we're within an hour of the qual send the registration warning if we haven't
-                    if registration_message and tq-3600 < t < tq and not self['registration_message_id']:
-                        self['registration_message_id'] = self.send_message(self.webhook_info, registration_message, message_id=self['registration_message_id'])
-
-                    # Otherwise, we shouldn't have a registration message so, delete it if it exists
-                    elif self['registration_message_id']:
-                        self.delete_message(self.webhook_info, self['registration_message_id'])
-                        self['registration_message_id'] = None
-
-                    # If we're between qual and race and haven't already, send that message
-                    if qualifying_message and tq < t < tr and not self['qualifying_message_id']:
-                        self['qualifying_message_id'] = self.send_message(self.webhook_info, qualifying_message, message_id=self['qualifying_message_id'])
-
-                    # Otherwise, delete it if it exists
-                    elif self['qualifying_message_id']:
-                        self.delete_message(self.webhook_info, self['qualifying_message_id'])
-                        self['qualifying_message_id'] = None
-
             # Get the track, layout, and cars from the website if there is no race_json
             track  = 'Unknown Track'
             layout = ''
@@ -442,6 +473,39 @@ class Monitor:
 
         except Exception as e:
             log('ERROR with race_json.json(s):', e)
+
+        # If, after all that nonsense, we have a qual_timestamp and race_timestamp, 
+        # adjust it to the next week if needed,
+        # then get the current time and send the messages warning about the event if we're within windows
+        if self['qual_timestamp'] and self['race_timestamp']:
+
+            # If we're in auto-week mode, find the next qual start time for this week
+            if timestamp_qual_start:
+                self['qual_timestamp'] = auto_week(self['qual_timestamp'])
+                self['race_timestamp'] = self['qual_timestamp'] + 60*timestamp_qual_minutes
+
+            # Get the times for comparison
+            t = time.time()
+            tq = self['qual_timestamp']
+            tr = self['race_timestamp']
+
+            # If we're within an hour of the qual send the registration warning if we haven't
+            if one_hour_message and tq-3600 < t < tq and not self['one_hour_message_id']:
+                self['one_hour_message_id'] = self.send_message(self.webhook_info, one_hour_message, message_id=self['one_hour_message_id'])
+
+            # Otherwise, we shouldn't have a registration message so, delete it if it exists
+            elif self['one_hour_message_id']:
+                self.delete_message(self.webhook_info, self['one_hour_message_id'])
+                self['one_hour_message_id'] = None
+
+            # If we're between qual and race and haven't already, send that message
+            if qualifying_message and tq < t < tr and not self['qualifying_message_id']:
+                self['qualifying_message_id'] = self.send_message(self.webhook_info, qualifying_message, message_id=self['qualifying_message_id'])
+
+            # Otherwise, delete it if it exists
+            elif self['qualifying_message_id']:
+                self.delete_message(self.webhook_info, self['qualifying_message_id'])
+                self['qualifying_message_id'] = None
 
         # If the venue changed, do the new venue stuff.
         if track_changed or carset_fully_changed \

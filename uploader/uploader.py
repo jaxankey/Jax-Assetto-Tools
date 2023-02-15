@@ -1,8 +1,5 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-# JACK: selecting from list doesn't seem to sync them. Not firing signal; 
-# also doesn't automatically select "[unsaved carset]"
-
 
 import glob, codecs, os, sys, shutil, random, json, pyperclip, webbrowser, stat
 import dateutil, subprocess, time, datetime, importlib
