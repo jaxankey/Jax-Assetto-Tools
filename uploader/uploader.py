@@ -1,8 +1,21 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-import glob, codecs, os, sys, shutil, random, json, pyperclip, webbrowser, stat
-import dateutil, subprocess, time, datetime, importlib
+import os, sys
+import importlib
+from importlib import util
+from datetime import timedelta
+from time import time, sleep
+from subprocess import run
+from dateutil import parser
+from stat import S_IWUSR
+from webbrowser import open as webbrowser_open
+from pyperclip import copy as pyperclip_copy
+from json import load, dump
+from glob import glob
+from shutil import copy, copytree, ignore_patterns
+from codecs import open as codecs_open
+from random import randrange
 
 # Change to the directory of this script depending on whether this is a "compiled" version or run as script
 if os.path.split(sys.executable)[-1] == 'uploader.exe': os.chdir(os.path.dirname(sys.executable)) # For executable version
@@ -29,9 +42,9 @@ def load_json(path):
     """
     try:
         if os.path.exists(path):
-            f = codecs.open(path, 'r', 'utf-8-sig', errors='replace')
+            f = codecs_open(path, 'r', 'utf-8-sig', errors='replace')
             #f = open(path, 'r', encoding='utf8', errors='replace')
-            j = json.load(f, strict=False)
+            j = load(f, strict=False)
             f.close()
             return j
     except Exception as e:
@@ -45,7 +58,7 @@ def rmtree(top):
     for root, dirs, files in os.walk(top, topdown=False):
         for name in files:
             filename = os.path.join(root, name)
-            os.chmod(filename, stat.S_IWUSR)
+            os.chmod(filename, S_IWUSR)
             os.remove(filename)
         for name in dirs:
             os.rmdir(os.path.join(root, name))
@@ -60,7 +73,7 @@ class Uploader:
     def __init__(self, show=True, blocking=False):
 
         # If we're in executable mode, close the splash screen
-        if '_PYIBoot_SPLASH' in os.environ and importlib.util.find_spec("pyi_splash"):
+        if '_PYIBoot_SPLASH' in os.environ and util.find_spec("pyi_splash"):
             import pyi_splash # IDE warning is ok; we don't get here except in executable mode.
             pyi_splash.update_text('UI Loaded ...')
             pyi_splash.close()
@@ -111,7 +124,8 @@ class Uploader:
         #self.grid_top.add(egg.gui.Label('Profile:'))
         self.combo_server = self.grid_top.add(egg.gui.ComboBox([],
             tip='Select a server profile.',
-            signal_changed=self._combo_server_changed)).set_width(150)
+            signal_changed=self._combo_server_changed,
+            autosettings_path='combo_server')).set_width(150)
         self.combo_server.set_style(self.style_fancybutton)
 
         self.button_load_server = self.grid_top.add(egg.gui.Button('Load',
@@ -511,7 +525,10 @@ class Uploader:
 
         ######################
         # Show the window; no more commands below this.
-        elif show: self.window.show(blocking)
+        else: 
+            
+
+            if show: self.window.show(blocking)
 
     def _button_test_clicked(self, *a):
         """
@@ -576,10 +593,6 @@ class Uploader:
         zip_path = os.path.join(packs_path, carset_safe + '.7z')
         if os.path.exists(zip_path): os.remove(zip_path)
 
-        # Permissions hack
-        # _orig_copystat = shutil.copystat
-        # shutil.copystat = lambda x, y: x
-
         # Loop over the selected cars and copy them into the main folder
         # Also assemble the zip command
         command = ['7z', '-mx4', '-xr!*desktop.ini', 'a', '"'+zip_path+'"']
@@ -589,7 +602,7 @@ class Uploader:
             destination = os.path.join(local,'content','cars',car)
             if os.path.exists(source):
                 print('Copying', source,'\n  ->',destination)
-                try: shutil.copytree(source, destination, dirs_exist_ok=True, copy_function=shutil.copy, ignore=shutil.ignore_patterns('desktop.ini'))
+                try: copytree(source, destination, dirs_exist_ok=True, copy_function=copy, ignore=ignore_patterns('desktop.ini'))
                 except Exception as e:
                     self.log('ERROR COPYING', car)
                     try:
@@ -599,9 +612,6 @@ class Uploader:
 
             # Add this to the zip command.
             command.append('"' + source + '"')
-
-        # Undo hack
-        #shutil.copystat = _orig_copystat
 
         # Now in a separate thread, start the zip process
         command_string = ' '.join(command)
@@ -650,7 +660,7 @@ class Uploader:
         """
         if self.text_url() != '':
             self.log('Opening URL 1...')
-            webbrowser.open(self.text_url())
+            webbrowser_open(self.text_url())
 
     def _button_go_url2_clicked(self, *a):
         """
@@ -658,7 +668,7 @@ class Uploader:
         """
         if self.text_url2() != '':
             self.log('Opening URL 2...')
-            webbrowser.open(self.text_url2())
+            webbrowser_open(self.text_url2())
 
     # else: self.log('*Skipping URL')
     def _button_download_championship_clicked(self, *a):
@@ -704,7 +714,7 @@ class Uploader:
         self.combo_server.add_item(_create_new_profile)
 
         if not os.path.exists('servers'): os.makedirs('servers')
-        paths = glob.glob(os.path.join('servers','*.json'))
+        paths = glob(os.path.join('servers','*.json'))
         paths.sort()
         for path in paths: self.combo_server.add_item(os.path.splitext(os.path.split(path)[-1])[0])
 
@@ -760,7 +770,7 @@ class Uploader:
 
         # Load it.
         f = open(path, 'r', encoding="utf8")
-        self.server = json.load(f, strict=False)
+        self.server = load(f, strict=False)
         f.close()
 
         # If there is no championship, warn!
@@ -784,7 +794,7 @@ class Uploader:
         # Otherwise, copy the current selection
         old_path = os.path.join('servers', self.combo_server.get_text()+'.json')
         new_path = os.path.join('servers', name+'.json')
-        shutil.copy(old_path, new_path)
+        copy(old_path, new_path)
 
         # Add it to the list and select it
         self.combo_server.add_item(name)
@@ -968,7 +978,7 @@ class Uploader:
         # Write the file
         if not os.path.exists('servers'): os.makedirs('servers')
         f = open(os.path.join('servers', name+'.json'), 'w', encoding="utf8")
-        json.dump(self.server, f, indent=2)
+        dump(self.server, f, indent=2)
         f.close()
         
         # Make sure it's selected.
@@ -1014,7 +1024,7 @@ class Uploader:
             combo_send_to=self.combo_send_to.get_text()
         )
         print('save_server_gui')
-        json.dump(gui, open('server.json', 'w'), indent=2)
+        dump(gui, open('server.json', 'w'), indent=2)
 
     def load_server_gui(self):
         """
@@ -1273,7 +1283,7 @@ class Uploader:
                 
                 # JACK: Pause to let server shut down, then delete live_timings.json
                 if self.text_live_timings() != '':
-                    time.sleep(5.0)
+                    sleep(5.0)
                     self.log('Removing live_timings.json')
                     if self.send_ssh_command('rm -f '+self.text_live_timings()): return True
                 
@@ -1312,7 +1322,7 @@ class Uploader:
 
         # Copy the nice cars list to the clipboard
         if self.combo_mode() == 0:
-            pyperclip.copy(self.get_nice_selected_cars_string())
+            pyperclip_copy(self.get_nice_selected_cars_string())
             self.log('List copied to clipboard')
             
         # Forward to the supplied URL
@@ -1371,7 +1381,7 @@ class Uploader:
             self.collect_assetto_files(os.path.join('cars',car), skins_only)
 
         # Copy over the carsets folder too.
-        if not skins_only: shutil.copytree('carsets', os.path.join('uploads','carsets'))
+        if not skins_only: copytree('carsets', os.path.join('uploads','carsets'))
 
         # Track
         if not skins_only: 
@@ -1485,7 +1495,7 @@ class Uploader:
                     
                     # Copy it over, making dirs first
                     os.makedirs(os.path.dirname(destination), exist_ok=True)
-                    try: shutil.copy(source, destination, follow_symlinks=True)
+                    try: copy(source, destination, follow_symlinks=True)
                     except Exception as e: print(e)
 
             
@@ -1509,7 +1519,7 @@ class Uploader:
         print(command)
         #r = os.system(command)
         self._c = command
-        self._r = subprocess.run(self._c, capture_output=True, shell=True)
+        self._r = run(self._c, capture_output=True, shell=True)
         if self._r.returncode:
             self.log('--------------------') 
             self.log('ERROR:\n')
@@ -1531,7 +1541,7 @@ class Uploader:
             s = s+'\n'+self.cars[d]
 
         # copy this to the clipboard
-        pyperclip.copy(s)
+        pyperclip_copy(s)
         return s
 
     def _combo_tracks_changed(self,*e):
@@ -1556,7 +1566,7 @@ class Uploader:
         # Search for models_*.ini
         to_sort = [] # list of layouts to sort before adding
         root = os.path.join(self.text_local(), 'content', 'tracks', track, 'models_*.ini')
-        paths = glob.glob(root)
+        paths = glob(root)
         for path in paths:
             layout = os.path.split(path)[-1].replace('models_','').replace('.ini','')
 
@@ -1876,14 +1886,14 @@ class Uploader:
         and c['Events']             \
         and len(c['Events'])        \
         and 'Scheduled' in c['Events'][0].keys() \
-        and dateutil.parser.isoparse(c['Events'][0]['Scheduled']).year > 1:
+        and parser.isoparse(c['Events'][0]['Scheduled']).year > 1:
             self.log('  Auto-Week')
             self.log('  ',c['Events'][0]['Scheduled'], '->')
 
             # Parse the scheduled timestamp and add the qualifying time.
-            tqc  = dateutil.parser.isoparse(c['Events'][0]['Scheduled'])
-            tqp  = tqc + datetime.timedelta(hours=1)
-            tqm  = tqc - datetime.timedelta(hours=1)
+            tqc  = parser.isoparse(c['Events'][0]['Scheduled'])
+            tqp  = tqc + timedelta(hours=1)
+            tqm  = tqc - timedelta(hours=1)
             tqs = [tqc, tqp, tqm]
             
             # We remember the "center" hour for later, to make absolutely sure it matches after 
@@ -1893,8 +1903,8 @@ class Uploader:
            
             # Plan is to go backwards to before our time, then forward to the first week after now.
             # This bit allows me to schedule something last minute.
-            week = datetime.timedelta(days=7)
-            now  = time.time()
+            week = timedelta(days=7)
+            now  = time()
             for n in range(len(tqs)):
                 while tqs[n].timestamp() > now: tqs[n] -= week
                 while tqs[n].timestamp() < now: tqs[n] += week
@@ -1917,7 +1927,7 @@ class Uploader:
 
         # Save it also for uploading...
         f = open('championship.json','w', encoding="utf8")
-        json.dump(c, f, indent=2)
+        dump(c, f, indent=2)
         f.close()
 
         # And save it to the server config!
@@ -2023,14 +2033,12 @@ class Uploader:
         self.log('  cars')
         self.race_json['cars'] = dict()
         for c in cars: self.race_json['cars'][self.cars[c]] = c
-        #json.dump(cars_dictionary, open(os.path.join('uploads', 'cars.txt'), 'w'))
-
+        
         # SKINS
         self.log('  skins')
         self.race_json['skins'] = dict()
         for c in cars: self.race_json['skins'][c] = self.skins[c]
-        #json.dump(skins, open(os.path.join('uploads', 'skins.txt'), 'w'))
-
+        
         # TRACK
         self.log('  track')
         self.race_json['track'] = self.track
@@ -2038,7 +2046,7 @@ class Uploader:
 
         # Dump
         self.log('Dumping to race.json')
-        json.dump(self.race_json, open(os.path.join('uploads', 'race.json'), 'w', encoding="utf8"), indent=2, sort_keys=True)
+        dump(self.race_json, open(os.path.join('uploads', 'race.json'), 'w', encoding="utf8"), indent=2, sort_keys=True)
 
 
 
@@ -2075,7 +2083,7 @@ class Uploader:
         self.combo_carsets.add_item(_unsaved_carset)
 
         if not os.path.exists('carsets'): os.makedirs('carsets')
-        paths = glob.glob(os.path.join('carsets','*'))
+        paths = glob(os.path.join('carsets','*'))
         carsets = set()
         for path in paths: 
             carset = os.path.split(path)[-1]
@@ -2121,7 +2129,7 @@ class Uploader:
         self.skins = dict()
 
         # Get all the car paths
-        for path in glob.glob(os.path.join(self.text_local(), 'content', 'cars', '*')):
+        for path in glob(os.path.join(self.text_local(), 'content', 'cars', '*')):
 
             # Get the car's directory name
             dirname = os.path.split(path)[-1]
@@ -2131,9 +2139,6 @@ class Uploader:
             if not os.path.exists(path_json): continue
 
             # Get the fancy car name (the jsons are not always well formatted, so I have to manually search!)
-            # f = codecs.open(path_json, 'r', encoding='utf-8')
-            # s = f.read()
-            # f.close()
             s = load_json(path_json)
 
             # Remember the fancy name
@@ -2198,7 +2203,7 @@ class Uploader:
 
         # Get all the paths
         #self.log('Updating tracks...')
-        paths = glob.glob(os.path.join(self.text_local(), 'content', 'tracks', '*'))
+        paths = glob(os.path.join(self.text_local(), 'content', 'tracks', '*'))
         paths.sort()
 
         # Lookup table for track to trackname
@@ -2226,7 +2231,7 @@ class Uploader:
                 tracknames = []
                 shortest   = trackname # shortest trackname
                 N = 0 # Min string length for later
-                for p in glob.glob(os.path.join(trackpath, 'ui', '*')):
+                for p in glob(os.path.join(trackpath, 'ui', '*')):
                     ui_path = os.path.join(p, 'ui_track.json')
                     if os.path.exists(ui_path):
                         tracknames.append(load_json(ui_path)['name'])
