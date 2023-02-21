@@ -1281,7 +1281,7 @@ class Uploader:
                 #c = 'ssh -p '+port+' -i "'+pem+'" '+login+' "'+stop+'"' 
                 if self.system(['ssh', '-T', '-p', port, '-i', pem, login, stop]): return True
                 
-                # JACK: Pause to let server shut down, then delete live_timings.json
+                # Pause to let server shut down, then delete live_timings.json
                 if self.text_live_timings() != '':
                     sleep(5.0)
                     self.log('Removing live_timings.json')
@@ -1804,123 +1804,174 @@ class Uploader:
         # Make sure we have a championship.
         if not 'championship' in self.server:
             self.log('ERROR: Championship json has not been downloaded yet.')
+            return True
+        
+        # Shortcut to all the data
         c = self.server['championship']
 
         # Make sure there is a remote championship to upload to
         remote_championship = self.text_remote_championship().strip()
         if remote_championship == '' and self.checkbox_upload(): 
             self.log('No remote championship file specified?')
-            return
+            return True
         
-        # ID from file name
-        c['ID'] = os.path.splitext(os.path.split(remote_championship)[-1])[0]
-
-        # Name
-        c['Name'] = self.combo_carsets.get_text()+' at '+self.track['name']+' ('+self.combo_server.get_text()+')'
-        
-        # The championship should have one car class for simplicity. We edit it.
-        carset = self.combo_carsets.get_text()
-        c['Classes'][0]['Name'] = carset
-        
-        # Update the cars list, noting if it's completely changed (no overlap)
+        # Get basic information useful to both kinds of files.
         selected_cars = self.get_selected_cars()
-        c['Classes'][0]['AvailableCars'] = selected_cars
-        
-        # One event for simplicity
-        e = c['Events'][0]
-        
-        # Other race setup
-        e['RaceSetup']['Cars']  = ';'.join(selected_cars)
         track  = self.skcart[self.combo_tracks.get_text()]
         layout = self.combo_layouts.get_text()
         if layout == _default_layout: layout = ''
         else:                         layout = self.stuoyal[layout]
 
-        e['RaceSetup']['Track']       = track
-        e['RaceSetup']['TrackLayout'] = layout
-        e['RaceSetup']['LegalTyres']  = self.text_tyres() # JACK: UNPACK AND SCRAPE DATA.ACD? GROSS!!
-        
-        # Reset the signup form, classes and events entrants
-        c['SignUpForm']['Responses'] = [] # Always start clean now. Simpler
-        c['Classes'][0]['Entrants'] = dict()
-        c['Events'][0]['EntryList'] = dict() 
-    
         # Find the number of pitboxes
         N = self.number_slots()
         if 'pitboxes' not in self.track: self.track['pitboxes'] = 0
         N = min(N, int(self.track['pitboxes']))
 
-        # Update the metadata
-        c['Stats']['NumEntrants'] = N
+        #JACK: Add check to championship.json handling to see if it's a custom race, and adjust accordingly
+        #      when updating everything.
+
+        # If this has 'Events' then it is a championship json. If not, then assume it is a custom race
+        if 'Events' in c:
+            self.log('  Championship detected...')
+
+            # ID from file name
+            c['ID'] = os.path.splitext(os.path.split(remote_championship)[-1])[0]
+
+            # Name
+            c['Name'] = self.combo_carsets.get_text()+' at '+self.track['name']+' ('+self.combo_server.get_text()+')'
+            
+            # The championship should have one car class for simplicity. We edit it.
+            c['Classes'][0]['Name'] = self.combo_carsets.get_text()
+            
+            # Update the cars list, noting if it's completely changed (no overlap)
+            c['Classes'][0]['AvailableCars'] = selected_cars
+            
+            # One event for simplicity
+            e = c['Events'][0]
+            
+            # Other race setup
+            e['RaceSetup']['Cars']  = ';'.join(selected_cars)
+            e['RaceSetup']['Track']       = track
+            e['RaceSetup']['TrackLayout'] = layout
+            e['RaceSetup']['LegalTyres']  = self.text_tyres() # JACK: UNPACK AND SCRAPE DATA.ACD? GROSS!!
+            
+            # Reset the signup form, classes and events entrants
+            c['SignUpForm']['Responses'] = [] # Always start clean now. Simpler
+            c['Classes'][0]['Entrants'] = dict()
+            c['Events'][0]['EntryList'] = dict() 
         
-        # Now fill the pitboxes
-        for n in range(N):
+            # Update the metadata
+            c['Stats']['NumEntrants'] = N
             
-            # Create an entry for this one.
-            c['Classes'][0]['Entrants']['CAR_'+str(n+1)] = {
-                "InternalUUID": "%08d-0000-0000-0000-000000000000" % (n+1),
-                "PitBox": n,
-                "Name": "",
-                "Team": "",
-                "GUID": "",
-                "Model": "any_car_model",
-                "Skin": "random_skin",
-                "ClassID": "00000000-0000-0000-0000-000000000000",
-                "Ballast":    0, # self.tree_cars[car+'/ballast']    if car+'/ballast'    in self.tree_cars.keys() else 0,
-                "Restrictor": 0, # self.tree_cars[car+'/restrictor'] if car+'/restrictor' in self.tree_cars.keys() else 0,
-                "SpectatorMode": 0,
-                "FixedSetup": "",
-                "ConnectAsSpectator": False,
-                "IsPlaceHolder": False}
+            # Now fill the pitboxes
+            for n in range(N):
+                
+                # Create an entry for this one.
+                c['Classes'][0]['Entrants']['CAR_'+str(n+1)] = {
+                    "InternalUUID": "%08d-0000-0000-0000-000000000000" % (n+1),
+                    "PitBox": n,
+                    "Name": "",
+                    "Team": "",
+                    "GUID": "",
+                    "Model": "any_car_model",
+                    "Skin": "random_skin",
+                    "ClassID": "00000000-0000-0000-0000-000000000000",
+                    "Ballast":    0, # self.tree_cars[car+'/ballast']    if car+'/ballast'    in self.tree_cars.keys() else 0,
+                    "Restrictor": 0, # self.tree_cars[car+'/restrictor'] if car+'/restrictor' in self.tree_cars.keys() else 0,
+                    "SpectatorMode": 0,
+                    "FixedSetup": "",
+                    "ConnectAsSpectator": False,
+                    "IsPlaceHolder": False}
 
-            # Make the events entrylist match
-            c['Events'][0]['EntryList']['CAR_'+str(n)] = dict(c['Classes'][0]['Entrants']['CAR_'+str(n+1)])
-     
-            # Manually cycle the cars in the event so there are good cars for practice 
-            # (default server behavior is annoying)
-            c['Events'][0]['EntryList']['CAR_'+str(n)].update({'Model' : selected_cars[n%len(selected_cars)], })
-     
-        # Finally, update the schedule, but only if we're in ACSM mode (we must be for this
-        # function to have been called!) and the key exists, and it's actually scheduled!
-        if self.checkbox_autoweek() \
-        and c['Events']             \
-        and len(c['Events'])        \
-        and 'Scheduled' in c['Events'][0].keys() \
-        and parser.isoparse(c['Events'][0]['Scheduled']).year > 1:
-            self.log('  Auto-Week')
-            self.log('  ',c['Events'][0]['Scheduled'], '->')
+                # Make the events entrylist match
+                c['Events'][0]['EntryList']['CAR_'+str(n)] = dict(c['Classes'][0]['Entrants']['CAR_'+str(n+1)])
+        
+                # Manually cycle the cars in the event so there are good cars for practice 
+                # (default server behavior is annoying)
+                c['Events'][0]['EntryList']['CAR_'+str(n)].update({'Model' : selected_cars[n%len(selected_cars)], })
+        
+            # Finally, update the schedule, but only if we're in ACSM mode (we must be for this
+            # function to have been called!) and the key exists, and it's actually scheduled!
+            if self.checkbox_autoweek() \
+            and c['Events']             \
+            and len(c['Events'])        \
+            and 'Scheduled' in c['Events'][0].keys() \
+            and parser.isoparse(c['Events'][0]['Scheduled']).year > 1:
+                self.log('  Auto-Week')
+                self.log('  ',c['Events'][0]['Scheduled'], '->')
 
-            # Parse the scheduled timestamp and add the qualifying time.
-            tqc  = parser.isoparse(c['Events'][0]['Scheduled'])
-            tqp  = tqc + timedelta(hours=1)
-            tqm  = tqc - timedelta(hours=1)
-            tqs = [tqc, tqp, tqm]
+                # Parse the scheduled timestamp and add the qualifying time.
+                tqc  = parser.isoparse(c['Events'][0]['Scheduled'])
+                tqp  = tqc + timedelta(hours=1)
+                tqm  = tqc - timedelta(hours=1)
+                tqs = [tqc, tqp, tqm]
+                
+                # We remember the "center" hour for later, to make absolutely sure it matches after 
+                # we increment by a week. Daylight savings is too finicky to worry about, and
+                # we can't be guaranteed that the iso parse is timezone aware.
+                hour = tqc.hour
             
-            # We remember the "center" hour for later, to make absolutely sure it matches after 
-            # we increment by a week. Daylight savings is too finicky to worry about, and
-            # we can't be guaranteed that the iso parse is timezone aware.
-            hour = tqc.hour
-           
-            # Plan is to go backwards to before our time, then forward to the first week after now.
-            # This bit allows me to schedule something last minute.
-            week = timedelta(days=7)
-            now  = time()
-            for n in range(len(tqs)):
-                while tqs[n].timestamp() > now: tqs[n] -= week
-                while tqs[n].timestamp() < now: tqs[n] += week
+                # Plan is to go backwards to before our time, then forward to the first week after now.
+                # This bit allows me to schedule something last minute.
+                week = timedelta(days=7)
+                now  = time()
+                for n in range(len(tqs)):
+                    while tqs[n].timestamp() > now: tqs[n] -= week
+                    while tqs[n].timestamp() < now: tqs[n] += week
 
-            # Now find the one with the matching hour
-            tqf = None
-            for tq in tqs: 
-                if tq.hour == hour:
-                    tqf = tq
-                    break
+                # Now find the one with the matching hour
+                tqf = None
+                for tq in tqs: 
+                    if tq.hour == hour:
+                        tqf = tq
+                        break
+                
+                # This should never happen unless something is crazy wrong.
+                if tqf is None: self.log('ERROR FINDING NEXT WEEK', tqs)
+                else:
+                    self.log('  ', tqf.isoformat())
+                    c['Events'][0]['Scheduled'] = tqf.isoformat()
+
+        # Otherwise, we have a custom_race json, which is a bit simpler to modify.
+        else:
+            self.log('  Custom Race Detected...')
+
+            # Name
+            c['Name'] = self.combo_carsets.get_text()+' at '+self.track['name']+' ('+self.combo_server.get_text()+')'
             
-            # This should never happen unless something is crazy wrong.
-            if tqf is None: self.log('ERROR FINDING NEXT WEEK', tqs)
-            else:
-                self.log('  ', tqf.isoformat())
-                c['Events'][0]['Scheduled'] = tqf.isoformat()
+            # One event for simplicity
+            rc = c['RaceConfig']
+            
+            # Update the cars list, noting if it's completely changed (no overlap)
+            rc['MaxClients'] = N
+            rc['Cars']  = ';'.join(selected_cars)
+            rc['Track']       = track
+            rc['TrackLayout'] = layout
+            rc['LegalTyres']  = self.text_tyres() 
+            
+            # Reset the entry list. form, classes and events entrants
+            c['EntryList'] = dict() 
+        
+            # Now fill the pitboxes
+            for n in range(N):
+                
+                # Create an entry for this one.
+                # Manually cycle the cars in the event so there are good cars for practice 
+                c['EntryList']['CAR_'+str(n)] = {
+                    "InternalUUID": "%08d-0000-0000-0000-000000000000" % (n+1),
+                    "PitBox": n,
+                    "Name": "",
+                    "Team": "",
+                    "GUID": "",
+                    "Model": selected_cars[n%len(selected_cars)],
+                    "Skin": "random_skin",
+                    "ClassID": "00000000-0000-0000-0000-000000000000",
+                    "Ballast":    0, # self.tree_cars[car+'/ballast']    if car+'/ballast'    in self.tree_cars.keys() else 0,
+                    "Restrictor": 0, # self.tree_cars[car+'/restrictor'] if car+'/restrictor' in self.tree_cars.keys() else 0,
+                    "SpectatorMode": 0,
+                    "FixedSetup": "",
+                    "ConnectAsSpectator": False,
+                    "IsPlaceHolder": False}
 
         # Write the new file.
         self.log('Saving championship')
