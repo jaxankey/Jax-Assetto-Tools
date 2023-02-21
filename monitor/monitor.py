@@ -1031,7 +1031,7 @@ class Monitor:
         for name in self.state['laps']:
             for car in self.state['laps'][name]:
                 # Use the highest count that isn't over 10
-                min_count = max(min_count, min(c['count'], 10))
+                min_count = max(min_count, min(self.state['laps'][name][car]['count'], 10))
         
         for name in self.state['laps']:
 
