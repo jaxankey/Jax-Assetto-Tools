@@ -121,6 +121,7 @@ def app_window_clicked(*a):
     Switches format.
     """
     global clock
+    log('app_window_clicked', a)
 
     # Toggle
     clock.am_pm = not clock.am_pm
