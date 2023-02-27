@@ -518,12 +518,8 @@ class Monitor:
                 elif self['qualifying_message_id']: 
                     self.delete_message(self.webhook_info, self['qualifying_message_id'])
                     self['qualifying_message_id'] = None
-                
-                else:
-                    self.log('QUALIFYING_MESSAGE', qualifying_message)
-                    self.log('  ', tq, t, tr)
             
-            else: self.log('NO QUALIFYING MESSAGE?')
+            else: log('NO QUALIFYING MESSAGE?')
 
 
         # If the venue changed, do the new venue stuff.

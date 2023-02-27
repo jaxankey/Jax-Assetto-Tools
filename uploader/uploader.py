@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 
 import os, sys
-import importlib
 from importlib import util
 from datetime import timedelta
 from time import time, sleep
