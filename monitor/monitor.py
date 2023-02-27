@@ -8,12 +8,6 @@
 # See monitor.ini for configuration!                             #
 ##################################################################
 
-# JACK: 
-# Add registration and qual warning strings (None to disable) to monitor.ini
-# Add message_id's for registration and qual announcements to state
-# Update info: Check current time against qual and send or delete messages accordingly
-
-
 import os, json, discord, shutil, pprint, glob, time, datetime, urllib, dateutil.parser, socket, requests
 from numpy import median
 from copy import deepcopy
@@ -512,7 +506,7 @@ class Monitor:
 
             # If we're doing the quali message
             if qualifying_message:
-
+                
                 # If we're within the window
                 if tq < t < tr:
 
@@ -524,6 +518,13 @@ class Monitor:
                 elif self['qualifying_message_id']: 
                     self.delete_message(self.webhook_info, self['qualifying_message_id'])
                     self['qualifying_message_id'] = None
+                
+                else:
+                    self.log('QUALIFYING_MESSAGE', qualifying_message)
+                    self.log('  ', tq, t, tr)
+            
+            else: self.log('NO QUALIFYING MESSAGE?')
+
 
         # If the venue changed, do the new venue stuff.
         if track_changed or carset_fully_changed \
