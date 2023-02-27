@@ -34,6 +34,7 @@ class Clock():
 
         # Whether we're in am_pm mode or not
         self.am_pm = True
+        self.t_click = 0
         
         # Make the app and set its size
         self.app_window = ac.newApp(app_name)
@@ -121,10 +122,11 @@ def app_window_clicked(*a):
     Switches format.
     """
     global clock
-    log('app_window_clicked', a)
-
-    # Toggle
-    clock.am_pm = not clock.am_pm
+    
+    # Look for double-click, toggle mode
+    t = time()
+    if t-clock.t_click < 0.3: clock.am_pm = not clock.am_pm
+    clock.t_click = t
 
     # Updates the gui
     clock.set_am_pm()
