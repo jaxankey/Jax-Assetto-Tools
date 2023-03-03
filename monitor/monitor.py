@@ -288,7 +288,7 @@ class Monitor:
             online=dict(),  # Dictionary of online user info, indexed by name = {car:'car_dir'}
             online_message_id=None,  # Message id for the "who is online" messages
             one_hour_message_id = None, # Message id for "qual in an hour" message
-            qualifying_message_id   = None, # Message id for "qual open" message
+            qualifying_message_id = None, # Message id for "qual open" message
 
             timestamp=None,  # Timestamp of the first observation of this venue.
             qual_timestamp=None,  # Timestamp of the qual
@@ -506,6 +506,12 @@ class Monitor:
 
             # If we're doing the quali message
             if qualifying_message:
+                if tq-100 < t < tq+100: 
+                    log('\n\nqualifying_message', 
+                        '\n', tq, t, tr, tq < t < tr, 
+                        '\n', self['qualifying_message_id'], 
+                        '\n', qualifying_message, 
+                        '\n')
                 
                 # If we're within the window
                 if tq < t < tr:
