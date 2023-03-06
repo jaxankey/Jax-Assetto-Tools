@@ -415,6 +415,11 @@ class Monitor:
 
                     # Parse the scheduled timestamp and add the qualifying time, and registered
                     tq = dateutil.parser.parse(c['Events'][0]['Scheduled']).timestamp()
+                    
+                    # Special case: if tq < 0, it means the race already started and it is meaningless
+                    if tq < 0 and self['qual_timestamp']: tq = self['qual_timestamp']
+                    
+                    # Get the race time from the duration of qualifying
                     tr = tq + c['Events'][0]['RaceSetup']['Sessions']['QUALIFY']['Time'] * 60
                     ns = len(c['Events'][0]['EntryList'])
 
@@ -504,14 +509,8 @@ class Monitor:
                     self.delete_message(self.webhook_info, self['one_hour_message_id'])
                     self['one_hour_message_id'] = None
 
-            # If we're doing the quali message
+            # If we're doing the quali message #JACK: tq / tr go bananas once qual opens?
             if qualifying_message:
-                if tq-100 < t < tq+100: 
-                    log('\n\nqualifying_message', 
-                        '\n', tq, t, tr, tq < t < tr, 
-                        '\n', self['qualifying_message_id'], 
-                        '\n', qualifying_message, 
-                        '\n')
                 
                 # If we're within the window
                 if tq < t < tr:
