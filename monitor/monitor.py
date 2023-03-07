@@ -97,7 +97,7 @@ def auto_week(t0):
     Returns a unix timestamp
     """
     # Get the current timestamp
-    now = time()
+    now = time.time()
 
     # How much time past qual we should wait before flipping to the next week
     dt = (timestamp_qual_minutes+30)*60 
