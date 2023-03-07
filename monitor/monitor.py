@@ -89,55 +89,54 @@ def get_unix_timestamp(y, M, d, h, m):
     dt = datetime.datetime(y, M, d, h, m)
     return time.mktime(dt.timetuple())
 
-def auto_week(tq):
+def auto_week(t0):
     """
     Given a unix timestamp, increments the week until the first instance ahead of now,
     taking into acount daylight savings.
 
     Returns a unix timestamp
     """
+    # Get the current timestamp
+    now = time()
+
     # How much time past qual we should wait before flipping to the next week
     dt = (timestamp_qual_minutes+30)*60 
 
-    # Get the current timestamp
-    now = time.time()
-
     # If the transition time (ideally after the race has started) is ahead of us, 
     # don't increment the week
-    if tq + dt > now: return tq
+    if t0 + dt > now: return t0
 
     # Parse the scheduled timestamp and add the qualifying time.
     # We do the algorithm for the current time +/- an hour to allow for timezone shenanigans
-    tqc = datetime.datetime.fromtimestamp(tq)
-    tqp = tqc + datetime.timedelta(hours=1)
-    tqm = tqc - datetime.timedelta(hours=1)
-    tqs = [tqc, tqp, tqm]
-    
+    hour = datetime.timedelta(hours=1)
+    tc = datetime.datetime.fromtimestamp(t0)
+
     # We remember the "center" hour for later, to make absolutely sure it matches after 
     # we increment by a week. Daylight savings is too finicky to worry about, and
     # we can't be guaranteed that everything is timezone aware.
-    hour = tqc.hour
+    original_hour = tc.hour
     
-    # Plan is to go backwards to before our time, then forward to the first week after now.
-    # This bit allows me to schedule something last minute.
+    # Reverse until we reach a few hours from now, just to be safe
+    # then increment until we find the next weekly event
     week = datetime.timedelta(days=7)
-    for n in range(len(tqs)):
+    while tc.timestamp() + dt > now: tc -= week
+    while tc.timestamp() + dt < now: tc += week
+    
+    # Get the same time minus and plus an hour
+    tp = tc + hour
+    tm = tc - hour
+    ts = [tc,tp,tm]
 
-        
-        # Reverse until we reach a few hours from now, just to be safe
-        while tqs[n].timestamp() + dt > now: tqs[n] -= week
-
-        # Now increment until we find the next weekly event
-        while tqs[n].timestamp() + dt < now: tqs[n] += week
-
-    # Now find the one with the matching hour
-    tqf = tqc
-    for tq in tqs: 
-        if tq.hour == hour: tqf = tq
+    # Find out which of the three has the same hour as the original
+    tf = tc
+    for t in ts: 
+        print(t.day, t.hour, original_hour)
+        if t.hour == original_hour: 
+            tf = t
+            #break
     
     # Return the timestamp
-    return tqf.timestamp()
-
+    return tf.timestamp()
 
 def tail(f, start_from_end=False):
     """

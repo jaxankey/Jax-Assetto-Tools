@@ -3,7 +3,7 @@
 
 import os, sys
 from importlib import util
-from datetime import timedelta
+from datetime import timedelta, datetime
 from time import time, sleep
 from subprocess import run
 from dateutil import parser
@@ -33,6 +33,52 @@ _create_new_profile = '[Create New Profile]'
 
 # Get the last argument, which can be used to automate stuff
 if len(sys.argv): print('LAST ARGUMENT:', sys.argv[-1])
+
+def auto_week(t0):
+    """
+    Given a unix timestamp, increments the week until the first instance ahead of now,
+    taking into acount daylight savings.
+
+    Returns a unix timestamp
+    """
+    # Get the current timestamp
+    now = time()
+
+    # If the transition time (ideally after the race has started) is ahead of us, 
+    # don't increment the week
+    if t0 > now: return t0
+
+    # Parse the scheduled timestamp and add the qualifying time.
+    # We do the algorithm for the current time +/- an hour to allow for timezone shenanigans
+    hour = timedelta(hours=1)
+    tc = datetime.fromtimestamp(t0)
+
+    # We remember the "center" hour for later, to make absolutely sure it matches after 
+    # we increment by a week. Daylight savings is too finicky to worry about, and
+    # we can't be guaranteed that everything is timezone aware.
+    original_hour = tc.hour
+    
+    # Reverse until we reach a few hours from now, just to be safe
+    # then increment until we find the next weekly event
+    week = timedelta(days=7)
+    while tc.timestamp() > now: tc -= week
+    while tc.timestamp() < now: tc += week
+    
+    # Get the same time minus and plus an hour
+    tp = tc + hour
+    tm = tc - hour
+    ts = [tc,tp,tm]
+
+    # Find out which of the three has the same hour as the original
+    tf = tc
+    for t in ts: 
+        print(t.day, t.hour, original_hour)
+        if t.hour == original_hour: 
+            tf = t
+            #break
+    
+    # Return the timestamp
+    return tf.timestamp()
 
 # Function for loading a json at the specified path
 def load_json(path):
