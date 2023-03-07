@@ -36,49 +36,45 @@ if len(sys.argv): print('LAST ARGUMENT:', sys.argv[-1])
 
 def auto_week(t0):
     """
-    Given a unix timestamp, increments the week until the first instance ahead of now,
+    Given a datetime object, increments the week until the first instance ahead of now,
     taking into acount daylight savings.
 
-    Returns a unix timestamp
+    Returns a datetime object
     """
     # Get the current timestamp
     now = time()
 
     # If the transition time (ideally after the race has started) is ahead of us, 
     # don't increment the week
-    if t0 > now: return t0
+    if t0.timestamp() > now: return t0
 
     # Parse the scheduled timestamp and add the qualifying time.
     # We do the algorithm for the current time +/- an hour to allow for timezone shenanigans
     hour = timedelta(hours=1)
-    tc = datetime.fromtimestamp(t0)
-
+    
     # We remember the "center" hour for later, to make absolutely sure it matches after 
     # we increment by a week. Daylight savings is too finicky to worry about, and
     # we can't be guaranteed that everything is timezone aware.
-    original_hour = tc.hour
+    original_hour = t0.hour
     
     # Reverse until we reach a few hours from now, just to be safe
     # then increment until we find the next weekly event
     week = timedelta(days=7)
-    while tc.timestamp() > now: tc -= week
-    while tc.timestamp() < now: tc += week
+    while t0.timestamp() >  now: t0 -= week
+    while t0.timestamp() <= now: t0 += week
     
-    # Get the same time minus and plus an hour
-    tp = tc + hour
-    tm = tc - hour
-    ts = [tc,tp,tm]
+    # If the hours match we done.
+    if original_hour == t0.hour: return t0
+    
+    # Check the options
+    tp = t0 + hour
+    if original_hour == tp.hour: return tp
 
-    # Find out which of the three has the same hour as the original
-    tf = tc
-    for t in ts: 
-        print(t.day, t.hour, original_hour)
-        if t.hour == original_hour: 
-            tf = t
-            #break
-    
-    # Return the timestamp
-    return tf.timestamp()
+    tm = t0 - hour
+    if original_hour == tm.hour: return tm
+ 
+    # Problem
+    return None
 
 # Function for loading a json at the specified path
 def load_json(path):
@@ -1943,39 +1939,13 @@ class Uploader:
             and 'Scheduled' in c['Events'][0].keys() \
             and parser.isoparse(c['Events'][0]['Scheduled']).year > 1:
                 self.log('  Auto-Week')
-                self.log('  ',c['Events'][0]['Scheduled'], '->')
+                t0 = parser.isoparse(c['Events'][0]['Scheduled'])
+                self.log('  ', t0, '->')
 
-                # Parse the scheduled timestamp and add the qualifying time.
-                tqc  = parser.isoparse(c['Events'][0]['Scheduled'])
-                tqp  = tqc + timedelta(hours=1)
-                tqm  = tqc - timedelta(hours=1)
-                tqs = [tqc, tqp, tqm]
-                
-                # We remember the "center" hour for later, to make absolutely sure it matches after 
-                # we increment by a week. Daylight savings is too finicky to worry about, and
-                # we can't be guaranteed that the iso parse is timezone aware.
-                hour = tqc.hour
-            
-                # Plan is to go backwards to before our time, then forward to the first week after now.
-                # This bit allows me to schedule something last minute.
-                week = timedelta(days=7)
-                now  = time()
-                for n in range(len(tqs)):
-                    while tqs[n].timestamp() > now: tqs[n] -= week
-                    while tqs[n].timestamp() < now: tqs[n] += week
-
-                # Now find the one with the matching hour
-                tqf = None
-                for tq in tqs: 
-                    if tq.hour == hour:
-                        tqf = tq
-                        break
-                
-                # This should never happen unless something is crazy wrong.
-                if tqf is None: self.log('ERROR FINDING NEXT WEEK', tqs)
-                else:
-                    self.log('  ', tqf.isoformat())
-                    c['Events'][0]['Scheduled'] = tqf.isoformat()
+                # Now find the one for next week
+                tqf = auto_week(t0)
+                self.log('  ', tqf)
+                c['Events'][0]['Scheduled'] = tqf.isoformat()
 
         # Otherwise, we have a custom_race json, which is a bit simpler to modify.
         else:
