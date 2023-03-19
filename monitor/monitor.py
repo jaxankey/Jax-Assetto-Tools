@@ -495,13 +495,14 @@ class Monitor:
 
             # If we're giving one hour messages
             if one_hour_message:
-
+                log(' ONE HOUR', t-tq)
+                        
                 # If we're within the time window
                 if tq-3600 < t < tq: 
-
+                    log(' TEST', t-tq, self['one_hour_message_id'])
+                        
                     # If we haven't already sent it
                     if not self['one_hour_message_id']:
-                        print(' TEST', t-tq)
                         self['one_hour_message_id'] = self.send_message(self.webhook_info, one_hour_message, message_id=self['one_hour_message_id'])
 
                 # Otherwise, we are outside the time window and should delete it if it exists.
