@@ -501,6 +501,7 @@ class Monitor:
 
                     # If we haven't already sent it
                     if not self['one_hour_message_id']:
+                        print(' TEST', t-tq)
                         self['one_hour_message_id'] = self.send_message(self.webhook_info, one_hour_message, message_id=self['one_hour_message_id'])
 
                 # Otherwise, we are outside the time window and should delete it if it exists.
@@ -1236,7 +1237,7 @@ class Monitor:
         """
         
         # List of naughty characters
-        naughty = ['*', '_']
+        naughty = ['*', '_', '`']
         
         for n in naughty: s = s.replace(n, '\\'+n)
         
