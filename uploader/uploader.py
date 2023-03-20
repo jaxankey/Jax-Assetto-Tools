@@ -3,7 +3,7 @@
 
 import os, sys
 from importlib import util
-from datetime import timedelta, datetime
+from datetime import timedelta, datetime, timezone
 from time import time, sleep
 from subprocess import run
 from dateutil import parser
@@ -34,6 +34,13 @@ _create_new_profile = '[Create New Profile]'
 # Get the last argument, which can be used to automate stuff
 if len(sys.argv): print('LAST ARGUMENT:', sys.argv[-1])
 
+def get_utc_offset(t=None):
+    """
+    Given timestamp in seconds, return the local utc offset delta
+    """
+    if t==None: t = time()
+    return datetime.fromtimestamp(t) - datetime.utcfromtimestamp(t)
+
 def auto_week(t0):
     """
     Given a datetime object, increments the week until the first instance ahead of now,
@@ -41,40 +48,52 @@ def auto_week(t0):
 
     Returns a datetime object
     """
+
     # Get the current timestamp
     now = time()
 
-    # If the transition time (ideally after the race has started) is ahead of us, 
-    # don't increment the week
-    if t0.timestamp() > now: return t0
-
-    # Parse the scheduled timestamp and add the qualifying time.
-    # We do the algorithm for the current time +/- an hour to allow for timezone shenanigans
+    # Get some useful deltas
     hour = timedelta(hours=1)
+    week = timedelta(weeks=1)
     
     # We remember the "center" hour for later, to make absolutely sure it matches after 
     # we increment by a week. Daylight savings is too finicky to worry about, and
     # we can't be guaranteed that everything is timezone aware.
     original_hour = t0.hour
+
+    # Convert it to a timestamp in seconds
+    t = t0.timestamp()
     
     # Reverse until we reach a few hours from now, just to be safe
     # then increment until we find the next weekly event
-    week = timedelta(days=7)
-    while t0.timestamp() >  now: t0 -= week
-    while t0.timestamp() <= now: t0 += week
+    week = timedelta(days=7).total_seconds()
+    while t >  now: t -= week
+    while t <= now: t += week
+
+    # Update the utc_offset
+    t0 = datetime.fromtimestamp(t,tz=timezone(get_utc_offset(t)))
     
+    # And now, the complete paranoia: dither the hour +/- 1 and make 
+    # sure the value matches.
+
     # If the hours match we done.
-    if original_hour == t0.hour: return t0
+    if original_hour == t0.hour: 
+        print('----------------OG HOUR')
+        return t0
     
     # Check the options
     tp = t0 + hour
-    if original_hour == tp.hour: return tp
+    if original_hour == tp.hour: 
+        print('-----------------PLUS HOUR')
+        return tp
 
     tm = t0 - hour
-    if original_hour == tm.hour: return tm
+    if original_hour == tm.hour: 
+        print('-----------------MINUS HOUR')
+        return tm
  
-    # Problem
-    return None
+    # Oh well.
+    return t0
 
 # Function for loading a json at the specified path
 def load_json(path):
