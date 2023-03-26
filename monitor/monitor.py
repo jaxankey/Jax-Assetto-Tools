@@ -335,7 +335,12 @@ class Monitor:
                 self.save_and_archive_state()
 
             # If we don't have a race_json to parse, quit out to avoid looping.
-            if not path_race_json or len(path_race_json) == 0: return # Only return in this method
+            # JACK: This prevents us from fixing the join link on the practice server where 
+            #       path_race_json = None
+            # FIX with flags? server_up flag in self.settings, then here when
+            # we return we could send state messages()
+            if not path_race_json or len(path_race_json) == 0: 
+                return # Only return in this method
             
             # Otherwise we parse the race_json and then send state messages
 
