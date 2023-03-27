@@ -1120,7 +1120,10 @@ class Monitor:
             tm = self.from_ms(tm_ms, True)
             
             # Store by ms for sorting
-            car_medians[tm_ms] = '`'+ tm + '` ' + self['carnames'][car]  + ' ('+str(N)+')'
+            if car in self['carnames']:
+                car_medians[tm_ms] = '`'+ tm + '` ' + self['carnames'][car]  + ' ('+str(N)+')'
+            else:
+                log('ERROR: WTF extra car', car, 'not in self["carnames"]')
 
         # Sort car_medians by time
         car_medians = {k: v for k, v in sorted(car_medians.items(), key=lambda item: item[0])}
