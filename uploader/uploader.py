@@ -1335,6 +1335,9 @@ class Uploader:
             # Upload the 7z, and clean remote files
             if self.upload_content(skins_only): return True
 
+            # JACK: When uploading a new venue, we need to stop server manager, remove live timings, and restart so that
+            # the monitor doesn't observe a bunch of nonsense laps. Or we make the monitor prune itself.
+
             # Stop server, but only if there is a command, we're not doing skins, and we're in vanilla mode
             if self.checkbox_restart() and stop != '' and not skins_only and self.combo_mode()==0:
                 self.log('Stopping server...')

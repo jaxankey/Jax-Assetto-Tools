@@ -315,6 +315,7 @@ class Monitor:
             session_type=None,
         )
 
+
     def premium_get_latest_data(self):
         """
         Grabs all the latest event information from the server, and 
@@ -322,25 +323,39 @@ class Monitor:
         """
         if debug: log('\n_premium_get_latest_data')
 
+        # Flag for information that changed
+        laps_or_onlines_changed  = False  # laps or onlines for sending messages
+        event_time_slots_changed = False  # If the scheduled timestamp or registrants changes
+        track_changed            = False  # for making new venue
+        carset_fully_changed     = False  # for making new venue
+        session_changed          = False  # If the session changes
+        server_state_changed     = False  # If the server has changed state
+
         # Test if the server is up
         self.tcp_data_port_open = port_is_open('localhost', tcp_data_port)
 
-        # If we're down, send a message
+        # If we're down, do some quick stuff and maybe quit out.
         if not self.tcp_data_port_open:
 
-            # But only if we're supposed to and there isn't already one
+            # Send a warning message to discord
             if not no_down_warning and not self['down_message_id']:
                 self['down_message_id'] = self.send_message(self.webhook_info, 
                     '', 'Server is down. I need an adult! :(', '', '')
                 self.save_and_archive_state()
 
+            # If the server state changed, note this
+            if self.server_is_up: server_state_changed = True
+            self.server_is_up = False
+
             # If we don't have a race_json to parse, quit out to avoid looping.
-            # JACK: This prevents us from fixing the join link on the practice server where 
-            #       path_race_json = None
-            # FIX with flags? server_up flag in self.settings, then here when
-            # we return we could send state messages()
             if not path_race_json or len(path_race_json) == 0: 
-                return # Only return in this method
+            
+                # Quick check to avoid cpu cycles and quit out: If the server
+                # was previously up and went down, send state messages once.
+                if server_state_changed: self.send_state_messages()
+
+                # This is the only return in this method.
+                return
             
             # Otherwise we parse the race_json and then send state messages
 
@@ -353,19 +368,11 @@ class Monitor:
         # Regardless, we see what information is available and post it if something
         # changed.
 
-        # Flag for information that changed
-        laps_or_onlines_changed  = False  # laps or onlines for sending messages
-        event_time_slots_changed = False  # If the scheduled timestamp or registrants changes
-        track_changed            = False  # for making new venue
-        carset_fully_changed     = False  # for making new venue
-        session_changed          = False  # If the session changes
-        server_state_changed     = False  # If the server has changed state
-
         # If the server is up, try to grab the "details" from 8081/api/details to learn who is online.
         if self.tcp_data_port_open:
             try: 
                 details = json.loads(urllib.request.urlopen(url_api_details, timeout=5).read(), strict=False)
-                if self.server_is_up == False: server_state_changed = True
+                if not self.server_is_up: server_state_changed = True
                 self.server_is_up = True
             except Exception as e:
                 log('\n\nERROR: Could not open', url_api_details, e)
@@ -513,7 +520,7 @@ class Monitor:
                     self.delete_message(self.webhook_info, self['one_hour_message_id'])
                     self['one_hour_message_id'] = None
 
-            # If we're doing the quali message #JACK: tq / tr go bananas once qual opens?
+            # If we're doing the quali message 
             if qualifying_message:
                 
                 # If we're within the window
@@ -589,6 +596,8 @@ class Monitor:
                             time_ms = best,
                             cuts    = 0,
                             count   = count,
+                            track   = self['track'],
+                            layout  = self['layout']
                         )
 
                         log('Lap:', name, car, self['laps'][name][car])
@@ -829,7 +838,8 @@ class Monitor:
         # Timestamp changes only for new track; use the most recently seen timestamp
         self.state['timestamp'] = time.strftime('%Y-%m-%d_%H.%M.%S', time.localtime())
         
-        # JACK: Save and archive the state for good measure?
+        # Save and archive the state for good measure?
+        log(self.state['laps'])
         self.save_and_archive_state()
 
     def save_and_archive_state(self, skip=False):
@@ -1071,7 +1081,7 @@ class Monitor:
                         laps_by_name[name] = c
                         all_bests.append(c['time_ms'])
 
-        # Sort laps
+        # Sort laps JACK: Do we need to remove those not meeting min_laps here?
         laps_by_name = {k: v for k, v in sorted(laps_by_name.items(), key=lambda item: item[1]['time_ms'])}    
         all_bests.sort()
         for car in laps_by_car: 
@@ -1151,6 +1161,7 @@ class Monitor:
         # If there are no laps, return None so we know not to use them.
         if not self.state['laps'] or len(self.state['laps'].keys()) == 0: return None
 
+        # Sort the laps by carset
         laps = self.sort_best_laps_by_carset()
 
         # Now sort all the group bests
@@ -1250,7 +1261,6 @@ class Monitor:
         
         return s
         
-
     def get_join_link(self):
         """
         Generates a join link string.
@@ -1272,6 +1282,34 @@ class Monitor:
                 join_link = '**Join**'
 
         return join_link
+
+    def prune_laps(self):
+        """
+        Remove all the laps from previous venues, should there be any.
+        This is useful if, e.g., server manager hasn't changed live_timings.json
+        after an upload.
+        """
+
+        # Loop over player names in laps
+        for name in list(self['laps'].keys()):
+            for car in list(self['laps'][name].keys()):
+
+                # If the car, track, or layout is not in the venue, pop it.
+                if car not in self['cars'] \
+                or 'track'  in self['laps'][name][car] and self['laps'][name][car]['track']  != self['track'] \
+                or 'layout' in self['laps'][name][car] and self['laps'][name][car]['layout'] != self['layout']:
+                    
+                    # Pop it
+                    log('  pruning', name, car)
+                    self['laps'][name].pop(car)
+                    
+                    # If we popped the last element, pop the name.
+                    if not len(self['laps'][name]): 
+                        log('pruning', name)
+                        self['laps'].pop(name)
+
+
+
 
     def send_state_messages(self):
         """
@@ -1374,13 +1412,13 @@ class Monitor:
 
         # Get the list of driver best laps 4070 leaves a little buffer for ... and stuff.
         N = 4070-len(body1+body2+footer)
+        self.prune_laps() # Gets rid of old venue stuff.
         if no_leaderboard: laps = self.get_stats_string(N)
         else:              laps = self.get_laps_string(N)
         if debug and laps: log('LAPS\n'+laps)
 
         # Below the venue and above laps
         if laps: body1 = body1 + '\n' + laps
-
 
         # Send the main info message. Body 1 is the laps list, body 2 includes previous onlines
         self.state['laps_message_id'] = self.send_message(self.webhook_info, '', body1, body2, footer, self.state['laps_message_id'], color=color)
@@ -1427,7 +1465,7 @@ class Monitor:
                 errbody.append(str(n)+'. '+namecar)
                 n += 1
             
-            # JACK: This is a hack; I'm not sure why sometimes seen_namecars is empty but there
+            # This is a hack; I'm not sure why sometimes seen_namecars is empty but there
             # is an online_message_id, except on startup or new venue.
             if len(errbody):
                 body1 = session_complete_header+'\n\nParticipants:\n'+'\n'.join(errbody)
@@ -1438,7 +1476,6 @@ class Monitor:
                 # Otherwise it will make a new session message.
                 self.state['session_end_time'] = time.time()
             
-            # JACK: Otherwise delete it.
             else: 
                 log('**** GOSH DARN IT, LOST THE SEEN_NAMECARS AGAIN! WTF.', self.state['seen_namecars'].keys())
                 self.delete_message(self.webhook_online, self.state['online_message_id'])
