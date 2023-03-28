@@ -581,27 +581,30 @@ class Monitor:
                     #   There is no 'count' key, or
                     #   the lap count is different
                     # update the laps for this car and driver.
-                    if best and (car not in self['laps'][name]   \
-                    or best < self['laps'][name][car]['time_ms'] \
-                    or 'count' not in self['laps'][name][car]    \
-                    or self['laps'][name][car]['count'] != count):
+                    if best:
+                        if name not in self['laps']: self['laps']['name'] = dict()
 
-                        # Get the string time
-                        ts = self.from_ms(best)
+                        if car not in self['laps'][name]   \
+                        or best < self['laps'][name][car]['time_ms'] \
+                        or 'count' not in self['laps'][name][car]    \
+                        or self['laps'][name][car]['count'] != count):
 
-                        self['laps'][name][car] = dict(
-                            time    = ts,
-                            time_ms = best,
-                            cuts    = 0,
-                            count   = count,
-                            track   = self['track'],
-                            layout  = self['layout']
-                        )
+                            # Get the string time
+                            ts = self.from_ms(best)
 
-                        log('Lap:', name, car, self['laps'][name][car])
+                            self['laps'][name][car] = dict(
+                                time    = ts,
+                                time_ms = best,
+                                cuts    = 0,
+                                count   = count,
+                                track   = self['track'],
+                                layout  = self['layout']
+                            )
 
-                        # Remember to update the messages
-                        laps_or_onlines_changed = True
+                            log('Lap:', name, car, self['laps'][name][car])
+
+                            # Remember to update the messages
+                            laps_or_onlines_changed = True
 
 
         # Finally, if ANYTHING changed, we need to update the messages
