@@ -1410,7 +1410,7 @@ class Monitor:
 
         # Get the list of driver best laps 4070 leaves a little buffer for ... and stuff.
         N = 4070-len(body1+body2+footer)
-        self.prune_laps() # Gets rid of old venue stuff.
+        #self.prune_laps() # I believe the new code for adding laps from live_timings fixes the need for this.
         if no_leaderboard: laps = self.get_stats_string(N)
         else:              laps = self.get_laps_string(N)
         if debug and laps: log('LAPS\n'+laps)
