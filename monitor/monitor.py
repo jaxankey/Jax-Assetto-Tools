@@ -587,7 +587,7 @@ class Monitor:
                         if car not in self['laps'][name]   \
                         or best < self['laps'][name][car]['time_ms'] \
                         or 'count' not in self['laps'][name][car]    \
-                        or self['laps'][name][car]['count'] != count):
+                        or self['laps'][name][car]['count'] != count:
 
                             # Get the string time
                             ts = self.from_ms(best)
