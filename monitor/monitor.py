@@ -1304,9 +1304,10 @@ class Monitor:
                     self['laps'][name].pop(car)
                     
                     # If we popped the last element, pop the name.
-                    if not len(self['laps'][name]): 
-                        log('pruning', name)
-                        self['laps'].pop(name)
+                    # Leave the name just to avoid seeing a new driver?
+                    # if not len(self['laps'][name]): 
+                    #     log('pruning', name)
+                    #     self['laps'].pop(name)
 
 
 
