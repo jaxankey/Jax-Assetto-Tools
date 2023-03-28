@@ -582,7 +582,7 @@ class Monitor:
                     #   the lap count is different
                     # update the laps for this car and driver.
                     if best:
-                        if name not in self['laps']: self['laps']['name'] = dict()
+                        if name not in self['laps']: self['laps'][name] = dict()
 
                         if car not in self['laps'][name]   \
                         or best < self['laps'][name][car]['time_ms'] \
