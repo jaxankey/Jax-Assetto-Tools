@@ -557,20 +557,18 @@ class Monitor:
         # Try to grab the live_timings data; load_json returns None if the file was moved.
         if path_live_timings: self.live_timings = load_json(path_live_timings, True)
 
-        # If we found and loaded live_timings, look for new laps.
-        if self.live_timings:
+        # If we found and loaded live_timings, and the track / layout matches (i.e., it's not old!)
+        if self.live_timings and self.live_timings['Track'] == self['track'] and self.live_timings['TrackLayout'] == self['layout']:
 
-            # UPDATE BEST LAPS
+            # guid = 123456767889
             for guid in self.live_timings['Drivers']:
                 name = self.live_timings['Drivers'][guid]['CarInfo']['DriverName']
 
-                # Make sure this name is in the state
-                if not name in self['laps']:
-                    log('New driver lap:', name)
-                    self['laps'][name] = dict()
-                    laps_or_onlines_changed = True
-
+                # car = ac_legends_corvette_blah
                 for car in self.live_timings['Drivers'][guid]['Cars']:
+
+                    # If the car isn't in the venue, skip
+                    if car not in self['cars']: continue
 
                     # Get the current best in ms (it was nanoseconds LULZ)
                     best  = self.live_timings['Drivers'][guid]['Cars'][car]['BestLap']*1e-6
@@ -578,8 +576,8 @@ class Monitor:
 
                     # self['laps'][name][car] = {'time': '12:32:032', 'time_ms':12345, 'cuts': 3, 'laps': 23}
                     # If best exists and either 
-                    #   the car doesn't exist in state.json,
-                    #   this is better than what's in state.json, 
+                    #   the car doesn't exist in state,
+                    #   this is better than what's in state, 
                     #   There is no 'count' key, or
                     #   the lap count is different
                     # update the laps for this car and driver.
@@ -1304,10 +1302,9 @@ class Monitor:
                     self['laps'][name].pop(car)
                     
                     # If we popped the last element, pop the name.
-                    # Leave the name just to avoid seeing a new driver?
-                    # if not len(self['laps'][name]): 
-                    #     log('pruning', name)
-                    #     self['laps'].pop(name)
+                    if not len(self['laps'][name]): 
+                        log('pruning', name)
+                        self['laps'].pop(name)
 
 
 
