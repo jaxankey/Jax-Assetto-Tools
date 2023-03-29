@@ -130,10 +130,10 @@ def auto_week(t0):
     # Find out which of the three has the same hour as the original
     tf = tc
     for t in ts: 
-        print(t.day, t.hour, original_hour)
+        #print(t.day, t.hour, original_hour)
         if t.hour == original_hour: 
             tf = t
-            #break
+            break
     
     # Return the timestamp
     return tf.timestamp()
@@ -491,7 +491,6 @@ class Monitor:
             log('ERROR with race_json.json(s):', e)
 
         # If, after all that nonsense, we have a qual_timestamp and race_timestamp, 
-        # adjust it to the next week if needed,
         # then get the current time and send the messages warning about the event if we're within windows
         if self['qual_timestamp'] and self['race_timestamp']:
 
@@ -1401,12 +1400,12 @@ class Monitor:
         body1 = body1 + top_timestamp + venue_subheader
         
         # Separate body for who's online (laps get cut first)
+        body2 = ''
         if onlines:
             body2 = '\n\n**' + online_header + '**\n' + onlines
             color = 15548997
-        else:
-            body2 = ''
-            color = 0
+        elif self.server_is_up: color = 5763719
+        else:                   color = 0
 
         # Get the list of driver best laps 4070 leaves a little buffer for ... and stuff.
         N = 4070-len(body1+body2+footer)
