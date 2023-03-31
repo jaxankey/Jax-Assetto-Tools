@@ -594,16 +594,12 @@ class Uploader:
         """
         Runs the test remote command.
         """
-        login = self.text_login.get_text()
-        port = self.text_port.get_text()
-        pem = os.path.abspath(self.text_pem.get_text())
         test = self.text_test.get_text()  # For acsm
         self.log('\n'+test+'\n')
 
         if test.strip() != '':
             self.log('Testing...')
-            # c = 'ssh -p '+port+' -i "'+pem+'" '+login+' "'+start+'"'
-            if self.system(['ssh', '-T', '-p', port, '-i', pem, login, test]):
+            if self.ssh_command(test):
                 self.log('oop?')
                 return
             self.log('Done.')
@@ -742,8 +738,7 @@ class Uploader:
 
         # Load the championship from the server
         self.log('Downloading championship.json...')
-        #c = 'scp -P '+port+' -i "' + pem +'" '+ login+':"'+self.text_remote_championship()+'" championship.json'
-        if self.system(['scp', '-T', '-P', port, '-i', pem, login+':"'+self.text_remote_championship()+'"', 'championship.json']):
+        if self.scp_download(self.text_remote_championship(), 'championship.json'):
             self.log('ERROR: Download failed.')
             return
 
@@ -1134,8 +1129,6 @@ class Uploader:
         # Update the server json
         self.button_save_server.click()
 
-
-
     def _list_cars_changed(self, e=None):
         """
         Just set the carset combo when anything changes.
@@ -1173,50 +1166,6 @@ class Uploader:
         for car in self.get_selected_carnames(): cars.append(self.srac[car])
         
         self.set_list_selection(cars, self.list_cars, self._list_cars_changed)
-        
-    # def _tree_cars_changed(self, *a):
-    #     """
-    #     Something changed in the tree.
-    #     """
-    #     print('_tree_cars_changed')
-    #     self._button_save_server_clicked()
-    
-    # def send_cars_to_tree(self):
-    #     """
-    #     Sends the selected cars to the car tree.
-    #     """
-    #     print('send_cars_to_tree')
-    #     self.tree_cars.block_signals()
-        
-    #     # Now populate the tree of cars
-    #     # Jack make sure the constant clearing isn't populating some 
-    #     # internal lists. We need to clear those as well.
-    #     self.tree_cars._widget.clear()
-        
-    #     # Loop over the selected cars
-    #     for car in self.get_selected_cars():
-            
-    #         # Keys for the tree for this car
-    #         key_ballast    = car+'/ballast'
-    #         key_restrictor = car+'/restrictor'
-
-    #         # Defaults
-    #         ballast    = 0
-    #         restrictor = 0
-
-    #         # If the car is in self.server, get the last values
-    #         carset = self.combo_carsets.get_text()
-    #         if 'carsets'    in self.server            \
-    #         and carset      in self.server['carsets']:
-    #             c = self.server['carsets'][carset]
-    #             if key_ballast    in c: ballast    = c[key_ballast]
-    #             if key_restrictor in c: restrictor = c[key_restrictor]
-
-    #         # Add the settings
-    #         self.tree_cars.add(key_ballast,    ballast,    step=10, bounds=(0,500))
-    #         self.tree_cars.add(key_restrictor, restrictor, step=10, bounds=(0,100))
-        
-    #     self.tree_cars.unblock_signals()
         
     def _combo_mode_changed(self,*e):
         """
@@ -1258,21 +1207,7 @@ class Uploader:
         """
         self.update_skins()
 
-    def start_server(self):
-        """
-        Runs the start server command over ssh.
-        """
-        login   = self.text_login.get_text()
-        port    = self.text_port .get_text()
-        pem     = os.path.abspath(self.text_pem.get_text())
-        start   = self.text_start.get_text()   # For acsm
-        
-        if start.strip() != '':
-            self.log('Starting server...')
-            #c = 'ssh -p '+port+' -i "'+pem+'" '+login+' "'+start+'"' 
-            if self.system(['ssh', '-T', '-p', port, '-i', pem, login, start]): return
-
-    def send_ssh_command(self, command='ls'):
+    def ssh_command(self, command='ls'):
         """
         Sends a single ssh command and returns the result.
         """
@@ -1282,12 +1217,37 @@ class Uploader:
         pem     = os.path.abspath(self.text_pem.get_text())
         
         s = ['ssh', '-T', '-p', port, '-i', pem, login, '"'+command+'"']
-        print('send_ssh_command '+ ' '.join(s))
+        print('ssh_command '+ ' '.join(s))
         r = self.system(s)
-        
         return r
     
+    def scp_upload(self, source, destination):
+        """
+        Uploads the source path to the remote destination path using scp.
+        """
+        # Server info
+        login   = self.text_login.get_text()
+        port    = self.text_port .get_text()
+        pem     = os.path.abspath(self.text_pem.get_text())
         
+        s = ['scp', '-T', '-P', port, '-i', pem, source, login+':"'+destination+'"']
+        print('upload', ' '.join(s))
+        r = self.system(s)
+        return r
+    
+    def scp_download(self, source, destination):
+        """
+        Downloads the remote source file to the local destination.
+        """
+        # Server info
+        login   = self.text_login.get_text()
+        port    = self.text_port .get_text()
+        pem     = os.path.abspath(self.text_pem.get_text())
+        
+        s = ['scp', '-T', '-P', port, '-i', pem, login+':"'+source+'"', destination]
+        print('upload', ' '.join(s))
+        r = self.system(s)
+        return r
 
     def _button_upload_clicked(self,e,skins_only=False):
         """
@@ -1333,7 +1293,7 @@ class Uploader:
         if self.checkbox_upload():
             
             # Upload the 7z, and clean remote files
-            if self.upload_content(skins_only): return True
+            if self.scp_upload_content(skins_only): return True
 
             # JACK: When uploading a new venue, we need to stop server manager, remove live timings, and restart so that
             # the monitor doesn't observe a bunch of nonsense laps. Or we make the monitor prune itself.
@@ -1341,14 +1301,13 @@ class Uploader:
             # Stop server, but only if there is a command, we're not doing skins, and we're in vanilla mode
             if self.checkbox_restart() and stop != '' and not skins_only and self.combo_mode()==0:
                 self.log('Stopping server...')
-                #c = 'ssh -p '+port+' -i "'+pem+'" '+login+' "'+stop+'"' 
-                if self.system(['ssh', '-T', '-p', port, '-i', pem, login, stop]): return True
+                if self.ssh_command(stop): return True
                 
                 # Pause to let server shut down, then delete live_timings.json
                 if self.text_live_timings() != '':
                     sleep(5.0)
                     self.log('Removing live_timings.json')
-                    if self.send_ssh_command('rm -f '+self.text_live_timings()): return True
+                    if self.ssh_command('rm -f '+self.text_live_timings()): return True
                 
                     
             # Remote unzip the upload
@@ -1359,30 +1318,19 @@ class Uploader:
             and os.path.exists('championship.json') and not skins_only:
                 # Upload it
                 self.log('Uploading championship.json...')
-                #c = 'scp -P '+port+' -i "' + pem +'" championship.json '+ login+':"'+self.text_remote_championship()+'"'
-                if self.system(['scp', '-T', '-P', port, '-i', pem, 'championship.json', login+':"'+self.text_remote_championship()+'"']): return True
+                if self.scp_upload('championship.json', self.text_remote_championship()): return True
                 
                 
             # Start server
             if self.checkbox_restart() and start != '' and not skins_only and self.combo_mode()==0:
-                self.start_server()
-            #else: self.log('*Skipping server start')
-
-            # # If we're resetting the server and not just doing skins, and we're in premium mode
-            # if self.checkbox_reset() and reset != '' and not skins_only and self.combo_mode() == 1:
-            #     self.log('Resetting server manager...')
-            #     if self.system(['ssh', '-T', '-p', port, '-i', pem, login, reset]): return True
+                self.log('Starting server...')
+                self.ssh_command(start)
 
             # Restart monitor if enabled, there is a script, we're not just doing skins, and we're in vanilla mode
             if self.checkbox_monitor() and monitor != '' and not skins_only and self.combo_mode()==0:
                 self.log('Restarting monitor...')
-                #c = 'ssh -p '+port+' -i "'+pem+'" '+login+' "'+monitor+'"' 
-                if self.system(['ssh', '-T', '-p', port, '-i', pem, login, monitor]): return True
-            #else: self.log('*Skipping monitor restart')
-
-        # No upload
-        #else: self.log('*Skipping upload')
-
+                if self.ssh_command(monitor): return True
+            
         # Copy the nice cars list to the clipboard
         if self.combo_mode() == 0:
             pyperclip_copy(self.get_nice_selected_cars_string())
@@ -1481,15 +1429,13 @@ class Uploader:
             os.chdir('..')
         
             self.log('Uploading uploads.7z...')
-            #c = 'scp -P '+port+' -i "' + pem + '" uploads.7z '+login+':"'+remote+'"'
-            if self.system(['scp', '-T', '-P', port, '-i', pem, 'uploads.7z', login+':"'+remote+'"']): return True
+            if self.scp_upload('uploads.7z', remote): return True
 
             # If we're cleaning remote files... Note skins only prevents this
             # regardless of the checkbox state.
             if self.checkbox_clean() and not skins_only:
                 self.log('Cleaning out old content...')
-                #c = 'ssh -p '+port+' -i "'+pem+'" '+login+' rm -rf ' + remote + '/content/cars/* ' + remote + '/content/tracks/*'
-                if self.system(['ssh', '-T', '-p', port, '-i', pem, login, 'rm -rf '+remote+'/content/cars/* '+remote+'/content/tracks/*']): return True
+                if self.ssh_command('rm -rf '+remote+'/content/cars/* '+remote+'/content/tracks/*'): return True
 
 
 
@@ -1509,12 +1455,11 @@ class Uploader:
             # Remove the carsets folder
             if not skins_only:
                 self.log('Removing remote carset lists...')
-                if self.system(['ssh', '-T', '-p', port,'-i',pem,login, 'rm -rf '+remote+'/carsets']): return True
+                if self.ssh_command('rm -rf '+remote+'/carsets'): return True
             
             # Remote extract
             self.log('Extracting remote uploads.7z...')
-            #c = 'ssh -p '+port+' -i "'+pem+'" '+login+' 7z x -aoa ' + remote + '/uploads.7z' + ' -o' + remote
-            if self.system(['ssh', '-T', '-p', port,'-i',pem,login,'7z x -aoa '+remote+'/uploads.7z -o'+remote]): return True
+            if self.ssh_command('7z x -aoa '+remote+'/uploads.7z -o'+remote): return True
 
             self.log('Removing local uploads.')
             rmtree('uploads')
@@ -1938,7 +1883,7 @@ class Uploader:
                     "GUID": "",
                     "Model": "any_car_model",
                     "Skin": "random_skin",
-                    "ClassID": "00000000-0000-0000-0000-000000000000",
+                    "ClassID": c['Classes'][0]['ID'], # Must match for championship
                     "Ballast":    0, # self.tree_cars[car+'/ballast']    if car+'/ballast'    in self.tree_cars.keys() else 0,
                     "Restrictor": 0, # self.tree_cars[car+'/restrictor'] if car+'/restrictor' in self.tree_cars.keys() else 0,
                     "SpectatorMode": 0,
@@ -2270,7 +2215,7 @@ class Uploader:
             if self.package_content(True, wait_for_zip) == 'no cars': return True
 
         if self.checkbox_upload():
-            if self.upload_content(True): return True
+            if self.scp_upload_content(True): return True
             if self.unpack_uploaded_content(True): return True
         
         # Post-command
