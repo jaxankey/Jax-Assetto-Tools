@@ -1216,20 +1216,6 @@ class Uploader:
         Just calls the usual upload with skins_only=True.
         """
         self.do_skins_only()
-
-    def ssh_command(self, command='ls'):
-        """
-        Sends a single ssh command and returns the result.
-        """
-        # Server info
-        login   = self.text_login.get_text()
-        port    = self.text_port .get_text()
-        pem     = os.path.abspath(self.text_pem.get_text())
-        
-        s = ['ssh', '-T', '-p', port, '-i', pem, login, '"'+command+'"']
-        print('ssh_command '+ ' '.join(s))
-        r = self.system(s)
-        return r
         
     def disconnect(self):
         """
@@ -1279,13 +1265,24 @@ class Uploader:
         self.progress_bar.setValue(int(round(100*transferred/total)))
         self.window.process_events()
 
+    def ssh_command(self, command):
+        """
+        Runs the supplied command on the existing connection.
+        """
+        if not self.ssh:
+            self.log('ERROR: Cannot send command with no connection.')
+            return True
+        
+        print('ssh_command', command.strip())
+        self.ssh.exec_command(command.strip())
+
     def sftp_download(self, source, destination):
         """
         Downloads the remote source file to the local destination.
         """
         if not self.sftp: 
             self.log('ERROR: Cannot download with no connection.')
-            return
+            return True
         
         # Do the upload
         try:    
@@ -1300,11 +1297,10 @@ class Uploader:
         """
         Uploads the source file to the remote destination.
         """
-        self.log('upload', source, destination)
 
         if not self.sftp: 
             self.log('ERROR: Cannot download with no connection.')
-            return
+            return True
         
         # Do the upload
         try:    
@@ -1323,6 +1319,14 @@ class Uploader:
         except Exception as e:
             self.log('ERROR:', e)
     
+    def set_safe_mode(self, enabled=True):
+        """
+        Disables dangerous controls.
+        """
+        self.tabs.disable(enabled)
+        self.grid_top.disable(enabled)
+
+
     def do_upload(self, skins_only=False):
     
         # Make sure!
@@ -1331,6 +1335,7 @@ class Uploader:
         if ret == qmb.Cancel: return
 
         self.log('------- GO TIME! --------')
+        self.set_safe_mode(True)
 
         # Pre-command
         if self.checkbox_pre() and self.text_precommand().strip() != '':
@@ -1407,6 +1412,7 @@ class Uploader:
             self.log('Running post-command')
             if self.system([self.text_postcommand()]): return True
         self.log('------- DONE! -------\n')
+        self.set_safe_mode(False)
 
     def upload_content(self, skins_only=False):
         """
@@ -2296,7 +2302,9 @@ class Uploader:
         the selected car skins, then runs post, even if unchecked, provided it exists.
         """
         # Pre-command
-        self.log('\n------- UPDATING SKINS -------')
+        self.log('------- UPDATING SKINS -------')
+        self.set_safe_mode(True)
+
         if self.text_precommand().strip() != '' and self.checkbox_pre():
             self.log('Running pre-command')
             if self.system([self.text_precommand().strip()]): return True
@@ -2318,6 +2326,7 @@ class Uploader:
             self.log('Running post-command')
             if self.system([self.text_postcommand().strip()]): return True
         self.log('------- DONE! -------\n')
+        self.set_safe_mode(False)
 
 
     def update_tracks(self):
