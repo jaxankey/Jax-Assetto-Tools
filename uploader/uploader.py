@@ -14,7 +14,8 @@ from json import load, dump
 from glob import glob
 from shutil import copy, copytree, ignore_patterns
 from codecs import open as codecs_open
-from random import randrange
+import paramiko
+from numpy import round
 
 # Change to the directory of this script depending on whether this is a "compiled" version or run as script
 if os.path.split(sys.executable)[-1] == 'uploader.exe': os.chdir(os.path.dirname(sys.executable)) # For executable version
@@ -143,6 +144,10 @@ class Uploader:
         self.timer_exceptions.signal_new_exception.connect(self._signal_new_exception)
         self.timer_exceptions.start()
 
+        # SSH connection object
+        self.ssh  = None
+        self.sftp = None
+
         # Flag for whether we're in the init phases
         self._init = True
         self._loading_server    = False
@@ -214,8 +219,12 @@ class Uploader:
         self.tab_uploader = self.tabs.add('Uploader')
 
         # Log
-        self.text_log = self.window.add(egg.gui.TextLog(), alignment=0).set_minimum_width(150).set_maximum_width(350)
+        self.window.set_column_stretch(0)
+        self.grid_log = self.window.add(egg.gui.GridLayout(False), alignment=0).set_minimum_width(150).set_maximum_width(350)
+        self.text_log = self.grid_log.add(egg.gui.TextLog(), alignment=0)
         self.text_log.append_text('Welcome to AC Uploader!')
+        self.grid_log.new_autorow()
+        self.progress_bar = self.grid_log.add(egg.pyqtgraph.QtWidgets.QProgressBar(), alignment=0)
 
 
 
@@ -239,6 +248,13 @@ class Uploader:
         self.text_port = self.tab_settings.add(egg.gui.TextBox('22',
             tip='SSH Port (default is 22)',
             signal_changed=self._any_server_setting_changed), alignment=0)
+
+        self.tab_settings.new_autorow()
+        self.tab_settings.add(egg.gui.Label('SSH Password:'))
+        self.text_password = self.tab_settings.add(egg.gui.TextBox('',
+            tip='SSH password if you have one.',
+            signal_changed=self._any_server_setting_changed), alignment=0)
+        self.text_password._widget.setEchoMode(egg.pyqtgraph.QtWidgets.QLineEdit.Password)
 
         self.tab_settings.new_autorow()
         self.tab_settings.add(egg.gui.Label('SSH Key File:'))
@@ -304,12 +320,6 @@ class Uploader:
 
 
         self.tab_settings.set_row_stretch(20)
-
-        # self.tab_settings.new_autorow()
-        # self.label_reset = self.tab_settings.add(egg.gui.Label('Reset Server Command:'))
-        # self.text_reset = self.tab_settings.add(egg.gui.TextBox('',
-        #     tip='Recommended remote script that stops server manager, clears out the live_timings.json, and restarts it. This prevents laps from persisting between venues.',
-        #     signal_changed=self._any_server_setting_changed), alignment=0)
 
         self.tab_settings.new_autorow()
         self.tab_settings.add(egg.gui.Label('Post-Upload URL 1:'))
@@ -532,6 +542,7 @@ class Uploader:
             'text_login',
             'text_port',
             'text_pem',
+            'text_password',
             'text_local',
             'text_remote',
             'text_start',
@@ -581,7 +592,7 @@ class Uploader:
                 self.combo_server.set_text(server)
 
                 print('UPLOADING SKINS')
-                self.update_skins(True)
+                self.do_skins_only(True)
 
         ######################
         # Show the window; no more commands below this.
@@ -602,7 +613,7 @@ class Uploader:
             if self.ssh_command(test):
                 self.log('oop?')
                 return
-            self.log('Done.')
+            self.log('Done.\n')
 
     def _text_filter_cars_changed(self, *a):
         """
@@ -731,16 +742,15 @@ class Uploader:
         """
         Attempts to download the championship file into the server.json.
         """
-        # Server info
-        login   = self.text_login.get_text()
-        port    = self.text_port .get_text()
-        pem     = os.path.abspath(self.text_pem.get_text())
-
+        self.connect()
+        
         # Load the championship from the server
         self.log('Downloading championship.json...')
-        if self.scp_download(self.text_remote_championship(), 'championship.json'):
+        if self.sftp_download(self.text_remote_championship(), 'championship.json'):
             self.log('ERROR: Download failed.')
             return
+
+        self.disconnect()
 
         # load it
         c = load_json('championship.json')
@@ -749,10 +759,10 @@ class Uploader:
             return
 
         # Dump it into the server file
-        self.log('  Saving contents...')
+        self.log('Saving contents...')
         self.server['championship'] = c
         self.button_save_server.click()
-        self.log('  Done!')
+        self.log('Done!\n')
 
 
 
@@ -1205,7 +1215,7 @@ class Uploader:
         """
         Just calls the usual upload with skins_only=True.
         """
-        self.update_skins()
+        self.do_skins_only()
 
     def ssh_command(self, command='ls'):
         """
@@ -1220,45 +1230,107 @@ class Uploader:
         print('ssh_command '+ ' '.join(s))
         r = self.system(s)
         return r
-    
-    def scp_upload(self, source, destination):
-        """
-        Uploads the source path to the remote destination path using scp.
-        """
-        # Server info
-        login   = self.text_login.get_text()
-        port    = self.text_port .get_text()
-        pem     = os.path.abspath(self.text_pem.get_text())
         
-        s = ['scp', '-T', '-P', port, '-i', pem, source, login+':"'+destination+'"']
-        print('upload', ' '.join(s))
-        r = self.system(s)
-        return r
-    
-    def scp_download(self, source, destination):
+    def disconnect(self):
+        """
+        Disconnects from SSH server.
+        """
+        if self.ssh:
+            self.log('Disconnecting...')
+            self.sftp.close()
+            self.ssh.close()
+            self.ssh  = None
+            self.sftp = None
+        
+        else:
+            self.log('Weird? self.disconnect() was called with no connection.')
+            
+
+    def connect(self):
+        """
+        Logs into the SSH server. Will break the existing connection if it exists.
+        """
+        try:
+            # Close any existing connection
+            if self.ssh: self.disconnect()
+
+            # Now connect
+            self.ssh = paramiko.SSHClient()
+
+            # Skips the "trust this server" stuff.
+            self.ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+
+            # Connect
+            self.log('Connecting...')
+            user, host = self.text_login().split('@')
+            self.ssh.connect(host, username=user, password=self.text_password(), 
+                            key_filename=os.path.abspath(self.text_pem()))
+            self.sftp = self.ssh.open_sftp()
+
+        except Exception as e:
+            self.log('ERROR: Could not connect.', e)
+            self.disconnect()
+            return True
+
+    def update_progress(self, transferred, total):
+        """
+        Updates the progress bar. This is called during downloads / uploads.
+        """
+        self.progress_bar.setValue(int(round(100*transferred/total)))
+        self.window.process_events()
+
+    def sftp_download(self, source, destination):
         """
         Downloads the remote source file to the local destination.
         """
-        # Server info
-        login   = self.text_login.get_text()
-        port    = self.text_port .get_text()
-        pem     = os.path.abspath(self.text_pem.get_text())
+        if not self.sftp: 
+            self.log('ERROR: Cannot download with no connection.')
+            return
         
-        s = ['scp', '-T', '-P', port, '-i', pem, login+':"'+source+'"', destination]
-        print('upload', ' '.join(s))
-        r = self.system(s)
-        return r
+        # Do the upload
+        try:    
+            self.sftp.get(source, destination, callback=self.update_progress)
+            self.progress_bar.setValue(100)
+        except Exception as e:
+            self.log('ERROR: Could not download', source+'.', e)
+            self.disconnect()
+            return True
+
+    def sftp_upload(self, source, destination):
+        """
+        Uploads the source file to the remote destination.
+        """
+        self.log('upload', source, destination)
+
+        if not self.sftp: 
+            self.log('ERROR: Cannot download with no connection.')
+            return
+        
+        # Do the upload
+        try:    
+            self.sftp.put(source, destination, callback=self.update_progress)
+            self.progress_bar.setValue(100)
+        except Exception as e:
+            self.log('ERROR: Could not upload', source+'.', e)
+            self.disconnect()
+            return True
 
     def _button_upload_clicked(self,e,skins_only=False):
         """
         Uploads the current configuration to the server.
         """
+        try: self.do_upload(skins_only=skins_only)
+        except Exception as e:
+            self.log('ERROR:', e)
+    
+    def do_upload(self, skins_only=False):
+    
         # Make sure!
         qmb = egg.pyqtgraph.Qt.QtWidgets.QMessageBox
         ret = qmb.question(self.window._window, '******* WARNING *******', "This action can clear the server and overwrite\nthe existing championship!", qmb.Ok | qmb.Cancel, qmb.Cancel)
         if ret == qmb.Cancel: return
 
-        self.log('\n------- GO TIME! --------')
+        self.log('------- GO TIME! --------')
 
         # Pre-command
         if self.checkbox_pre() and self.text_precommand().strip() != '':
@@ -1273,64 +1345,53 @@ class Uploader:
         # Collect and package all the data
         if self.checkbox_package(): self.package_content(skins_only)
             
-        # Package not checked
-        #else: self.log('*Skipping package')
-
-        
         ####################################
         # SERVER STUFF
         
-        # Server info
-        login   = self.text_login.get_text()
-        port    = self.text_port .get_text()
-        pem     = os.path.abspath(self.text_pem.get_text())
-        stop    = self.text_stop.get_text()    # For acsm
-        start   = self.text_start.get_text()   # For acsm
-        #reset   = self.text_reset.get_text() + ' >/dev/null 2>&1 &'   # For acsm (extra stuff makes sure nohup returns)
-        monitor = self.text_monitor.get_text() 
-
         # Upload the main assetto content
         if self.checkbox_upload():
-            
-            # Upload the 7z, and clean remote files
-            if self.scp_upload_content(skins_only): return True
+            self.connect()
 
-            # JACK: When uploading a new venue, we need to stop server manager, remove live timings, and restart so that
-            # the monitor doesn't observe a bunch of nonsense laps. Or we make the monitor prune itself.
+            # Compresses and uploads the 7z, and clean remote files
+            if self.upload_content(skins_only): return True
 
             # Stop server, but only if there is a command, we're not doing skins, and we're in vanilla mode
-            if self.checkbox_restart() and stop != '' and not skins_only and self.combo_mode()==0:
+            if self.checkbox_restart() and self.text_stop().strip() != '' \
+            and not skins_only and self.combo_mode()==0:
                 self.log('Stopping server...')
-                if self.ssh_command(stop): return True
+                if self.ssh_command(self.text_stop().strip()): return True
                 
                 # Pause to let server shut down, then delete live_timings.json
-                if self.text_live_timings() != '':
-                    sleep(5.0)
+                if self.text_live_timings().strip() != '':
+                    sleep(3.0)
                     self.log('Removing live_timings.json')
-                    if self.ssh_command('rm -f '+self.text_live_timings()): return True
+                    if self.ssh_command('rm -f '+self.text_live_timings().strip()): return True
                 
-                    
             # Remote unzip the upload
             if self.unpack_uploaded_content(skins_only): return True
             
             # If we made a championship.json
             if self.checkbox_modify() and self.combo_mode()==1 \
             and os.path.exists('championship.json') and not skins_only:
-                # Upload it
                 self.log('Uploading championship.json...')
-                if self.scp_upload('championship.json', self.text_remote_championship()): return True
-                
+                if self.sftp_upload('championship.json', self.text_remote_championship()): return True
                 
             # Start server
-            if self.checkbox_restart() and start != '' and not skins_only and self.combo_mode()==0:
+            if self.checkbox_restart() and self.text_start().strip() != '' \
+            and not skins_only and self.combo_mode()==0:
                 self.log('Starting server...')
-                self.ssh_command(start)
+                self.ssh_command(self.text_start().strip())
 
             # Restart monitor if enabled, there is a script, we're not just doing skins, and we're in vanilla mode
-            if self.checkbox_monitor() and monitor != '' and not skins_only and self.combo_mode()==0:
+            if self.checkbox_monitor() and self.text_monitor().strip() != '' and not skins_only and self.combo_mode()==0:
                 self.log('Restarting monitor...')
-                if self.ssh_command(monitor): return True
-            
+                if self.ssh_command(self.text_monitor()): return True
+
+            self.disconnect()
+        
+        # END OF SERVER STUFF
+        #########################################
+
         # Copy the nice cars list to the clipboard
         if self.combo_mode() == 0:
             pyperclip_copy(self.get_nice_selected_cars_string())
@@ -1346,6 +1407,41 @@ class Uploader:
             self.log('Running post-command')
             if self.system([self.text_postcommand()]): return True
         self.log('------- DONE! -------\n')
+
+    def upload_content(self, skins_only=False):
+        """
+        Compresses and uploads uploads.7z and unpacks it remotely (if checked).
+        """
+
+        # Server info
+        remote  = self.text_remote.get_text()
+        
+        # Make sure we don't bonk the system with rm -rf
+        if not remote.lower().find('assetto') >= 0:
+            self.log('Yeah, sorry, to avoid messing with something unintentionally, we enforce that your remote path have the word "assetto" in it.')
+            return True
+
+        # If we have uploads to compress
+        if os.path.exists('uploads'):
+            
+            # Compress the files we gathered (MUCH faster upload)
+            self.log('Compressing uploads.7z')
+            os.chdir('uploads')
+            if self.system(['7z', 'a', '../uploads.7z', '*']): 
+                os.chdir('..')
+                return True
+            os.chdir('..')
+        
+            self.log('Uploading uploads.7z...')
+            if self.sftp_upload('uploads.7z', remote+'/uploads.7z'): return True
+
+            # If we're cleaning remote files... Note skins_only prevents this
+            # regardless of the checkbox state.
+            if self.checkbox_clean() and not skins_only:
+                self.log('Cleaning out old content...')
+                if self.ssh_command('rm -rf '+remote+'/content/cars/* '+remote+'/content/tracks/*'): return True
+
+
 
 
     def package_content(self, skins_only=False, wait_for_zip=False):
@@ -1375,7 +1471,7 @@ class Uploader:
             for car in cars:
                 d = os.path.join(self.text_skins(), 'content', 'cars', car, 'skins')
                 if not os.path.exists(d): 
-                    self.log('  Creating skins folder for', car)
+                    self.log('Creating skins folder for', car)
                     os.makedirs(d, exist_ok=True)
 
         # Make sure we have a track
@@ -1406,9 +1502,6 @@ class Uploader:
         """
 
         # Server info
-        login   = self.text_login.get_text()
-        port    = self.text_port .get_text()
-        pem     = os.path.abspath(self.text_pem.get_text())
         remote  = self.text_remote.get_text()
         
         # Make sure we don't bonk the system with rm -rf
@@ -1429,7 +1522,7 @@ class Uploader:
             os.chdir('..')
         
             self.log('Uploading uploads.7z...')
-            if self.scp_upload('uploads.7z', remote): return True
+            if self.sftp_upload('uploads.7z', remote+'/uploads.7z'): return True
 
             # If we're cleaning remote files... Note skins only prevents this
             # regardless of the checkbox state.
@@ -1444,9 +1537,6 @@ class Uploader:
         Just unzips the remote uploads.7z, and cleans up local files.
         """
         # Server info
-        login   = self.text_login.get_text()
-        port    = self.text_port .get_text()
-        pem     = os.path.abspath(self.text_pem.get_text())
         remote  = self.text_remote.get_text()
         
         # Back to the upload process
@@ -1777,7 +1867,7 @@ class Uploader:
         # # Load the combo boxes etc to the last state for this server
         self._load_server_uploader()
 
-        self.log('  w00t')
+        self.log('w00t\n')
         
 
     def get_server_cfg_source(self):
@@ -1840,7 +1930,7 @@ class Uploader:
 
         # If this has 'Events' then it is a championship json. If not, then assume it is a custom race
         if 'Events' in c:
-            self.log('  Championship detected...')
+            self.log('Championship detected...')
 
             # ID from file name
             c['ID'] = os.path.splitext(os.path.split(remote_championship)[-1])[0]
@@ -1905,7 +1995,7 @@ class Uploader:
             and len(c['Events'])        \
             and 'Scheduled' in c['Events'][0].keys() \
             and parser.isoparse(c['Events'][0]['Scheduled']).year > 1:
-                self.log('  Auto-Week')
+                self.log('Auto-Week')
                 t0 = parser.isoparse(c['Events'][0]['Scheduled'])
                 self.log('  ', t0, '->')
 
@@ -1916,7 +2006,7 @@ class Uploader:
 
         # Otherwise, we have a custom_race json, which is a bit simpler to modify.
         else:
-            self.log('  Custom Race Detected...')
+            self.log('Custom Race Detected...')
 
             # Name
             c['Name'] = self.combo_carsets.get_text()+' at '+self.track['name']+' ('+self.combo_server.get_text()+')'
@@ -1988,7 +2078,7 @@ class Uploader:
 
         #########################
         # entry_list.ini
-        self.log('  entry_list.ini')
+        self.log('entry_list.ini')
         
         # now fill the slots
         entries = []
@@ -2019,7 +2109,7 @@ class Uploader:
         cfg = os.path.join('uploads', 'cfg')
         os.makedirs(cfg, exist_ok=True)
 
-        self.log('  entry_list.ini')
+        self.log('entry_list.ini')
         f = open(os.path.join(cfg, 'entry_list.ini'), 'w', encoding="utf8")
         f.write(s)
         f.close()
@@ -2047,7 +2137,7 @@ class Uploader:
             # Slots
             elif key == 'MAX_CLIENTS': ls[n] = 'MAX_CLIENTS='+str(N)+'\n'
 
-        self.log('  server_cfg.ini ('+str(N)+' pit boxes)')
+        self.log('server_cfg.ini ('+str(N)+' pit boxes)')
         f = open(os.path.join(cfg, 'server_cfg.ini'), 'w', encoding="utf8");
         f.writelines(ls);
         f.close()
@@ -2063,17 +2153,17 @@ class Uploader:
         else:                        self.race_json['carset'] = None
 
         # CARS DICTIONARY (Lookup by nice name)
-        self.log('  cars')
+        self.log('cars')
         self.race_json['cars'] = dict()
         for c in cars: self.race_json['cars'][self.cars[c]] = c
         
         # SKINS
-        self.log('  skins')
+        self.log('skins')
         self.race_json['skins'] = dict()
         for c in cars: self.race_json['skins'][c] = self.skins[c]
         
         # TRACK
-        self.log('  track')
+        self.log('track')
         self.race_json['track'] = self.track
         self.race_json['track']['directory'] = track.strip()
 
@@ -2199,30 +2289,36 @@ class Uploader:
     
         self._updating_cars = False
 
-    def update_skins(self, wait_for_zip=False):
+    def do_skins_only(self, wait_for_zip=False):
         """
         Runs the pre-script (presumably copies latest skins into local assetto),
         even if unchecked, provided it exists, then packages and uploads just 
         the selected car skins, then runs post, even if unchecked, provided it exists.
         """
         # Pre-command
+        self.log('\n------- UPDATING SKINS -------')
         if self.text_precommand().strip() != '' and self.checkbox_pre():
             self.log('Running pre-command')
-            if self.system([self.text_precommand()]): return True
+            if self.system([self.text_precommand().strip()]): return True
 
-        self.log('\n------- UPDATING SKINS -------')
         if self.checkbox_package():
             if self.package_content(True, wait_for_zip) == 'no cars': return True
 
+        ###################
+        # SERVER STUFF
+
         if self.checkbox_upload():
-            if self.scp_upload_content(True): return True
+            self.connect()
+            if self.upload_content(True):          return True
             if self.unpack_uploaded_content(True): return True
+            self.disconnect()
         
         # Post-command
         if self.text_postcommand().strip() != '':
             self.log('Running post-command')
-            if self.system([self.text_postcommand()]): return True
-        self.log('Done! Hopefully!')
+            if self.system([self.text_postcommand().strip()]): return True
+        self.log('------- DONE! -------\n')
+
 
     def update_tracks(self):
         """
