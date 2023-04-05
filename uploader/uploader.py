@@ -1693,7 +1693,6 @@ class Uploader:
         """
         print()
         print(command)
-        #r = os.system(command)
         self._c = command
         self._r = run(self._c, capture_output=True, shell=True)
         if self._r.returncode:
