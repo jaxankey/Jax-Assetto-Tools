@@ -743,7 +743,7 @@ class Uploader:
         
         cwd = os.getcwd()
         os.chdir(os.path.join(skins,'content','cars'))
-        zip_directories(cars, zip_path+'.zip', zip_excludes, self.update_progress)
+        zip_directories(cars, zip_path, zip_excludes, self.update_progress)
         os.chdir(cwd)
 
         # Now in a separate thread, start the zip process
