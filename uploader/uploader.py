@@ -16,6 +16,12 @@ from shutil import copy, copytree, ignore_patterns
 from codecs import open as codecs_open
 import paramiko
 from numpy import round
+# importing required modules
+from zipfile import ZipFile, ZIP_DEFLATED
+import os
+
+# List of files not to include in zips
+zip_excludes = ['.idea', 'desktop.ini', '.git']
 
 # Change to the directory of this script depending on whether this is a "compiled" version or run as script
 if os.path.split(sys.executable)[-1] == 'uploader.exe': os.chdir(os.path.dirname(sys.executable)) # For executable version
@@ -35,6 +41,57 @@ _create_new_profile = '[Create New Profile]'
 # Get the last argument, which can be used to automate stuff
 if len(sys.argv): print('LAST ARGUMENT:', sys.argv[-1])
 
+ 
+def get_all_file_paths(directory, excludes=[]):
+  
+    # initializing empty file paths list
+    paths = []
+  
+    # crawling through directory and subdirectories
+    for root, directories, files in os.walk(directory):
+        for filename in files:
+            
+            # join the two strings in order to form the full filepath.
+            path = os.path.join(root, filename)
+            s = path.split('\\')
+
+            # Exclude
+            naughty=False
+            for exclude in excludes:
+                if exclude in s: 
+                    naughty=True
+                    break
+            
+            # Append
+            if not naughty: paths.append(path)
+  
+    # returning all file paths
+    return paths        
+
+def zip_files(paths, zip_path, callback=None):
+    # writing files to a zipfile
+    print('Zipping', paths, '\n->', zip_path)
+    with ZipFile(zip_path,'w',ZIP_DEFLATED) as zip:
+        N = len(paths)
+        for n in range(N):
+            zip.write(paths[n])
+            if callback: callback(n, N, paths[n])
+
+def zip_directory(directory, zip_path, excludes, callback=None):
+    
+    # calling function to get all file paths in the directory
+    zip_files(get_all_file_paths(directory, excludes), zip_path, callback)
+
+def zip_directories(directories, zip_path, excludes, callback=None):
+
+    paths = []
+    for directory in directories: paths = paths + get_all_file_paths(directory, excludes)
+    zip_files(paths, zip_path, callback)
+
+  
+    
+
+  
 def get_utc_offset(t=None):
     """
     Given timestamp in seconds, return the local utc offset delta
@@ -147,6 +204,7 @@ class Uploader:
         # SSH connection object
         self.ssh  = None
         self.sftp = None
+        self.transfer_percentage = 0
 
         # Flag for whether we're in the init phases
         self._init = True
@@ -635,7 +693,7 @@ class Uploader:
         #self.server['settings']['text_filter_cars'] = self.text_filter_cars()
         if not self._loading_server: self.button_save_server.click()
 
-    def import_and_package_skins(self, wait_for_zip=False):
+    def import_and_package_skins(self):
         """
         Copies all the custom skins associated with the currently selected
         carset into the actual assetto content folder, and zips them up for
@@ -657,16 +715,18 @@ class Uploader:
         # Get the path to the zip and delete it if it exists
         packs_path = os.path.join(skins,'Livery Packs')
         if not os.path.exists(packs_path): os.mkdir(packs_path)
-        zip_path = os.path.join(packs_path, carset_safe + '.7z')
+        zip_path = os.path.join(packs_path, carset_safe + '.zip')
         if os.path.exists(zip_path): os.remove(zip_path)
 
-        # Loop over the selected cars and copy them into the main folder
-        # Also assemble the zip command
-        command = ['7z', '-mx4', '-xr!*desktop.ini', 'a', '"'+zip_path+'"']
-        if not wait_for_zip: command = ['start', '"Compressing Skins"']+command
+        # Loop over the selected cars and copy them from a custom skins folder
+        # into the main local assetto folder
+        # Also assemble the list of files to zip
+        directories_to_zip = []
+        #command = ['7z', '-mx4', '-xr!*desktop.ini', 'a', '"'+zip_path+'"']
+        #if not wait_for_zip: command = ['start', '"Compressing Skins"']+command
         for car in cars:
-            source   = os.path.join(skins,'content','cars',car)
-            destination = os.path.join(local,'content','cars',car)
+            source      = os.path.join(skins,'content','cars',car) # Google drive, e.g.
+            destination = os.path.join(local,'content','cars',car) # Local assetto
             if os.path.exists(source):
                 print('Copying', source,'\n  ->',destination)
                 try: copytree(source, destination, dirs_exist_ok=True, copy_function=copy, ignore=ignore_patterns('desktop.ini'))
@@ -678,12 +738,22 @@ class Uploader:
                         print('I need an adult!', f)
 
             # Add this to the zip command.
-            command.append('"' + source + '"')
+        #    command.append('"' + source + '"')
+            directories_to_zip.append(source)
+        
+        cwd = os.getcwd()
+        os.chdir(os.path.join(skins,'content','cars'))
+        zip_directories(cars, zip_path+'.zip', zip_excludes, self.update_progress)
+        os.chdir(cwd)
 
         # Now in a separate thread, start the zip process
-        command_string = ' '.join(command)
-        print(command_string)
-        os.system(command_string)
+        #command_string = ' '.join(command)
+        #print(command_string)
+        #os.system(command_string)
+
+        # Now copy this zip file to the "latest.zip" pack
+        # self.log('Copying to latest.zip')
+        # copy(zip_path, os.path.join(skins, 'latest.zip'))
 
     def _button_browse_skins_clicked(self, *a):
         """
@@ -1258,11 +1328,15 @@ class Uploader:
             self.disconnect()
             return True
 
-    def update_progress(self, transferred, total):
+    def update_progress(self, transferred, total, other=None):
         """
         Updates the progress bar. This is called during downloads / uploads.
         """
-        self.progress_bar.setValue(int(round(100*transferred/total)))
+        x = int(round(100*transferred/total))
+        if x != self.transfer_percentage: 
+            print('  ', x, '%', end='\r')
+            self.transfer_percentage = x
+        self.progress_bar.setValue(x)
         self.window.process_events()
 
     def ssh_command(self, command):
@@ -1288,6 +1362,7 @@ class Uploader:
         try:    
             self.sftp.get(source, destination, callback=self.update_progress)
             self.progress_bar.setValue(100)
+            self.transfer_percentage = 100
         except Exception as e:
             self.log('ERROR: Could not download', source+'.', e)
             self.disconnect()
@@ -1306,6 +1381,7 @@ class Uploader:
         try:    
             self.sftp.put(source, destination, callback=self.update_progress)
             self.progress_bar.setValue(100)
+            self.transfer_percentage = 100
         except Exception as e:
             self.log('ERROR: Could not upload', source+'.', e)
             self.disconnect()
@@ -1416,7 +1492,7 @@ class Uploader:
 
     def upload_content(self, skins_only=False):
         """
-        Compresses and uploads uploads.7z and unpacks it remotely (if checked).
+        Compresses and uploads uploads.zip and unpacks it remotely (if checked).
         """
 
         # Server info
@@ -1431,15 +1507,13 @@ class Uploader:
         if os.path.exists('uploads'):
             
             # Compress the files we gathered (MUCH faster upload)
-            self.log('Compressing uploads.7z')
+            self.log('Compressing uploads.zip...')
             os.chdir('uploads')
-            if self.system(['7z', 'a', '../uploads.7z', '*']): 
-                os.chdir('..')
-                return True
+            zip_directory('.', '../uploads.zip', zip_excludes, self.update_progress)
             os.chdir('..')
-        
-            self.log('Uploading uploads.7z...')
-            if self.sftp_upload('uploads.7z', remote+'/uploads.7z'): return True
+
+            self.log('Uploading uploads.zip...')
+            if self.sftp_upload('uploads.zip', remote+'/uploads.zip'): return True
 
             # If we're cleaning remote files... Note skins_only prevents this
             # regardless of the checkbox state.
@@ -1450,18 +1524,18 @@ class Uploader:
 
 
 
-    def package_content(self, skins_only=False, wait_for_zip=False):
+    def package_content(self, skins_only=False):
         """
         Packages all the content. Or just the skins.
         """
-        print('package_content()', skins_only, wait_for_zip)
+        print('package_content()', skins_only)
 
         # If we're importing / packaging the skins as well (this function does nothing if no skins folder is supplied)
-        self.import_and_package_skins(wait_for_zip)
+        self.import_and_package_skins()
 
         # Make sure it's clean
         if os.path.exists('uploads'): rmtree('uploads')
-        if os.path.exists('uploads.7z'): os.remove('uploads.7z')
+        if os.path.exists('uploads.zip'): os.remove('uploads.zip')
         
         # get the tracks and cars folders
         track = self.skcart[self.combo_tracks.get_text()] # Track directory
@@ -1504,7 +1578,7 @@ class Uploader:
 
     def upload_content(self, skins_only=False):
         """
-        Uploads uploads.7z and unpacks it remotely (if checked).
+        Uploads uploads.zip and unpacks it remotely (if checked).
         """
 
         # Server info
@@ -1519,16 +1593,14 @@ class Uploader:
         if os.path.exists('uploads'):
             
             # Compress the files we gathered (MUCH faster upload)
-            self.log('Compressing uploads.7z')
+            self.log('Compressing uploads.zip...')
             os.chdir('uploads')
-            #c = '7z a ../uploads.7z *'
-            if self.system(['7z', 'a', '../uploads.7z', '*']): 
-                os.chdir('..')
-                return True
+            zip_directory('.', '../uploads.zip', zip_excludes, self.update_progress)
             os.chdir('..')
         
-            self.log('Uploading uploads.7z...')
-            if self.sftp_upload('uploads.7z', remote+'/uploads.7z'): return True
+            self.log('Uploading uploads.zip...')
+            if self.sftp_upload('uploads.zip', remote+'/uploads.zip'): return True
+            print()
 
             # If we're cleaning remote files... Note skins only prevents this
             # regardless of the checkbox state.
@@ -1540,7 +1612,7 @@ class Uploader:
 
     def unpack_uploaded_content(self, skins_only=False):
         """
-        Just unzips the remote uploads.7z, and cleans up local files.
+        Just unzips the remote uploads.zip, and cleans up local files.
         """
         # Server info
         remote  = self.text_remote.get_text()
@@ -1554,12 +1626,12 @@ class Uploader:
                 if self.ssh_command('rm -rf '+remote+'/carsets'): return True
             
             # Remote extract
-            self.log('Extracting remote uploads.7z...')
-            if self.ssh_command('7z x -aoa '+remote+'/uploads.7z -o'+remote): return True
+            self.log('Extracting remote uploads.zip...')
+            if self.ssh_command('7z x -aoa '+remote+'/uploads.zip -o'+remote): return True
 
             self.log('Removing local uploads.')
             rmtree('uploads')
-            if os.path.exists('uploads.7z'): os.remove('uploads.7z')
+            if os.path.exists('uploads.zip'): os.remove('uploads.zip')
 
     def collect_assetto_files(self, source_folder, skins_only=False):
         """
@@ -2295,7 +2367,7 @@ class Uploader:
     
         self._updating_cars = False
 
-    def do_skins_only(self, wait_for_zip=False):
+    def do_skins_only(self):
         """
         Runs the pre-script (presumably copies latest skins into local assetto),
         even if unchecked, provided it exists, then packages and uploads just 
@@ -2310,7 +2382,7 @@ class Uploader:
             if self.system([self.text_precommand().strip()]): return True
 
         if self.checkbox_package():
-            if self.package_content(True, wait_for_zip) == 'no cars': return True
+            if self.package_content(True) == 'no cars': return True
 
         ###################
         # SERVER STUFF
