@@ -195,6 +195,7 @@ class Uploader:
             import pyi_splash # IDE warning is ok; we don't get here except in executable mode.
             pyi_splash.update_text('UI Loaded ...')
             pyi_splash.close()
+            blocking=True
 
         # For troubleshooting; may not work
         self.timer_exceptions = egg.gui.TimerExceptions()
@@ -361,12 +362,12 @@ class Uploader:
             signal_changed=self._any_server_setting_changed), alignment=0)
 
         self.tab_settings.new_autorow()
-        self.label_remote_championship = self.tab_settings.add(egg.gui.Label('Remote Championship JSON:'))
+        self.label_remote_championship = self.tab_settings.add(egg.gui.Label('Remote Race JSON:'))
         self.text_remote_championship = self.tab_settings.add(egg.gui.TextBox('/home/username/server-manager/json/championships/blah-blah-blah.json',
-            tip='Remote path to the championship json we wish to update. Requires json mode in\nserver-manager\'s config.yml.',
+            tip='Remote path to the race / championship json we wish to update. Requires json mode in\nserver-manager\'s config.yml.',
             signal_changed=self._any_server_setting_changed), alignment=0)
         self.button_download_championship = self.tab_settings.add(egg.gui.Button('Download',
-            tip='Download the specified championship into the server.json file.',
+            tip='Download / import the specified race / championship json to initialize the server.',
             signal_clicked = self._button_download_championship_clicked))
 
         self.tab_settings.new_autorow()
@@ -441,6 +442,14 @@ class Uploader:
             tip='Opens a dialog to let you select the custom skins directory.',
             signal_clicked=self._button_browse_skins_clicked))
 
+        self.tab_settings.new_autorow()
+        self.tab_settings.add(egg.gui.Label('Latest Skin Pack:'))
+        self.text_latest_skins = self.tab_settings.add(egg.gui.TextBox('',
+            tip='Optional name of the "latest" skin pack that will be updated every upload,\n'+
+                'e.g. "sunday-liveries.zip". Note the skin pack will always be archived by\n'+
+                'carset even without this specified. This just makes a copy for easy download.',
+            signal_changed=self._any_server_setting_changed), alignment=0)
+        
 
         # self.tab_settings.new_autorow()
         # self.label_test = self.tab_settings.add(egg.gui.Label('Test Remote Command:'))
@@ -614,6 +623,7 @@ class Uploader:
             'text_url',
             'text_url2',
             'text_skins',
+            'text_latest_skins',
             'text_tyres',
             'number_slots',
             'checkbox_pre',
@@ -699,24 +709,31 @@ class Uploader:
         carset into the actual assetto content folder, and zips them up for
         distribution.
         """
-        skins  = self.text_skins()
-        local  = self.text_local()
+        skins  = self.text_skins().strip()
+        latest = self.text_latest_skins().strip()
+        local  = self.text_local().strip()
         carset = self.combo_carsets.get_text()
         cars   = self.get_selected_cars()
         if skins == '' or local == '' or carset == _unsaved_carset or len(cars)==0: return
 
-        self.log('Packaging carset skins')
+        self.log('Packaging carset skins...')
 
         # Tidy up the carset
         naughties = ['<', '>', ':', '"', '/', '\\', '|', '?', '*']
         carset_safe = carset
         for naughty in naughties: carset_safe.replace(naughty,'')
 
-        # Get the path to the zip and delete it if it exists
+        # Get the root directory of the packs
         packs_path = os.path.join(skins,'Livery Packs')
         if not os.path.exists(packs_path): os.mkdir(packs_path)
+        
+        # Get the path to the pack for this carset and delete it.
         zip_path = os.path.join(packs_path, carset_safe + '.zip')
         if os.path.exists(zip_path): os.remove(zip_path)
+
+        # Get the latest.zip path
+        if latest: latest_path = os.path.join(skins,latest)
+        else:      latest_path = None
 
         # Loop over the selected cars and copy them from a custom skins folder
         # into the main local assetto folder
@@ -743,9 +760,18 @@ class Uploader:
         
         cwd = os.getcwd()
         os.chdir(os.path.join(skins,'content','cars'))
+        
+        # Zip the pack up in the archive
         zip_directories(cars, zip_path, zip_excludes, self.update_progress)
+        
+        # If we have a "latest.zip" path, copy it there
+        if latest_path: 
+            self.log('Copying pack to ../'+latest)
+            copy(zip_path, latest_path)
+        
         os.chdir(cwd)
 
+        
         # Now in a separate thread, start the zip process
         #command_string = ' '.join(command)
         #print(command_string)
