@@ -70,7 +70,6 @@ def get_all_file_paths(directory, excludes=[]):
 
 def zip_files(paths, zip_path, callback=None):
     # writing files to a zipfile
-    print('Zipping', paths, '\n->', zip_path)
     with ZipFile(zip_path,'w',ZIP_DEFLATED) as zip:
         N = len(paths)
         for n in range(N):
@@ -660,7 +659,7 @@ class Uploader:
                 self.combo_server.set_text(server)
 
                 print('UPLOADING SKINS')
-                self.do_skins_only(True)
+                self.do_skins_only()
 
         ######################
         # Show the window; no more commands below this.
@@ -1515,39 +1514,6 @@ class Uploader:
             if self.system([self.text_postcommand()]): return True
         self.log('------- DONE! -------\n')
         self.set_safe_mode(False)
-
-    def upload_content(self, skins_only=False):
-        """
-        Compresses and uploads uploads.zip and unpacks it remotely (if checked).
-        """
-
-        # Server info
-        remote  = self.text_remote.get_text()
-        
-        # Make sure we don't bonk the system with rm -rf
-        if not remote.lower().find('assetto') >= 0:
-            self.log('Yeah, sorry, to avoid messing with something unintentionally, we enforce that your remote path have the word "assetto" in it.')
-            return True
-
-        # If we have uploads to compress
-        if os.path.exists('uploads'):
-            
-            # Compress the files we gathered (MUCH faster upload)
-            self.log('Compressing uploads.zip...')
-            os.chdir('uploads')
-            zip_directory('.', '../uploads.zip', zip_excludes, self.update_progress)
-            os.chdir('..')
-
-            self.log('Uploading uploads.zip...')
-            if self.sftp_upload('uploads.zip', remote+'/uploads.zip'): return True
-
-            # If we're cleaning remote files... Note skins_only prevents this
-            # regardless of the checkbox state.
-            if self.checkbox_clean() and not skins_only:
-                self.log('Cleaning out old content...')
-                if self.ssh_command('rm -rf '+remote+'/content/cars/* '+remote+'/content/tracks/*'): return True
-
-
 
 
     def package_content(self, skins_only=False):
