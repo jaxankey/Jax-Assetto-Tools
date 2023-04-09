@@ -40,6 +40,8 @@ online_header       = ''
 online_footer       = ''
 session_complete_header = '**Session complete.**'
 online_timeout      = 10*60 # time after which a dead message is not reused.
+color_onlines       = 10181046 # Post color when people are online
+color_server_up     = 5763719  # Post color when server is up but empty
 
 # Persistent post for venue information
 url_webhook_info    = None
@@ -1414,8 +1416,8 @@ class Monitor:
         body2 = ''
         if onlines:
             body2 = '\n\n**' + online_header + '**\n' + onlines
-            color = 3447003
-        elif self.server_is_up: color = 5763719
+            color = color_onlines
+        elif self.server_is_up: color = color_server_up
         else:                   color = 0
 
         # Get the list of driver best laps 4070 leaves a little buffer for ... and stuff.
