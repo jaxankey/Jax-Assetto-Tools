@@ -307,9 +307,9 @@ class Monitor:
             carsets=dict(),  # Dictionary of car lists by carset name for grouping laps
             stesrac=dict(),  # Dictionary of carset name lists by car for grouping laps
             cars=list(),  # List of car directories
-            carnames=dict(),  # Dictionary converting car dirnames to fancy names for everything in the venue.
+            carnames=dict(), # Dictionary converting car dirnames to fancy names for everything in the venue.
 
-            seen_namecars=dict(),  # Set of people/cars seen online for this session.
+            seen_namecars=dict(), # Set of people/cars seen online for this session.
             session_end_time=0,
 
             session_type=None,
@@ -344,7 +344,15 @@ class Monitor:
                 self.save_and_archive_state()
 
             # If the server state changed, note this
-            if self.server_is_up: server_state_changed = True
+            if self.server_is_up: 
+                
+                # Flag to remember to send a message at the end.
+                server_state_changed = True
+                
+                # Also clear out the online drivers list
+                self['seen_namecars'] = dict()
+                self['online']        = dict()
+
             self.server_is_up = False
 
             # If we don't have a race_json to parse, quit out to avoid looping.
@@ -1406,7 +1414,7 @@ class Monitor:
         body2 = ''
         if onlines:
             body2 = '\n\n**' + online_header + '**\n' + onlines
-            color = 15548997
+            color = 3447003
         elif self.server_is_up: color = 5763719
         else:                   color = 0
 
