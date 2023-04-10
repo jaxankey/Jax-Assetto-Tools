@@ -576,7 +576,7 @@ class Monitor:
 
         # If we found and loaded live_timings, and the track / layout matches (i.e., it's not old!)
         if self.live_timings and self.live_timings['Track'] == self['track'] and self.live_timings['TrackLayout'] == self['layout']:
-
+            print('HAY')
             # guid = 123456767889
             for guid in self.live_timings['Drivers']:
                 name = self.live_timings['Drivers'][guid]['CarInfo']['DriverName']
