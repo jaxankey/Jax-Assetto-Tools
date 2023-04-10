@@ -477,9 +477,9 @@ class Monitor:
                 # the race_json when available (below)
                 if details:
                     track_layout = details['track'].split('-')
-                    track = track_layout[0]
-                    if len(track_layout) >= 2: layout = track_layout[1]
+                    if len(track_layout) >= 2: layout = track_layout.pop(-1)
                     else:                      layout = ''
+                    track = '-'.join(track_layout)
                     cars = details['cars']
 
             # Otherwise we use the more reliable race_json information
@@ -574,10 +574,11 @@ class Monitor:
             self.live_timings = load_json(path_live_timings, True)
             if not self.live_timings: print('\n\nINVALID live_timing.json?')
         
+        #+++
         print(self.live_timings['Track'], self['track'], self.live_timings['TrackLayout'], self['layout'])
         # If we found and loaded live_timings, and the track / layout matches (i.e., it's not old!)
         if self.live_timings and self.live_timings['Track'] == self['track'] and self.live_timings['TrackLayout'] == self['layout']:
-            print('---------------------HAY')
+            
             # guid = 123456767889
             for guid in self.live_timings['Drivers']:
                 name = self.live_timings['Drivers'][guid]['CarInfo']['DriverName']
