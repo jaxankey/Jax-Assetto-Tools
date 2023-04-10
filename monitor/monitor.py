@@ -573,9 +573,8 @@ class Monitor:
         if path_live_timings and path_live_timings != '': 
             self.live_timings = load_json(path_live_timings, True)
             if not self.live_timings: print('\n\nINVALID live_timing.json?')
-        else:
-            print('----------NO LIVE TIMINGS')
-
+        
+        print(self.live_timings['Track'], self['track'], self.live_timings['TrackLayout'], self['layout'])
         # If we found and loaded live_timings, and the track / layout matches (i.e., it's not old!)
         if self.live_timings and self.live_timings['Track'] == self['track'] and self.live_timings['TrackLayout'] == self['layout']:
             print('---------------------HAY')
