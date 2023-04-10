@@ -570,13 +570,15 @@ class Monitor:
             self.live_timings = None
 
         # Try to grab the live_timings data; load_json returns None if the file was moved.
-        if path_live_timings: 
+        if path_live_timings and path_live_timings != '': 
             self.live_timings = load_json(path_live_timings, True)
             if not self.live_timings: print('\n\nINVALID live_timing.json?')
+        else:
+            print('----------NO LIVE TIMINGS')
 
         # If we found and loaded live_timings, and the track / layout matches (i.e., it's not old!)
         if self.live_timings and self.live_timings['Track'] == self['track'] and self.live_timings['TrackLayout'] == self['layout']:
-            print('HAY')
+            print('---------------------HAY')
             # guid = 123456767889
             for guid in self.live_timings['Drivers']:
                 name = self.live_timings['Drivers'][guid]['CarInfo']['DriverName']
