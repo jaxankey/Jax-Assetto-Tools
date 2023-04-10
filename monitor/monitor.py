@@ -572,11 +572,9 @@ class Monitor:
         # Try to grab the live_timings data; load_json returns None if the file was moved.
         if path_live_timings and path_live_timings != '': 
             self.live_timings = load_json(path_live_timings, True)
-            if not self.live_timings: 
-                print('\n\nINVALID live_timing.json?', path_live_timings, repr(self.live_timings))
+            # if not self.live_timings: 
+            #     print('\n\nINVALID live_timing.json?', path_live_timings, repr(self.live_timings))
         
-        #+++
-#        print(self.live_timings['Track'], self['track'], self.live_timings['TrackLayout'], self['layout'])
         # If we found and loaded live_timings, and the track / layout matches (i.e., it's not old!)
         if self.live_timings and self.live_timings['Track'] == self['track'] and self.live_timings['TrackLayout'] == self['layout']:
             
