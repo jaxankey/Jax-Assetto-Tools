@@ -336,7 +336,7 @@ class Monitor:
         # Test if the server is up
         self.tcp_data_port_open = port_is_open('localhost', tcp_data_port)
 
-        # If we're down, do some quick stuff and maybe quit out.
+        # If we're down.
         if not self.tcp_data_port_open:
 
             # Send a warning message to discord
@@ -347,6 +347,7 @@ class Monitor:
 
             # If the server state changed, note this
             if self.server_is_up: 
+                print('\n\nSERVER IS NOW DOWN!')
                 
                 # Flag to remember to send a message at the end.
                 server_state_changed = True
@@ -355,7 +356,11 @@ class Monitor:
                 self['seen_namecars'] = dict()
                 self['online']        = dict()
 
+            # Flag so we know it's down.
             self.server_is_up = False
+            
+            # Don't bother querying for api/details
+            details = None
 
             # If we don't have a race_json to parse, quit out to avoid looping.
             if not path_race_json or len(path_race_json) == 0: 
@@ -369,31 +374,32 @@ class Monitor:
             
             # Otherwise we parse the race_json and then send state messages
 
-        # Otherwise, the server is up; if there is a down message, clear it
-        elif self.state['down_message_id']:
-            self.delete_message(self.webhook_info, self['down_message_id'])
-            self['down_message_id'] = None
-            self.save_and_archive_state()
+        # SERVER IS UP
+        else:
+            
+            # See if it changed
+            if not self.server_is_up: 
+                print('\n\nSERVER IS BACK UP!')
+                server_state_changed = True
+            
+            # Toggle it to up (it's up!)
+            self.server_is_up = True
 
-        # Regardless, we see what information is available and post it if something
-        # changed.
+            # If there is a down message, clear it
+            if self.state['down_message_id']:
+                self.delete_message(self.webhook_info, self['down_message_id'])
+                self['down_message_id'] = None
+                self.save_and_archive_state()
 
-        # If the server is up, try to grab the "details" from 8081/api/details to learn who is online.
-        if self.tcp_data_port_open:
-            try: 
-                details = json.loads(urllib.request.urlopen(url_api_details, timeout=5).read(), strict=False)
-                if not self.server_is_up: server_state_changed = True
-                self.server_is_up = True
+            # Try to load the details from the server port
+            try: details = json.loads(urllib.request.urlopen(url_api_details, timeout=5).read(), strict=False)
             except Exception as e:
                 log('\n\nERROR: Could not open', url_api_details, e)
                 details = None
-                if self.server_is_up: server_state_changed = True
+                if self.server_is_up: 
+                    print('\n\nWEIRD: SERVER IS UP BUT API DETAILS DOWN')
+                    server_state_changed = True
                 self.server_is_up = False
-
-        # Sever is down, we don't know anything
-        else: 
-            details = None
-            self.server_is_up = False
 
         # Get the previous set of onlines
         old = set()
@@ -458,7 +464,7 @@ class Monitor:
                         self['race_timestamp']    = tr
                         self['number_registered'] = nr
                         self['number_slots']      = ns
-                
+            
             # Get the track, layout, and cars from the website if there is no race_json
             track  = 'Unknown Track'
             layout = ''
@@ -564,7 +570,9 @@ class Monitor:
             self.live_timings = None
 
         # Try to grab the live_timings data; load_json returns None if the file was moved.
-        if path_live_timings: self.live_timings = load_json(path_live_timings, True)
+        if path_live_timings: 
+            self.live_timings = load_json(path_live_timings, True)
+            if not self.live_timings: print('\n\nINVALID live_timing.json?')
 
         # If we found and loaded live_timings, and the track / layout matches (i.e., it's not old!)
         if self.live_timings and self.live_timings['Track'] == self['track'] and self.live_timings['TrackLayout'] == self['layout']:
