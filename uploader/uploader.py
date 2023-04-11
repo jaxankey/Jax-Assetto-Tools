@@ -23,6 +23,12 @@ import os
 ###JJJJJJJJJJJJJJJACK
 # Rename server not working?
 # Weird server names / length limit / characters.
+# First time new server can't connect for some reason until close / re-open
+# When connecting, see if connection exists before closing
+# Disconnecting should unfreeze the lefthand controls.
+
+SERVER_MODE_PREMIUM = 0
+SERVER_MODE_VANILLA = 1
 
 # List of files not to include in zips
 zip_excludes = ['.idea', 'desktop.ini', '.git']
@@ -296,7 +302,7 @@ class Uploader:
         # Server stuff
         self.tab_settings.new_autorow()
         self.tab_settings.add(egg.gui.Label('Mode:'))
-        self.combo_mode = self.tab_settings.add(egg.gui.ComboBox(['Steam acServer', 'Server Manager'],
+        self.combo_mode = self.tab_settings.add(egg.gui.ComboBox(['Server Manager','Steam acServer (obsolete)'],
             signal_changed=self._combo_mode_changed))
 
         self.tab_settings.new_autorow()
@@ -938,7 +944,7 @@ class Uploader:
         f.close()
 
         # If there is no championship, warn!
-        if not 'championship' in self.server and self.server['settings']['combo_mode'] == 1:
+        if not 'championship' in self.server and self.server['settings']['combo_mode'] == SERVER_MODE_PREMIUM:
             self.log('\n-------\nWARNING: You must download the remote championship json at least once for this server.\n-------\n')
 
         return self.server
@@ -1282,7 +1288,7 @@ class Uploader:
         relevant settings.
         """
         print('_combo_mode_changed')
-        premium = self.combo_mode.get_index() == 1
+        premium = self.combo_mode() == SERVER_MODE_PREMIUM
 
 
         # Things that show up only when in premium mode
@@ -1436,7 +1442,7 @@ class Uploader:
     
         # Make sure!
         qmb = egg.pyqtgraph.Qt.QtWidgets.QMessageBox
-        ret = qmb.question(self.window._window, '******* WARNING *******', "This action can clear the server and overwrite\nthe existing championship!", qmb.Ok | qmb.Cancel, qmb.Cancel)
+        ret = qmb.question(self.window._window, '******* WARNING *******', "This action can clear the server and overwrite\nthe existing event!", qmb.Ok | qmb.Cancel, qmb.Cancel)
         if ret == qmb.Cancel: return
 
         self.log('------- GO TIME! --------')
@@ -1449,7 +1455,7 @@ class Uploader:
 
         # Generate the appropriate config files
         if self.checkbox_modify() and not skins_only: 
-            if self.combo_mode() == 0: self.generate_acserver_cfg()
+            if self.combo_mode() == SERVER_MODE_VANILLA: self.generate_acserver_cfg()
             elif self.generate_acsm_cfg(): return
         
         # Collect and package all the data
@@ -1467,7 +1473,7 @@ class Uploader:
 
             # Stop server, but only if there is a command, we're not doing skins, and we're in vanilla mode
             if self.checkbox_restart() and self.text_stop().strip() != '' \
-            and not skins_only and self.combo_mode()==0:
+            and not skins_only and self.combo_mode()==SERVER_MODE_VANILLA:
                 self.log('Stopping server...')
                 if self.ssh_command(self.text_stop().strip()): return True
                 
@@ -1481,19 +1487,20 @@ class Uploader:
             if self.unpack_uploaded_content(skins_only): return True
             
             # If we made a championship.json
-            if self.checkbox_modify() and self.combo_mode()==1 \
+            if self.checkbox_modify() and self.combo_mode()==SERVER_MODE_PREMIUM \
             and os.path.exists('championship.json') and not skins_only:
                 self.log('Uploading championship.json...')
                 if self.sftp_upload('championship.json', self.text_remote_championship()): return True
                 
             # Start server
             if self.checkbox_restart() and self.text_start().strip() != '' \
-            and not skins_only and self.combo_mode()==0:
+            and not skins_only and self.combo_mode()==SERVER_MODE_VANILLA:
                 self.log('Starting server...')
                 self.ssh_command(self.text_start().strip())
 
             # Restart monitor if enabled, there is a script, we're not just doing skins, and we're in vanilla mode
-            if self.checkbox_monitor() and self.text_monitor().strip() != '' and not skins_only and self.combo_mode()==0:
+            if self.checkbox_monitor() and self.text_monitor().strip() != '' \
+            and not skins_only and self.combo_mode()==SERVER_MODE_VANILLA:
                 self.log('Restarting monitor...')
                 if self.ssh_command(self.text_monitor()): return True
 
@@ -1503,7 +1510,7 @@ class Uploader:
         #########################################
 
         # Copy the nice cars list to the clipboard
-        if self.combo_mode() == 0:
+        if self.combo_mode() == SERVER_MODE_VANILLA:
             pyperclip_copy(self.get_nice_selected_cars_string())
             self.log('List copied to clipboard')
             
@@ -1619,7 +1626,7 @@ class Uploader:
             # Remove the carsets folder
             if not skins_only:
                 self.log('Removing remote carset lists...')
-                if self.ssh_command('rm -rf '+remote+'/carsets'): return True
+                if self.ssh_command('rm -f '+remote+'/carsets/*'): return True
             
             # Remote extract
             self.log('Extracting remote uploads.zip...')
@@ -1641,7 +1648,7 @@ class Uploader:
 
         # File extensions we should copy over. ACSM needs a few extra heavies.
         filetypes = ['ini', 'lut', 'rto', 'acd', 'json']
-        if self.combo_mode.get_index() == 1:
+        if self.combo_mode() == SERVER_MODE_PREMIUM:
             filetypes = filetypes + ['ai', 'bin', 'jpg', 'png', 'JPG', 'PNG']
 
         # Walk through the directory picking up the key files

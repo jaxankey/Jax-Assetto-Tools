@@ -538,7 +538,6 @@ class Monitor:
             tq = self['qual_timestamp']
             tr = self['race_timestamp']
 
-            
             # If we're within the one hour window
             if tq-3600 < t < tq: 
 
@@ -636,7 +635,7 @@ class Monitor:
                     #   There is no 'count' key, or
                     #   the lap count is different
                     # update the laps for this car and driver.
-                    if best:
+                    if best and best > 100: # 100 ms minimum time to catch glitches.
                         if name not in self['laps']: self['laps'][name] = dict()
 
                         if car not in self['laps'][name]   \
