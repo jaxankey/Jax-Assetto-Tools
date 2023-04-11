@@ -64,7 +64,11 @@ timestamp_qual_minutes = 60   # Duration of qual
 join_link_finish = None
 server_ip        = None
 
-
+# External scripts to run
+script_one_hour    = None # Path to script to run one hour before qualifying
+script_qualifying  = None # Path to script to run when qual opens
+script_server_down = None # Path to script to run when server goes down
+script_server_up   = None # Path to script to run when server comes back up
 
 # Other
 web_archive_history = 0
@@ -314,6 +318,10 @@ class Monitor:
             seen_namecars=dict(), # Set of people/cars seen online for this session.
             session_end_time=0,
 
+            # Flags to prevent running the script many times in the time window
+            script_one_hour_done   = False, 
+            script_qualifying_done = False, 
+
             session_type=None,
         )
 
@@ -347,10 +355,15 @@ class Monitor:
 
             # If the server state changed, note this
             if self.server_is_up: 
-                print('\n\nSERVER IS NOW DOWN!')
                 
                 # Flag to remember to send a message at the end.
+                print('\n\nSERVER IS NOW DOWN!')
                 server_state_changed = True
+
+                # Run the server down->up script ONCE
+                print('RUNNING SERVER DOWN SCRIPT\n  ', script_server_down)
+                try: os.system(script_server_down)
+                except Exception as e: print('OOPS!', e)
                 
                 # Also clear out the online drivers list
                 self['seen_namecars'] = dict()
@@ -381,10 +394,15 @@ class Monitor:
             if not self.server_is_up: 
                 print('\n\nSERVER IS BACK UP!')
                 server_state_changed = True
-            
+
+                # Run the server down->up script ONCE
+                print('RUNNING SERVER UP SCRIPT\n  ', script_server_up)
+                try: os.system(script_server_up)
+                except Exception as e: print('OOPS!', e)
+
             # Toggle it to up (it's up!)
             self.server_is_up = True
-
+            
             # If there is a down message, clear it
             if self.state['down_message_id']:
                 self.delete_message(self.webhook_info, self['down_message_id'])
@@ -520,37 +538,56 @@ class Monitor:
             tq = self['qual_timestamp']
             tr = self['race_timestamp']
 
-            # If we're giving one hour messages
-            if one_hour_message:
+            
+            # If we're within the one hour window
+            if tq-3600 < t < tq: 
 
-                # If we're within the time window
-                if tq-3600 < t < tq: 
+                # If we're giving one hour messages, send it ONCE.
+                if one_hour_message and not self['one_hour_message_id']:
+                    self['one_hour_message_id'] = self.send_message(self.webhook_info, one_hour_message, message_id=self['one_hour_message_id'])
 
-                    # If we haven't already sent it
-                    if not self['one_hour_message_id']:
-                        self['one_hour_message_id'] = self.send_message(self.webhook_info, one_hour_message, message_id=self['one_hour_message_id'])
+                # If we're running a one hour script, do so ONCE.
+                if script_one_hour and not self['script_one_hour_done']:
+                    print('RUNNING ONE HOUR SCRIPT\n  '+script_one_hour)
+                    try: os.system(script_one_hour)
+                    except Exception as e: print('OOPS!', e)
+                    self['script_one_hour_done'] = True
 
-                # Otherwise, we are outside the time window and should delete it if it exists.
-                elif self['one_hour_message_id']: 
+            # Outside the one hour window.
+            else:
+
+                # If we have a message, clean it up
+                if self['one_hour_message_id']: 
                     self.delete_message(self.webhook_info, self['one_hour_message_id'])
                     self['one_hour_message_id'] = None
 
-            # If we're doing the quali message 
-            if qualifying_message:
-                
-                # If we're within the window
-                if tq < t < tr:
+                # Reset the script flag for this window so we can run it again next time.
+                self['script_one_hour_done'] = False
 
-                    # If we haven't already sent it
-                    if not self['qualifying_message_id']:
-                        self['qualifying_message_id'] = self.send_message(self.webhook_info, qualifying_message, message_id=self['qualifying_message_id'])
+            # If we're within the qualifying window
+            if tq < t < tr:
+            
+                # If we're doing the quali message, send it ONCE
+                if qualifying_message and not self['qualifying_message_id']:
+                    self['qualifying_message_id'] = self.send_message(self.webhook_info, qualifying_message, message_id=self['qualifying_message_id'])
 
-                # Otherwise, we are outside the window and should delete it if it exists
-                elif self['qualifying_message_id']: 
+                # If we're running a quali script, do so ONCE
+                if script_qualifying and not self['script_qualifying_done']:
+                    print('RUNNING QUALI SCRIPT\n  '+script_qualifying)
+                    try: os.system(script_qualifying)
+                    except Exception as e: print('OOPS!', e)
+                    self['script_qualifying_done'] = True
+
+            # Otherwise, we are outside the qual window.
+            else: 
+
+                # If we have a message, clean it up
+                if self['qualifying_message_id']: 
                     self.delete_message(self.webhook_info, self['qualifying_message_id'])
                     self['qualifying_message_id'] = None
-            
-            else: log('NO QUALIFYING MESSAGE?')
+                
+                # Make sure we arm the flag for the next time we enter the window
+                self['script_qualifying_done'] = True
 
 
         # If the venue changed, do the new venue stuff.
