@@ -20,6 +20,10 @@ from numpy import round
 from zipfile import ZipFile, ZIP_DEFLATED
 import os
 
+###JJJJJJJJJJJJJJJACK
+# Rename server not working?
+# Weird server names / length limit / characters.
+
 # List of files not to include in zips
 zip_excludes = ['.idea', 'desktop.ini', '.git']
 
@@ -695,8 +699,8 @@ class Uploader:
         for n in range(self.list_cars.count()):
             item1 = self.list_cars    .item(n)
             item2 = self.list_carnames.item(n)
-            item1.setHidden(not search in item1.data(0).lower() and not item1.isSelected())
-            item2.setHidden(not search in item2.data(0).lower() and not item2.isSelected())
+            if item1: item1.setHidden(not search in item1.data(0).lower() and not item1.isSelected())
+            if item2: item2.setHidden(not search in item2.data(0).lower() and not item2.isSelected())
 
         # Save the setting in case we ever decide to load on boot. 
         #self.server['settings']['text_filter_cars'] = self.text_filter_cars()
@@ -1787,7 +1791,7 @@ class Uploader:
         # Load it and get the pit number
         print('loading', p)
         self.track = load_json(p)
-        self.label_pitboxes('('+self.track['pitboxes']+' pit boxes)')
+        if self.track: self.label_pitboxes('('+self.track['pitboxes']+' pit boxes)')
         
         self.button_save_server.click()
 
@@ -2333,13 +2337,18 @@ class Uploader:
             # Get the fancy car name (the jsons are not always well formatted, so I have to manually search!)
             s = load_json(path_json)
 
-            # Remember the fancy name
-            name = s['name'] if 'name' in s else dirname
-            self.cars[dirname] = name
-            self.srac[name]    = dirname
+            # Load will fail if there's an issue, returning None
+            if s:
 
-            # Store the list of skins and the index
-            self.skins[dirname] = os.listdir(os.path.join(path, 'skins'))
+                # Remember the fancy name
+                name = s['name'] if 'name' in s else dirname
+                self.cars[dirname] = name
+                self.srac[name]    = dirname
+
+                # Store the list of skins and the index
+                self.skins[dirname] = os.listdir(os.path.join(path, 'skins'))
+            
+            else: self.log('WARNING:', dirname, 'has no/invalid ui/ui_car.json')
 
         # Sort the car directories and add them to the list.
         self.cars_keys = list(self.cars.keys())
@@ -2423,8 +2432,10 @@ class Uploader:
             # Simplest case: one layout, with ui_track.json right there
             ui_default = os.path.join(trackpath, 'ui', 'ui_track.json')
             if os.path.exists(ui_default):
-                trackname = load_json(ui_default)['name']
-                
+                x = load_json(ui_default)
+                if x and 'name' in x: trackname = x['name']
+                else: self.log('WARNING:', ui_default, 'did not load.')
+
             # Complicated case: many layouts, each having the same root name
             else:
 
