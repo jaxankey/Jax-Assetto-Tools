@@ -1224,7 +1224,7 @@ class Monitor:
         for carset in laps: 
             
             # Carset title
-            title = '\n\n**'+carset+'**\n'
+            lines.append('\n\n**'+carset+'**\n')
             
             # Now loop over the entries and build a string
             n=1
@@ -1236,7 +1236,7 @@ class Monitor:
         #print('\n'.join(lines))
         # Pop lines until the message is short enough to fit in N
         popped = False
-        while len(lines) > 0 and len(title+'\n'.join(lines)) > chars-4: # -4 for \n... 
+        while len(lines) > 0 and len('\n'.join(lines)) > chars-4: # -4 for \n... 
             lines.pop(-1)
             popped = True
 
@@ -1246,7 +1246,7 @@ class Monitor:
         # If we removed some lines, hint that there are more.
         if popped: lines.append('...')
                     
-        return (title + '\n'.join(lines)).strip()     
+        return ('\n'.join(lines)).strip()     
 
     def get_onlines_string(self):
         """
