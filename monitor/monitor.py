@@ -1224,7 +1224,7 @@ class Monitor:
         for carset in laps: 
             
             # Carset title
-            lines.append('\n\n**'+carset+'**\n')
+            lines.append('\n**'+carset+'**')
             
             # Now loop over the entries and build a string
             n=1
