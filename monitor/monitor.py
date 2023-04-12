@@ -1237,39 +1237,35 @@ class Monitor:
 
         # Sort the laps by carset
         laps = self.sort_best_laps_by_carset()
-
-        # Now sort all the group bests
+        
+        # Assemble the full laps string
+        lines = []
         for carset in laps: 
             
             # Carset title
-            title = '\n\n**'+carset+'**\n'
+            lines.append('\n**'+carset+'**')
             
             # Now loop over the entries and build a string
-            lines = []; n=1
+            n=1
             for x in laps[carset]: 
                 lines.append('**'+str(n)+'.** '+self.fix_naughty_characters(
-                 x[1][0]+' '+x[1][1]+' ('+self.get_carname(x[1][2])+')'))
-                #lines.append('**'+x[1][0]+'** '+x[1][1]+' ('+self.get_carname(x[1][2])+')')
-                n+=1
-            
-            # Pop lines until the message is short enough to fit
-            popped = False
-            while len(lines) > 0 and len(s+title+'\n'.join(lines)) > chars-4: # -4 for \n... 
-                lines.pop(-1)
-                popped = True
+                    x[1][0]+' '+x[1][1]+' ('+self.get_carname(x[1][2])+')'))
+                n += 1
 
-            # If we have no lines, don't bother
-            if len(lines) == 0: 
-                s = s + '\n...'
-                break
+        #print('\n'.join(lines))
+        # Pop lines until the message is short enough to fit in N
+        popped = False
+        while len(lines) > 0 and len('\n'.join(lines)) > chars-4: # -4 for \n... 
+            lines.pop(-1)
+            popped = True
 
-            # If we removed some lines, hint that there are more.
-            if popped: lines.append('...')
-                      
-            # Append this to the master
-            s = title + '\n'.join(lines)
+        # If we have no lines, don't bother
+        if len(lines) == 0: return '\n...'
 
-        return s.strip()       
+        # If we removed some lines, hint that there are more.
+        if popped: lines.append('...')
+                    
+        return ('\n'.join(lines)).strip()     
 
     def get_onlines_string(self):
         """
