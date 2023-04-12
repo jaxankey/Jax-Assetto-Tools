@@ -1097,7 +1097,7 @@ class Monitor:
                 
         #     if set(self['carsets'][carset]) == set(self['cars']):
         #         x = laps.pop(carset)
-        
+        print('\n\n\n', carsets_sorted, '\n\n\n')
         laps_sorted = {i: laps[i] for i in carsets_sorted}
 
         return laps_sorted
