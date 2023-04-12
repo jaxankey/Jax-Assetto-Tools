@@ -22,7 +22,7 @@ import os
 
 ###JJJJJJJJJJJJJJJACK
 # Rename server not working?
-# Weird server names / length limit / characters.
+# Weird server names / length limit / characters {}?
 # First time new server can't connect for some reason until close / re-open
 # When connecting, see if connection exists before closing
 # Disconnecting should unfreeze the lefthand controls.

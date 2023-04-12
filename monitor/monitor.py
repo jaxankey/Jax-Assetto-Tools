@@ -73,7 +73,7 @@ script_server_up   = None # Path to script to run when server comes back up
 # Other
 web_archive_history = 0
 debug               = False
-
+uncategorized       = 'Uncategorized'
 
 
 # Get the user values from the ini file
@@ -404,7 +404,7 @@ class Monitor:
             self.server_is_up = True
             
             # If there is a down message, clear it
-            if self.state['down_message_id']:
+            if self['down_message_id']:
                 self.delete_message(self.webhook_info, self['down_message_id'])
                 self['down_message_id'] = None
                 self.save_and_archive_state()
@@ -421,7 +421,7 @@ class Monitor:
 
         # Get the previous set of onlines
         old = set()
-        for name in self.state['online']: old.add((name, self.state['online'][name]['car']))
+        for name in self['online']: old.add((name, self['online'][name]['car']))
 
         # Get the new set of onlines
         new = set()
@@ -438,8 +438,8 @@ class Monitor:
             laps_or_onlines_changed = True
 
             # Redo the onlines in the state.
-            self.state['online'] = dict()
-            for item in new: self.state['online'][item[0]] = dict(car=item[1])
+            self['online'] = dict()
+            for item in new: self['online'][item[0]] = dict(car=item[1])
 
         # If we do not have timestamps but DO have timestamp_qual_start set it
         if not self['qual_timestamp'] and timestamp_qual_start:
@@ -513,13 +513,13 @@ class Monitor:
                 layout = rs['TrackLayout']
 
             # See if the carset fully changed
-            carset_fully_changed = len(set(cars).intersection(self.state['cars'])) == 0
-            self.state['cars'] = cars
+            carset_fully_changed = len(set(cars).intersection(self['cars'])) == 0
+            self['cars'] = cars
 
             # See if the track or layout changed
-            track_changed = (track != self.state['track'] or layout != self.state['layout'])
-            self.state['track']  = track
-            self.state['layout'] = layout
+            track_changed = (track != self['track'] or layout != self['layout'])
+            self['track']  = track
+            self['layout'] = layout
 
         except Exception as e:
             log('ERROR with race_json.json(s):', e)
@@ -744,25 +744,25 @@ class Monitor:
                         t_ms = self.to_ms(t)
 
                         # Make sure this name is in the state
-                        if not n in self.state[laps]: self.state[laps][n] = dict()
+                        if not n in self[laps]: self[laps][n] = dict()
 
                         # Should never happen, but if the person is no longer online, poop out.
-                        if not n in self.state['online']:
+                        if not n in self['online']:
                             log('  WEIRD: DRIVER OFFLINE NOW??')
                             break
 
                         # Get the car for the online person with this name
-                        c = self.state['online'][n]['car']
+                        c = self['online'][n]['car']
 
                         # Structure:
                         # state[laps][n][car] = {'time': '12:32:032', 'time_ms':12345, 'cuts': 3}
 
                         # If the time is better than the existing or no entry exists
                         # Update it! Eliminate some bug laps by enforcing more than 1 second.
-                        if (not c in self.state[laps][n] or t_ms < self.state[laps][n][c]['time_ms']) \
+                        if (not c in self[laps][n] or t_ms < self[laps][n][c]['time_ms']) \
                         and t_ms > 1000:
 
-                            self.state[laps][n][c] = dict(time=t, time_ms=t_ms, cuts=cuts)
+                            self[laps][n][c] = dict(time=t, time_ms=t_ms, cuts=cuts)
                             if not init: 
                                 self.save_and_archive_state()
                                 self.send_state_messages()
@@ -796,9 +796,9 @@ class Monitor:
                             log('  Track:', track, layout)
 
                 # If we have (entirely!) new cars or new track, initialize that.
-                if len(set(cars).intersection(self.state['cars'])) == 0 \
-                or track != self.state['track']     \
-                or layout    != self.state['layout']:
+                if len(set(cars).intersection(self['cars'])) == 0 \
+                or track != self['track']     \
+                or layout    != self['layout']:
                     self.new_venue(track, layout, cars)
                     
                     # If this isn't the initial parse, save, delete, and send.
@@ -813,11 +813,11 @@ class Monitor:
                 else: self.load_ui_data()
 
                 # Regardless, update the cars
-                self.state['cars'] = cars
+                self['cars'] = cars
 
             # Attempt to catch a new log file; clear out onlines
             elif line.find('Assetto Corsa Dedicated Server') == 0:
-                self.state['online'] = dict()
+                self['online'] = dict()
                 if not init:
                     self.send_state_messages()
                     self.save_and_archive_state()
@@ -829,7 +829,7 @@ class Monitor:
         """
 
         # Update the online list
-        self.state['online'][name] = dict(car=car)
+        self['online'][name] = dict(car=car)
 
         # Send the message & save
         if not init: 
@@ -842,10 +842,10 @@ class Monitor:
         """
 
         # Only do anything if the name is in the list
-        if not name in self.state['online']: return
+        if not name in self['online']: return
 
         # Pop it
-        self.state['online'].pop(name)
+        self['online'].pop(name)
 
         # Send the message & save
         if not init:
@@ -872,29 +872,29 @@ class Monitor:
 
         # Reset everything; new venue happens when the server resets, which boots people (hopefully)
         # When the venue changes, the server may be down, and we want to remember the down message id.
-        down_message_id = self.state['down_message_id']
-        laps_message_id = self.state['laps_message_id']
+        down_message_id = self['down_message_id']
+        laps_message_id = self['laps_message_id']
         self.reset_state()
-        self.state['down_message_id'] = down_message_id
-        if venue_recycle_message: self.state['laps_message_id'] = laps_message_id
+        self['down_message_id'] = down_message_id
+        if venue_recycle_message: self['laps_message_id'] = laps_message_id
 
         # Stick the track directory in there
         log('new_venue (continued)...')
-        log('  track ', self.state['track'],  '->', track)
-        log('  layout', self.state['layout'], '->', layout)
-        log('  cars  ', self.state['cars'],   '->', cars)
-        self.state['track']  = track
-        self.state['layout'] = layout
-        self.state['cars']   = cars
+        log('  track ', self['track'],  '->', track)
+        log('  layout', self['layout'], '->', layout)
+        log('  cars  ', self['cars'],   '->', cars)
+        self['track']  = track
+        self['layout'] = layout
+        self['cars']   = cars
 
         # Update the state with the race.json if it exists (gives track and cars and carset info)
         self.load_ui_data()
 
         # Timestamp changes only for new track; use the most recently seen timestamp
-        self.state['timestamp'] = time.strftime('%Y-%m-%d_%H.%M.%S', time.localtime())
+        self['timestamp'] = time.strftime('%Y-%m-%d_%H.%M.%S', time.localtime())
         
         # Save and archive the state for good measure?
-        log(self.state['laps'])
+        log(self['laps'])
         self.save_and_archive_state()
 
     def save_and_archive_state(self, skip=False):
@@ -911,19 +911,19 @@ class Monitor:
         if not os.path.exists(path_archive): os.mkdir(path_archive)
 
         # Store the archive path for this particular state.json
-        if self.state['track'] and self.state['timestamp']:
-            self.state['archive_path'] = os.path.join(path_archive, self.state['timestamp'] +'.'+ self.state['track']+'.json')
+        if self['track'] and self['timestamp']:
+            self['archive_path'] = os.path.join(path_archive, self['timestamp'] +'.'+ self['track']+'.json')
         else:
-            self.state['archive_path'] = None
+            self['archive_path'] = None
 
-        log('  archive_path:', self.state['archive_path'])
+        log('  archive_path:', self['archive_path'])
 
         # Dump the state
         p = os.path.join('web', 'state.json')
         with open(p, 'w', encoding="utf8") as f: json.dump(self.state, f, indent=2)
 
         # Copy to the archive based on track name if it exists.
-        if self.state['archive_path']: shutil.copy(p, self.state['archive_path'])
+        if self['archive_path']: shutil.copy(p, self['archive_path'])
 
         # Provide the website with a list of archives
         paths = glob.glob(os.path.join(path_archive, '*'))
@@ -960,27 +960,27 @@ class Monitor:
         Load car and track ui_*.json, and look for carsets
         """
         log('\nload_ui_data()')
-        log('state track, layout =', str(self.state['track']), str(self.state['layout']))
+        log('state track, layout =', str(self['track']), str(self['layout']))
 
         # If we're here, there is no race.json, so let's look for information
         # in the ui_*.json files for the track and cars.
 
         # Start by looking for the track and layout
-        if not self.state['layout'] is None:
+        if not self['layout'] is None:
             path_ui_track = os.path.join(path_ac, 'content', 'tracks',
-                self.state['track'], 'ui',
-                self.state['layout'],'ui_track.json')
+                self['track'], 'ui',
+                self['layout'],'ui_track.json')
         else:
             path_ui_track = os.path.join(path_ac, 'content', 'tracks',
-                self.state['track'], 'ui', 'ui_track.json')
+                self['track'], 'ui', 'ui_track.json')
 
         # If the track/layout/ui_track.json exists, load the track name!
         if os.path.exists(path_ui_track):
             log(' ',path_ui_track)
             j = load_json(path_ui_track)
-            if j: self.state['track_name'] = j['name']
+            if j: self['track_name'] = j['name']
         else:
-            self.state['track_name'] = self.state['track']
+            self['track_name'] = self['track']
 
         # Now load all the carsets if they exist
         path_carsets = os.path.join(path_ac, 'carsets')
@@ -992,9 +992,9 @@ class Monitor:
             carset_paths.sort()
 
             # For each carset path, load the contents into a list
-            # for the dictionary self.state['carsets']
-            self.state['carsets'] = dict()
-            self.state['stesrac'] = dict()
+            # for the dictionary self['carsets']
+            self['carsets'] = dict()
+            self['stesrac'] = dict()
             for path in carset_paths:
                 log(' ', path)
 
@@ -1003,30 +1003,30 @@ class Monitor:
 
                 # Get the list of cars
                 name = os.path.split(path)[-1]
-                self.state['carsets'][name] = s.split('\n')
+                self['carsets'][name] = s.split('\n')
 
                 # For each of these cars, append the carset name to the reverse-lookup
-                for car in self.state['carsets'][name]:
-                    if car not in self.state['stesrac']: self.state['stesrac'][car] = []
-                    self.state['stesrac'][car].append(name)
+                for car in self['carsets'][name]:
+                    if car not in self['stesrac']: self['stesrac'][car] = []
+                    self['stesrac'][car].append(name)
 
                 # If this carset matches ours, remember this carset
-                if set(self.state['carsets'][name]) == set(self.state['cars']):
-                    self.state['carset'] = name
+                if set(self['carsets'][name]) == set(self['cars']):
+                    self['carset'] = name
 
         # Next load the nice names of all the cars for this venue
         log('Car nice names:')
-        self.state['carnames'] = dict()
-        for car in self.state['cars']:
+        self['carnames'] = dict()
+        for car in self['cars']:
             path_ui_car = os.path.join(path_ac,'content','cars',car,'ui','ui_car.json')
             if os.path.exists(path_ui_car):
                 try:
                     j = load_json(path_ui_car)
-                    self.state['carnames'][car] = j['name']
+                    self['carnames'][car] = j['name']
                     log(' ', car, j['name'])
                 except Exception as e:
                     log('ERROR: loading', path_ui_car, e)
-                    self.state['carnames'][car] = car
+                    self['carnames'][car] = car
                     log(' ', car, '(error)')
 
         # Dump modifications
@@ -1037,7 +1037,7 @@ class Monitor:
         Returns the fancy car name if possible, or the car dir if not.
         """
         # Get the fancy carname if possible.
-        if car in self.state['carnames']: return self.state['carnames'][car]
+        if car in self['carnames']: return self['carnames'][car]
         return car
     
     def sort_best_laps_by_carset(self):
@@ -1048,40 +1048,59 @@ class Monitor:
         """   
 
         # Scan through the state and collect the driver best laps
-        # for each group
-        laps = dict() # will eventually be a dictionary like {carset:[(time_ms,(time,name,car,count)), (time_ms,(time,name,car,count))...]}
-        if debug: log('DRIVER BESTS:')
-        for name in self.state['laps']:
+        # laps will be {carset:[(time_ms,(time,name,car,count)), (time_ms,(time,name,car,count)), ...]}
+        laps = dict() 
+        for name in self['laps']:
             
-            # Dictionary by carset of all laps
+            # Dictionary by carset of all laps for this driver name
+            # will be {carset:[(time_ms,(time,name,car,count)), (time_ms,(time,name,car,count)), ...]}
             driver_laps = dict()
             
-            # For each person, we have to loop through all their car bests,
-            # then add these to the carset bests
-            for car in self.state['laps'][name]: # Each is a dictionary of {time, time_ms, cuts}
-                c = self.state['laps'][name][car]    
+            # Loop through all their CAR bests, then add these to the CARSET bests
+            for car in self['laps'][name]: # Each is a dictionary of {time, time_ms, cuts}
+                c = self['laps'][name][car]    
             
                 # Get a list of carsets to which this belongs
-                if   car in self.state['stesrac']: carsets = self.state['stesrac'][car]
-                else:                              carsets = ['Uncategorized']
+                if   car in self['stesrac']: carsets = self['stesrac'][car]
+                else:                        carsets = [uncategorized]
                 
-                # for each of these carsets, do the sorting
+                # for each of these carsets, append the driver name, time, etc
                 for carset in carsets:
+
+                    # Make sure it's in the driver_laps dictionary
                     if carset not in driver_laps: driver_laps[carset] = []
+
+                    # Append it.
                     driver_laps[carset].append((c['time_ms'],(c['time'],name,car,c['count'])))
 
-            # Now loop over the driver_laps carsets, and get the best for each
+            # Now loop over each of this driver's carsets, and sort them
             for carset in driver_laps:
+
+                # Sort eh carset
                 driver_laps[carset].sort(key=lambda x: x[0])
 
-                # Finally, add this best to the carset
+                # Add this best to the MAIN laps carset
                 if carset not in laps: laps[carset] = []
-                laps[carset].append(driver_laps[carset][0])
+                laps[carset].append(driver_laps[carset][0]) # Best of this carset = 0 after sorting
         
-        # Now sort all the group bests
+        # Now sort all the different driver bests
         for carset in laps: laps[carset].sort(key=lambda x: x[0])
         
-        return laps
+        # Sort the carsets alphabetically
+        carsets_sorted = laps.keys()
+        carsets_sorted.sort()
+
+        # Pop the venue set to the top and the uncategorized to the bottom
+        # for n in range(len(carsets)): 
+        #     if carset == uncategorized: 
+        #         x = carsets.pop
+                
+        #     if set(self['carsets'][carset]) == set(self['cars']):
+        #         x = laps.pop(carset)
+        
+        laps_sorted = {i: laps[i] for i in carsets_sorted}
+
+        return laps_sorted
 
     def sort_best_laps_by_name_and_car(self):
         """
@@ -1099,16 +1118,16 @@ class Monitor:
         min_count     = 0      # minimum number of laps required to include
         
         # First get the min laps cutoff
-        for name in self.state['laps']:
-            for car in self.state['laps'][name]:
+        for name in self['laps']:
+            for car in self['laps'][name]:
                 # Use the highest count that isn't over 10
-                min_count = max(min_count, min(self.state['laps'][name][car]['count'], 10))
+                min_count = max(min_count, min(self['laps'][name][car]['count'], 10))
         
-        for name in self.state['laps']:
+        for name in self['laps']:
 
             # For each person, we have to loop through all their car bests,
             # then add these to the carset bests
-            for car in self.state['laps'][name]: # Each is a dictionary of {time, time_ms, cuts}
+            for car in self['laps'][name]: # Each is a dictionary of {time, time_ms, cuts}
 
                 # Get the laps info, e.g.
                 # "time": "2:04.461",
@@ -1116,7 +1135,7 @@ class Monitor:
                 # "cuts": 0,
                 # "count": 9
                 # "car": porsche_whatever      # added
-                c = deepcopy(self.state['laps'][name][car])
+                c = deepcopy(self['laps'][name][car])
                 c['car']  = car
 
                 # Only consider this lap if the driver has turned enough laps
@@ -1151,7 +1170,7 @@ class Monitor:
         """
 
         # If there are no laps, return None so we know not to use them.
-        if not self.state['laps'] or len(self.state['laps'].keys()) == 0: return None
+        if not self['laps'] or len(self['laps'].keys()) == 0: return None
 
         # Get the sorted laps by name and car
         all_bests, car_bests, min_lap_count = self.sort_best_laps_by_name_and_car()
@@ -1214,7 +1233,7 @@ class Monitor:
         """
 
         # If there are no laps, return None so we know not to use them.
-        if not self.state['laps'] or len(self.state['laps'].keys()) == 0: return None
+        if not self['laps'] or len(self['laps'].keys()) == 0: return None
 
         # Sort the laps by carset
         laps = self.sort_best_laps_by_carset()
@@ -1258,20 +1277,20 @@ class Monitor:
         """
         # If there are no onlines, return None, which prevents printing and 
         # sets the message color to gray.
-        if len(self.state['online'].keys()) == 0: return None
+        if len(self['online'].keys()) == 0: return None
 
         # If there are any online
         onlines = []; n=1
         online_namecars = []
-        for name in self.state['online']:
+        for name in self['online']:
 
             # Add the online namecar to the list
-            namecar = self.get_namecar_string(name, self.state['online'][name]['car'])
+            namecar = self.get_namecar_string(name, self['online'][name]['car'])
             onlines.append('**'+str(n)+'. '+self.fix_naughty_characters(namecar)+'**')
             online_namecars.append(namecar)
 
             # Remember all the namecars we've seen and update the time stamps
-            self.state['seen_namecars'][namecar] = time.time()
+            self['seen_namecars'][namecar] = time.time()
 
             # Next!
             n += 1
@@ -1279,10 +1298,10 @@ class Monitor:
         # Now assemble the recents list
         recents = []; n=1
         to_pop = []
-        for namecar in self.state['seen_namecars'].keys():
+        for namecar in self['seen_namecars'].keys():
             
             # Trim out those that are too old (10 minutes)
-            if time.time() - self.state['seen_namecars'][namecar] > 10*60:
+            if time.time() - self['seen_namecars'][namecar] > 10*60:
                 to_pop.append(namecar)
             
             # Otherwise, add it to the list of recents
@@ -1291,7 +1310,7 @@ class Monitor:
                 n += 1
         
         # Prune; we do this separately to not change the keys size in the above loop
-        for namecar in to_pop: self.state['seen_namecars'].pop(namecar)
+        for namecar in to_pop: self['seen_namecars'].pop(namecar)
 
         # Return the string
         s = '\n'.join(onlines)
@@ -1382,17 +1401,17 @@ class Monitor:
 
         # If there is session_end_time, that means the last time we
         # were here, we updated an onlines message to "completed" state.
-        # It also means we have online_message_id and the self.state['seen_namecars'].
+        # It also means we have online_message_id and the self['seen_namecars'].
         # If this "dead post" has timed out, erase this info, which 
         # will generate a new message. This must be done before we get the 
         # onlines string, since that relies on seen_namecars.
-        if self.state['session_end_time'] \
-        and time.time()-self.state['session_end_time'] > online_timeout:
+        if self['session_end_time'] \
+        and time.time()-self['session_end_time'] > online_timeout:
     
             # Reset the session info. Note this is the only place other than
             # new_venue and __init__ that clears seen_namecars
-            self.state['online_message_id'] = None
-            self.state['seen_namecars'] = dict()
+            self['online_message_id'] = None
+            self['seen_namecars'] = dict()
 
         # Get the list of who is online
         onlines = self.get_onlines_string()
@@ -1435,15 +1454,15 @@ class Monitor:
         footer = '\n\n'+reg_string1+laps_footer+join_link
 
         # Track name
-        track_name = self.state['track_name']
-        if not track_name: track_name = self.state['track']
+        track_name = self['track_name']
+        if not track_name: track_name = self['track']
         if not track_name: track_name = 'Unknown Track?'
 
         title = ''
         carset = None
-        if self.state['carset']: carset = str(self.state['carset'])
-        elif len(self.state['carnames']) == 1:
-            carset = str(list(self.state['carnames'].values())[0])
+        if self['carset']: carset = str(self['carset'])
+        elif len(self['carnames']) == 1:
+            carset = str(list(self['carnames'].values())[0])
 
         # Add the carset to the title if needed
         if carset: title = title + carset.upper() + ' @ '
@@ -1476,8 +1495,8 @@ class Monitor:
         if laps: body1 = body1 + '\n' + laps
 
         # Send the main info message. Body 1 is the laps list, body 2 includes previous onlines
-        self.state['laps_message_id'] = self.send_message(self.webhook_info, '', body1, body2, footer, self.state['laps_message_id'], color=color)
-        if self.state['laps_message_id'] is None: log('DID NOT EDIT OR SEND LAPS MESSAGE')
+        self['laps_message_id'] = self.send_message(self.webhook_info, '', body1, body2, footer, self['laps_message_id'], color=color)
+        if self['laps_message_id'] is None: log('DID NOT EDIT OR SEND LAPS MESSAGE')
 
 
         #############################################################################################
@@ -1488,14 +1507,14 @@ class Monitor:
         if onlines:
 
             # We have onlines so the session is live. 0 will preclude the above message shutdown
-            self.state['session_end_time'] = 0
+            self['session_end_time'] = 0
 
             # Assemble the message body
             body1 = '**' + online_header + '**\n' + onlines
 
             # Send the message
-            self.state['online_message_id'] = self.send_message(self.webhook_online, '', body1, '', '\n\n'+online_footer+join_link, self.state['online_message_id'])
-            if self.state['online_message_id'] is None: log('DID NOT EDIT OR SEND ONLINES')
+            self['online_message_id'] = self.send_message(self.webhook_online, '', body1, '', '\n\n'+online_footer+join_link, self['online_message_id'])
+            if self['online_message_id'] is None: log('DID NOT EDIT OR SEND ONLINES')
 
         # No one is currently online. 
         else: self.end_session() 
@@ -1511,12 +1530,12 @@ class Monitor:
 
         # If we have a message id, make sure it's
         # an "end session" message.
-        log('end_session()', self.state['seen_namecars'].keys(), self.state['online_message_id'])
-        if self.state['online_message_id']: 
+        log('end_session()', self['seen_namecars'].keys(), self['online_message_id'])
+        if self['online_message_id']: 
 
             # Get a list of the seen namecars from this session
             errbody = []; n=1
-            for namecar in self.state['seen_namecars'].keys():
+            for namecar in self['seen_namecars'].keys():
                 errbody.append(str(n)+'. '+namecar)
                 n += 1
             
@@ -1524,18 +1543,18 @@ class Monitor:
             # is an online_message_id, except on startup or new venue.
             if len(errbody):
                 body1 = session_complete_header+'\n\nParticipants:\n'+'\n'.join(errbody)
-                self.state['online_message_id'] = self.send_message(self.webhook_online, '', body1, '', '\n\n'+online_footer+self.get_join_link(), self.state['online_message_id'], 0)
+                self['online_message_id'] = self.send_message(self.webhook_online, '', body1, '', '\n\n'+online_footer+self.get_join_link(), self['online_message_id'], 0)
                 
                 # Remember the time this message was "closed". If a new session
                 # starts within a little time of this, use the same message id
                 # Otherwise it will make a new session message.
-                self.state['session_end_time'] = time.time()
+                self['session_end_time'] = time.time()
             
             else: 
-                log('**** GOSH DARN IT, LOST THE SEEN_NAMECARS AGAIN! WTF.', self.state['seen_namecars'].keys())
-                self.delete_message(self.webhook_online, self.state['online_message_id'])
-                self.state['online_message_id'] = None
-                self.state['session_end_time'] = 0
+                log('**** GOSH DARN IT, LOST THE SEEN_NAMECARS AGAIN! WTF.', self['seen_namecars'].keys())
+                self.delete_message(self.webhook_online, self['online_message_id'])
+                self['online_message_id'] = None
+                self['session_end_time'] = 0
             
             
 
