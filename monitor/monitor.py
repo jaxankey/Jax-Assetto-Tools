@@ -1220,18 +1220,20 @@ class Monitor:
         laps = self.sort_best_laps_by_carset()
         
         # Assemble the full laps string
+        lines = []
         for carset in laps: 
             
             # Carset title
             title = '\n\n**'+carset+'**\n'
             
             # Now loop over the entries and build a string
-            lines = []; n=1
+            n=1
             for x in laps[carset]: 
                 lines.append('**'+str(n)+'.** '+self.fix_naughty_characters(
                     x[1][0]+' '+x[1][1]+' ('+self.get_carname(x[1][2])+')'))
-                n+=1
-            
+                n += 1
+
+        #print('\n'.join(lines))
         # Pop lines until the message is short enough to fit in N
         popped = False
         while len(lines) > 0 and len(title+'\n'.join(lines)) > chars-4: # -4 for \n... 
