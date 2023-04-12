@@ -1218,12 +1218,12 @@ class Monitor:
 
         # Sort the laps by carset
         laps = self.sort_best_laps_by_carset()
-        print('N', laps)
-
+        
         # Now sort all the group bests
         s = ''
         for carset in laps: 
-            
+            print('\n\n'+carset)
+            print(s)
             # Carset title
             title = '\n\n**'+carset+'**\n'
             
