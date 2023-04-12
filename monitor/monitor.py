@@ -1220,6 +1220,7 @@ class Monitor:
         laps = self.sort_best_laps_by_carset()
 
         # Now sort all the group bests
+        s = ''
         for carset in laps: 
             
             # Carset title
