@@ -1087,7 +1087,7 @@ class Monitor:
         for carset in laps: laps[carset].sort(key=lambda x: x[0])
         
         # Sort the carsets alphabetically
-        carsets_sorted = laps.keys()
+        carsets_sorted = list(laps.keys())
         carsets_sorted.sort()
 
         # Pop the venue set to the top and the uncategorized to the bottom
@@ -1097,7 +1097,7 @@ class Monitor:
                 
         #     if set(self['carsets'][carset]) == set(self['cars']):
         #         x = laps.pop(carset)
-        print('\n\n\n', carsets_sorted, '\n\n\n')
+        #print('\n\n\n', carsets_sorted, '\n\n\n')
         laps_sorted = {i: laps[i] for i in carsets_sorted}
 
         return laps_sorted
