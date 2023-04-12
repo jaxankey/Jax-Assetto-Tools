@@ -1099,7 +1099,7 @@ class Monitor:
         
         # Pop the venue to the top
         for n in range(len(carsets_sorted)):
-            print('\n\n', self['cars'], '\n', self['carsets'][carsets_sorted[n]]) 
+            print('\n\n', carsets_sorted[n], '\n' self['cars'], '\n', self['carsets'][carsets_sorted[n]]) 
             if set(self['cars']) == set(self['carsets'][carsets_sorted[n]]): 
                 x = carsets_sorted.pop(n)
                 carsets_sorted.insert(0,x)
