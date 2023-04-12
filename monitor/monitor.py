@@ -1219,11 +1219,9 @@ class Monitor:
         # Sort the laps by carset
         laps = self.sort_best_laps_by_carset()
         
-        # Now sort all the group bests
-        s = ''
+        # Assemble the full laps string
         for carset in laps: 
-            print('\n\n'+carset)
-            print(s)
+            
             # Carset title
             title = '\n\n**'+carset+'**\n'
             
@@ -1231,28 +1229,22 @@ class Monitor:
             lines = []; n=1
             for x in laps[carset]: 
                 lines.append('**'+str(n)+'.** '+self.fix_naughty_characters(
-                 x[1][0]+' '+x[1][1]+' ('+self.get_carname(x[1][2])+')'))
-                #lines.append('**'+x[1][0]+'** '+x[1][1]+' ('+self.get_carname(x[1][2])+')')
+                    x[1][0]+' '+x[1][1]+' ('+self.get_carname(x[1][2])+')'))
                 n+=1
             
-            # Pop lines until the message is short enough to fit
-            popped = False
-            while len(lines) > 0 and len(s+title+'\n'.join(lines)) > chars-4: # -4 for \n... 
-                lines.pop(-1)
-                popped = True
+        # Pop lines until the message is short enough to fit in N
+        popped = False
+        while len(lines) > 0 and len(title+'\n'.join(lines)) > chars-4: # -4 for \n... 
+            lines.pop(-1)
+            popped = True
 
-            # If we have no lines, don't bother
-            if len(lines) == 0: 
-                s = s + '\n...'
-                break
+        # If we have no lines, don't bother
+        if len(lines) == 0: return '\n...'
 
-            # If we removed some lines, hint that there are more.
-            if popped: lines.append('...')
-                      
-            # Append this to the master
-            s = title + '\n'.join(lines)
-
-        return s.strip()       
+        # If we removed some lines, hint that there are more.
+        if popped: lines.append('...')
+                    
+        return (title + '\n'.join(lines)).strip()     
 
     def get_onlines_string(self):
         """
