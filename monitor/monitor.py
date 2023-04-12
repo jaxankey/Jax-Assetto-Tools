@@ -1091,17 +1091,17 @@ class Monitor:
         carsets_sorted.sort()
 
         # Pop the uncategorized to the bottom
-        for n in range(len(carsets)): 
-            if carsets[n] == uncategorized: 
-                x = carsets.pop(n)
-                carsets.append(x)
+        for n in range(len(carsets_sorted)): 
+            if carsets_sorted[n] == uncategorized: 
+                x = carsets_sorted.pop(n)
+                carsets_sorted.append(x)
                 break
         
         # Pop the venue to the top
-        for n in range(len(carsets)): 
-            if set(self['cars']) == set(self['carsets'][carsets[n]]): 
-                x = carsets.pop(n)
-                carsets.insert(0,x)
+        for n in range(len(carsets_sorted)): 
+            if set(self['cars']) == set(self['carsets'][carsets_sorted[n]]): 
+                x = carsets_sorted.pop(n)
+                carsets_sorted.insert(0,x)
                 break
         
         laps_sorted = {i: laps[i] for i in carsets_sorted}
