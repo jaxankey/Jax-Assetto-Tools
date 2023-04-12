@@ -1218,6 +1218,7 @@ class Monitor:
 
         # Sort the laps by carset
         laps = self.sort_best_laps_by_carset()
+        print('N', laps)
 
         # Now sort all the group bests
         s = ''
