@@ -319,8 +319,8 @@ class Monitor:
             script_qualifying_done = False, 
 
             # Server status
-            tcp_data_port_open = False # This is the 9600 port that is open when the server is "up". Stays open after a race.
-            server_is_up       = False # This is whether we have access to api_details (sever is actually up)
+            tcp_data_port_open = False, # This is the 9600 port that is open when the server is "up". Stays open after a race.
+            server_is_up       = False, # This is whether we have access to api_details (sever is actually up)
 
             session_type=None,
         )
