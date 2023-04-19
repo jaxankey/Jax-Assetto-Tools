@@ -1451,7 +1451,7 @@ class Monitor:
             # Linkify it if there is registration info
             if type(url_registration) is str and self['number_slots']:
                 nametime1 = '**[Register (' + str(self['number_registered']) + '/' + str(self['number_slots']) + ')](' + url_registration + ')**'
-                nametime1 = '**[Register 1](https://google.com)**'
+                nametime1 = '**[Register A](https://google.com)**'
                 reg_string1 = nametime1  # Bottom registration stylized
 
         # Get the laps info footer now for later computing the length
