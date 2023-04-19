@@ -1450,7 +1450,7 @@ class Monitor:
 
             # Linkify it if there is registration info
             if type(url_registration) is str and self['number_slots']:
-                nametime1 = '**[Register](' + url_registration + ') (' + str(self['number_registered']) + '/' + str(self['number_slots']) + ')**'
+                nametime1 = '**[Register 1](' + url_registration + ') (' + str(self['number_registered']) + '/' + str(self['number_slots']) + ')**'
                 #nametime1 = '[Pants1](https://google.com)'
                 reg_string1 = nametime1  # Bottom registration stylized
 
