@@ -211,10 +211,6 @@ class Monitor:
         self.info          = None
         self.live_timings  = None
 
-        # Server status
-        self.tcp_data_port_open = True # This is the 9600 port that is open when the server is "up". Stays open after a race.
-        self.server_is_up       = True # This is whether we have access to api_details (sever is actually up)
-
         # Discord webhook objects
         self.webhook_online  = None # List of webhooks
         self.webhook_info    = None
@@ -322,6 +318,10 @@ class Monitor:
             script_one_hour_done   = False, 
             script_qualifying_done = False, 
 
+            # Server status
+            tcp_data_port_open = False # This is the 9600 port that is open when the server is "up". Stays open after a race.
+            server_is_up       = False # This is whether we have access to api_details (sever is actually up)
+
             session_type=None,
         )
 
@@ -342,10 +342,10 @@ class Monitor:
         server_state_changed     = False  # If the server has changed state
 
         # Test if the server is up
-        self.tcp_data_port_open = port_is_open('localhost', tcp_data_port)
+        self['tcp_data_port_open'] = port_is_open('localhost', tcp_data_port)
 
         # If we're down.
-        if not self.tcp_data_port_open:
+        if not self['tcp_data_port_open']:
 
             # Send a warning message to discord
             if not no_down_warning and not self['down_message_id']:
@@ -353,15 +353,15 @@ class Monitor:
                     '', 'Server is down. I need an adult! :(', '', '')
                 self.save_and_archive_state()
 
-            # If the server state changed, note this
-            if self.server_is_up: 
+            # If self['server_is_up'] is True, then that means it used to be up and has recently gone down.
+            if self['server_is_up']: 
                 
                 # Flag to remember to send a message at the end.
-                print('\n\nSERVER IS NOW DOWN!')
+                log('SERVER IS NOW DOWN!')
                 server_state_changed = True
 
                 # Run the server down->up script ONCE
-                print('RUNNING SERVER DOWN SCRIPT\n  ', script_server_down)
+                log('RUNNING SERVER DOWN SCRIPT\n  ', script_server_down)
                 try: os.system(script_server_down)
                 except Exception as e: print('OOPS!', e)
                 
@@ -370,7 +370,7 @@ class Monitor:
                 self['online']        = dict()
 
             # Flag so we know it's down.
-            self.server_is_up = False
+            self['server_is_up'] = False
             
             # Don't bother querying for api/details
             details = None
@@ -391,17 +391,17 @@ class Monitor:
         else:
             
             # See if it changed
-            if not self.server_is_up: 
-                print('\n\nSERVER IS BACK UP!')
+            if not self['server_is_up']: 
+                log('SERVER IS BACK UP!')
                 server_state_changed = True
 
                 # Run the server down->up script ONCE
-                print('RUNNING SERVER UP SCRIPT\n  ', script_server_up)
+                log('RUNNING SERVER UP SCRIPT\n  ', script_server_up)
                 try: os.system(script_server_up)
                 except Exception as e: print('OOPS!', e)
 
             # Toggle it to up (it's up!)
-            self.server_is_up = True
+            self['server_is_up'] = True
             
             # If there is a down message, clear it
             if self['down_message_id']:
@@ -414,10 +414,10 @@ class Monitor:
             except Exception as e:
                 log('\n\nERROR: Could not open', url_api_details, e)
                 details = None
-                if self.server_is_up: 
+                if self['server_is_up']: 
                     print('\n\nWEIRD: SERVER IS UP BUT API DETAILS DOWN')
                     server_state_changed = True
-                self.server_is_up = False
+                self['server_is_up'] = False
 
         # Get the previous set of onlines
         old = set()
@@ -1347,7 +1347,7 @@ class Monitor:
         if join_link_finish:
             
             # If the server is up, return the full join link etc.
-            if self.server_is_up:
+            if self['server_is_up']:
                 try: 
                     server_ip = requests.get('https://ifconfig.me', timeout=3).text
                     join_link = '**[Join](<https://acstuff.ru/s/q:race/online/join?ip=' + server_ip + join_link_finish + '>)**'
@@ -1485,7 +1485,7 @@ class Monitor:
         if onlines:
             body2 = '\n\n**' + online_header + '**\n' + onlines
             color = color_onlines
-        elif self.server_is_up: color = color_server_up
+        elif self['server_is_up']: color = color_server_up
         else:                   color = 0
 
         # Get the list of driver best laps 4070 leaves a little buffer for ... and stuff.
