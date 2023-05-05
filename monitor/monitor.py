@@ -50,7 +50,7 @@ venue_header        = ''
 venue_subheader     = ''
 venue_recycle_message = True
 laps_footer         = ''
-no_leaderboard      = False
+leaderboard_mode    = 0
 
 # Timed messages about the event
 one_hour_message    = None # String if enabled
@@ -448,9 +448,9 @@ class Monitor:
 
         # Now load the race json data
         try:
+            # c comes back None if path_race_json is None
             race_json = c = load_json(path_race_json)
             
-            # c comes back None if path_race_json is None
             # If it's NOT None, we get timestamp information.
             if c is not None:
 
@@ -602,7 +602,7 @@ class Monitor:
             
             # Move this so we don't accidentally think it's ok when the carset is totally changed
             # (live_timings.json does not include the available cars)
-            if os.path.exists(path_live_timings): os.remove(path_live_timings)
+            if path_live_timings and os.path.exists(path_live_timings): os.remove(path_live_timings)
             self.live_timings = None
 
         # Try to grab the live_timings data; load_json returns None if the file was moved.
@@ -1486,13 +1486,14 @@ class Monitor:
             body2 = '\n\n**' + online_header + '**\n' + onlines
             color = color_onlines
         elif self['server_is_up']: color = color_server_up
-        else:                   color = 0
+        else:                      color = 0
 
         # Get the list of driver best laps 4070 leaves a little buffer for ... and stuff.
         N = 4070-len(body1+body2+footer)
         #self.prune_laps() # I believe the new code for adding laps from live_timings fixes the need for this.
-        if no_leaderboard: laps = self.get_stats_string(N)
-        else:              laps = self.get_laps_string(N)
+        if   leaderboard_mode == 1: laps = self.get_laps_string(N)  # Normal
+        elif leaderboard_mode == 2: laps = self.get_stats_string(N) # Mid-pace
+        else: laps = None # Disabled
         if debug and laps: log('LAPS\n'+laps)
 
         # Below the venue and above laps
