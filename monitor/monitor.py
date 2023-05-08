@@ -586,7 +586,7 @@ class Monitor:
                     self['qualifying_message_id'] = None
                 
                 # Make sure we arm the flag for the next time we enter the window
-                self['script_qualifying_done'] = True
+                self['script_qualifying_done'] = False
 
 
         # If the venue changed, do the new venue stuff.
