@@ -7,49 +7,61 @@ os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
 # These are defined by endurance-updater.ini or endurance-updater.ini.private
 csv_path          = ''
+assetto_path      = ''
 championship_path = ''
+car_folders       = {}
 
 # Get the user values from the ini file
 if os.path.exists('endurance-updater.ini.private'): p = 'endurance-updater.ini.private'
 else                                              : p = 'endurance-updater.ini'
 exec(open(p, 'r', encoding="utf8").read())
 
-# Get the csv from the web or local
+# Get the csv from the csv, either on the web or locally
 data = pandas.read_csv(csv_path, dtype=str)
 
-# Put together a dictionary by team name, and keep track of all steam ids to make sure there are no duplicates
-teams = dict()
-ids   = dict()
+# Master data we assemble while looping
+teams = dict() # Dictionary of team info by team name
+ids   = dict() # Dictionary of activity by steam id
 
-# Reverse order to favor later submissions.
+# Run through the spreadsheet in reverse order to favor later submissions.
 for n in range(len(data['Team Name'])-1,-1,-1): 
-    team_name = data['Team Name'][n].strip()
-
-    # Get a dictionary for each team
-    teams[team_name] = dict(ids=[], names=[], livery='')
-    teams[team_name]['livery'] = str(data['Livery FOLDER Name'][n]).strip()
     
-    print(n, team_name)
+    # Get the team name and car folder
+    team_name = data['Team Name'][n].strip()
+    car       = car_folders[data['Team Car'][n].strip()].strip()
+    livery    = str(data['Livery FOLDER Name'][n]).strip()
 
-    # Loop over the up to 6 drivers, adding their names and ids
-    for m in range(1,7):
-        
-        key_name = 'Driver '+str(m)+' Discord Name'
-        key_id   = 'Driver '+str(m)+' Steam ID'
-        
-        if type(data[key_id][n])==str:
+    # If we have not already made this team (i.e., favoring later entries)
+    if not team_name in teams:
+
+        # create the dictionary for it
+        teams[team_name] = dict(ids=[], names=[])
+        teams[team_name]['car']    = car
+        teams[team_name]['livery'] = livery
+        print(n, team_name, car, livery)
+
+        # Loop over the up to 8 drivers, adding their names and ids
+        for m in range(1,9):
             
-            # n is the row number, m is column
-            name = data[key_name][n]
-            id   = data[key_id  ][n]
-            print(' ', m, id, name)
-            if id in ids.keys(): print('WARNING: ', id, 'is in', team_name, 'and', ids[id], '('+name+')')
+            key_name = 'Driver '+str(m)+' Discord Name'
+            key_id   = 'Driver '+str(m)+' Steam ID'
             
-            # Otherwise we add it to the dictionary
-            else:
-                ids[id] = team_name
-                teams[team_name]['ids'].append(id)
-                teams[team_name]['names'].append(name)
+            if type(data[key_id][n])==str:
+                
+                # Get the driver name and steam id
+                # n is the row number, m is column
+                name = data[key_name][n]
+                id   = data[key_id  ][n]
+                print(' ', m, id, name)
+                if id in ids.keys(): 
+                    print('  WARNING: ', id, '('+name+')', 'is in', team_name, 'and', ids[id], '('+name+')')
+                    print('  They were not added to the earlier entry', team_name)
+                
+                # Otherwise we add it to the dictionary
+                else:
+                    ids[id] = team_name
+                    teams[team_name]['ids']  .append(id)
+                    teams[team_name]['names'].append(name)
 
 # print('-----------------------------------------------')
 # pprint.pprint(teams)
@@ -77,22 +89,27 @@ team_names = list(teams.keys())
 for n in range(len(list(c['Events'][0]['EntryList'].keys()))): 
     print('Entry', n+1)
 
-    # If we have a team fill it
+    # If we have a team fill the slot
     if n < len(team_names):
         team_name = team_names[n]
-        if os.path.exists(os.path.join(skins_path, teams[team_name]['livery'])): 
-            skin = teams[team_name]['livery']
+
+        # Get the car folder
+        car = teams[team_name]['car']
+
+        # If the livery folder exists, use it; otherwise, use 'random_skin'
+        if os.path.exists(os.path.join(assetto_path, 'content', 'cars', car, 'skins', teams[team_name]['livery'])): 
+            livery = teams[team_name]['livery']
         else:                                                               
-            skin = ''
+            livery = 'random_skin'
             print('  WARNING: No skin folder', teams[team_name]['livery'])
         ids = ';'.join(teams[team_name]['ids'])
-        print(' ', team_name, skin, ids)
+        print(' ', team_name, livery, ids)
     else: 
         team_name = ''
-        skin = 'nan'
+        livery = 'random_skin'
         ids = ''
 
-    # Get the internal
+    # Make sure the internal uuid's match
     uuid = c['Classes'][0]['Entrants']['CAR_%d'%(n+1)]['InternalUUID']
     c['Events'][0]['EntryList']['CAR_%d'%(n  )]['InternalUUID'] = uuid
 
@@ -102,8 +119,11 @@ for n in range(len(list(c['Events'][0]['EntryList'].keys()))):
     c['Classes'][0]['Entrants']['CAR_%d'%(n+1)]['Name'] = team_name
     c['Events'][0]['EntryList']['CAR_%d'%(n  )]['Name'] = team_name
 
-    c['Classes'][0]['Entrants']['CAR_%d'%(n+1)]['Skin'] = skin
-    c['Events'][0]['EntryList']['CAR_%d'%(n  )]['Skin'] = skin
+    c['Classes'][0]['Entrants']['CAR_%d'%(n+1)]['Model'] = car
+    c['Events'][0]['EntryList']['CAR_%d'%(n  )]['Model'] = car
+
+    c['Classes'][0]['Entrants']['CAR_%d'%(n+1)]['Skin'] = livery
+    c['Events'][0]['EntryList']['CAR_%d'%(n  )]['Skin'] = livery
 
     c['Classes'][0]['Entrants']['CAR_%d'%(n+1)]['GUID'] = ids
     c['Events'][0]['EntryList']['CAR_%d'%(n  )]['GUID'] = ids
