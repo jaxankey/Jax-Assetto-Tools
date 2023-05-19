@@ -1518,7 +1518,7 @@ class Monitor:
             body1 = '**' + online_header + '**\n' + onlines
 
             # Send the message
-            self['online_message_id'] = self.send_message(self.webhook_online, '', body1, '', '\n\n'+online_footer+join_link, self['online_message_id'])
+            self['online_message_id'] = self.send_message(self.webhook_online, '', body1, '', '\n'+online_footer+join_link, self['online_message_id'])
             if self['online_message_id'] is None: log('DID NOT EDIT OR SEND ONLINES')
 
         # No one is currently online. 
