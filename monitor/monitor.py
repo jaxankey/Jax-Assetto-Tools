@@ -1548,7 +1548,7 @@ class Monitor:
             # is an online_message_id, except on startup or new venue.
             if len(errbody):
                 body1 = session_complete_header+'\n\nParticipants:\n'+'\n'.join(errbody)
-                self['online_message_id'] = self.send_message(self.webhook_online, '', body1, '', '\n\n'+online_footer+self.get_join_link(), self['online_message_id'], 0)
+                self['online_message_id'] = self.send_message(self.webhook_online, '', body1, '', '\n'+online_footer+self.get_join_link(), self['online_message_id'], 0)
                 
                 # Remember the time this message was "closed". If a new session
                 # starts within a little time of this, use the same message id
