@@ -1175,7 +1175,6 @@ class Monitor:
         """
         Returns a string with just some basic stats about lap times.
         """
-        print('GET_STATS')
         # If there are no laps, return None so we know not to use them.
         if not self['laps'] or len(self['laps'].keys()) == 0: return None
 
@@ -1230,7 +1229,6 @@ class Monitor:
 
         # If we removed some lines, hint that there are more.
         if popped: lines.append('...')
-        print(lines)
         return '\n'.join(lines)
 
     def get_laps_string(self, chars):
