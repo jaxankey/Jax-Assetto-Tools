@@ -1315,7 +1315,7 @@ class Monitor:
 
         # Return the string
         s = '**'+'\n'.join(onlines)+'**'
-        if len(recents): s = s + '\n\nRecently Online:\n' + '\n'.join(recents)
+        if len(recents): s = s + '\nRecently Online:\n' + '\n'.join(recents)
         return s.strip()
     
     def get_namecar_string(self, name, car):
