@@ -1230,7 +1230,7 @@ class Monitor:
 
         # If we removed some lines, hint that there are more.
         if popped: lines.append('...')
-
+        print(lines)
         return '\n'.join(lines)
 
     def get_laps_string(self, chars):
