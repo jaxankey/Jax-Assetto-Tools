@@ -1289,7 +1289,7 @@ class Monitor:
 
             # Add the online namecar to the list
             namecar = self.get_namecar_string(name, self['online'][name]['car'])
-            onlines.append('**'+str(n)+'. '+self.fix_naughty_characters(namecar)+'**')
+            onlines.append(str(n)+'. '+self.fix_naughty_characters(namecar))
             online_namecars.append(namecar)
 
             # Remember all the namecars we've seen and update the time stamps
@@ -1316,7 +1316,6 @@ class Monitor:
         for namecar in to_pop: self['seen_namecars'].pop(namecar)
 
         # Return the string
-        print(onlines)
         s = '\n'.join(onlines)
         if len(recents): s = s + '\n\nRecently Online:\n' + '\n'.join(recents)
         return s.strip()
