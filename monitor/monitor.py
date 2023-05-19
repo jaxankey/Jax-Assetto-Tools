@@ -1316,7 +1316,7 @@ class Monitor:
         for namecar in to_pop: self['seen_namecars'].pop(namecar)
 
         # Return the string
-        s = '\n'.join(onlines)
+        s = '**\n'.join(onlines)+'**'
         if len(recents): s = s + '\n\nRecently Online:\n' + '\n'.join(recents)
         return s.strip()
     
