@@ -1513,7 +1513,7 @@ class Monitor:
             self['session_end_time'] = 0
 
             # Assemble the message body
-            body1 = '**' + online_header + '**\n' + onlines
+            body1 = '**' + online_header + '**\n' + onlines + '\n'
 
             # Send the message
             self['online_message_id'] = self.send_message(self.webhook_online, '', body1, '', '\n'+online_footer+join_link, self['online_message_id'])
