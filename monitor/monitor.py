@@ -1670,7 +1670,6 @@ class Monitor:
         # Return it.
         return message_id
 
-
 # Create the object
 self = Monitor()
 
