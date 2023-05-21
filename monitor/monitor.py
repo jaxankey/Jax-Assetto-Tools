@@ -1495,7 +1495,7 @@ class Monitor:
         if debug and laps: log('LAPS\n'+laps)
 
         # Below the venue and above laps
-        if laps: body1 = body1 + '\n' + laps
+        if laps and len(laps): body1 = body1 + '\n' + laps
 
         # Send the main info message. Body 1 is the laps list, body 2 includes previous onlines
         self['laps_message_id'] = self.send_message(self.webhook_info, '', body1, body2, footer, self['laps_message_id'], color=color)
@@ -1513,7 +1513,7 @@ class Monitor:
             self['session_end_time'] = 0
 
             # Assemble the message body
-            body1 = '**' + online_header + '**\n' + onlines
+            body1 = '**' + online_header + '**\n' + onlines + '\n'
 
             # Send the message
             self['online_message_id'] = self.send_message(self.webhook_online, '', body1, '', '\n'+online_footer+join_link, self['online_message_id'])
