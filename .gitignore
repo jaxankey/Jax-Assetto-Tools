@@ -14,3 +14,4 @@ uploader/uploader.spec
 *.pyc
 apps/send.bat
 *.pdf
+*.zip
