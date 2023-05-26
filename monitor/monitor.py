@@ -23,8 +23,8 @@ path_log = ''
 
 # ACSM premium settings
 server_manager_premium_mode = False
-url_api_details   = None
 tcp_data_port     = None
+http_port         = None
 no_down_warning   = False
 path_live_timings = None
 path_race_json    = None
@@ -80,6 +80,10 @@ uncategorized       = 'Uncategorized'
 if os.path.exists('monitor.ini.private'): p = 'monitor.ini.private'
 else                                    : p = 'monitor.ini'
 exec(open(p, 'r', encoding="utf8").read())
+
+# If we have a http port, get the url for details
+if http_port: url_api_details = 'http://localhost:'+str(http_port)+'/api/details'
+else:         url_api_details = None
 
 def log(*a):
     """
