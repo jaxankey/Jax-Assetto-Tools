@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-import pandas, os, json, pprint, codecs, shutil
+import pandas, os, json, pprint, codecs, shutil, sys
 
 # Change to the directory of this script
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
@@ -128,7 +128,9 @@ for n in range(len(list(c['Events'][0]['EntryList'].keys()))):
     c['Classes'][0]['Entrants']['CAR_%d'%(n+1)]['GUID'] = ids
     c['Events'][0]['EntryList']['CAR_%d'%(n  )]['GUID'] = ids
 
-shutil.move(championship_path, championship_path+'.backup', )
-f = open(championship_path, 'w', encoding="utf8")
-json.dump(c, f, indent=2)
-f.close()
+if sys.argv[1] == 'yes' or input('Do it? ').strip() == 'yes':
+
+    shutil.move(championship_path, championship_path+'.backup', )
+    f = open(championship_path, 'w', encoding="utf8")
+    json.dump(c, f, indent=2)
+    f.close()
