@@ -85,6 +85,7 @@ def load_json(path):
 # Now loop over the teams and update the championship
 # Function for loading a json at the specified path
 c = load_json(championship_path)
+pprint.pprint(c, indent=2)
 team_names = list(teams.keys())
 for n in range(len(list(c['Events'][0]['EntryList'].keys()))): 
     print('Entry', n+1)
