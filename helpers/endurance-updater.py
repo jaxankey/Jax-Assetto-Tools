@@ -38,7 +38,7 @@ for n in range(len(data['Team Name'])-1,-1,-1):
         teams[team_name] = dict(ids=[], names=[])
         teams[team_name]['car']    = car
         teams[team_name]['livery'] = livery
-        print(n, team_name, car, livery)
+        print(n, repr(team_name), car, livery)
 
         # Loop over the up to 8 drivers, adding their names and ids
         for m in range(1,9):
@@ -133,9 +133,12 @@ for n in range(len(list(c['Events'][0]['EntryList'].keys()))):
     c['Classes'][0]['Entrants']['CAR_%d'%(n+1)]['GUID'] = ids
     c['Events'][0]['EntryList']['CAR_%d'%(n  )]['GUID'] = ids
 
-if sys.argv[1] == 'yes' or input('Do it? ').strip() == 'yes':
+if len(sys.argv) > 1 and sys.argv[1] == 'yes' or input('Do it? ').strip() == 'yes':
 
     shutil.move(championship_path, championship_path+'.backup', )
     f = open(championship_path, 'w', encoding="utf8")
     json.dump(c, f, indent=2)
     f.close()
+
+else: 
+    pprint.pprint(c)
