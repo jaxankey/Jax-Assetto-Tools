@@ -96,7 +96,9 @@ for n in range(len(list(c['Events'][0]['EntryList'].keys()))):
 
     # If we have a team fill the slot
     if n < len(team_names):
-        team_name = team_names[n]
+
+        # Get earliest entry first.
+        team_name = team_names[len(team_names)-1-n]
 
         # Get the car folder
         car = teams[team_name]['car']
