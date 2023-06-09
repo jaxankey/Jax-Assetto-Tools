@@ -67,7 +67,7 @@ for n in range(len(data['Team Name'])-1,-1,-1):
                     teams[team_name]['names'].append(name)
 
 # print('-----------------------------------------------')
-# pprint.pprint(teams)
+pprint.pprint(teams)
 # print('-----------------------------------------------')
 
 def load_json(path):
