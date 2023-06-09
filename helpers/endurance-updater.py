@@ -27,7 +27,7 @@ ids   = dict() # Dictionary of activity by steam id
 for n in range(len(data['Team Name'])-1,-1,-1): 
     
     # Empty lines
-    if not type(data['Team Name']) == str: continue
+    if not type(data['Team Name'][n]) == str: continue
 
     # Get the team name and car folder
     team_name = data['Team Name'][n].strip()
