@@ -26,6 +26,9 @@ ids   = dict() # Dictionary of activity by steam id
 # Run through the spreadsheet in reverse order to favor later submissions.
 for n in range(len(data['Team Name'])-1,-1,-1): 
     
+    # Empty lines
+    if not type(data['Team Name']) == str: continue
+
     # Get the team name and car folder
     team_name = data['Team Name'][n].strip()
     car       = car_folders[data['Team Car'][n].strip()].strip()
