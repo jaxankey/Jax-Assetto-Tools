@@ -113,7 +113,7 @@ for n in range(len(list(c['Events'][0]['EntryList'].keys()))):
             livery = 'random_skin'
             print('  WARNING: No skin folder', teams[team_name]['livery'])
         ids = ';'.join(teams[team_name]['ids'])
-        print(' ', team_name, livery, ids)
+        print(' ', repr(team_name), repr(livery), ids)
     else: 
         team_name = ''
         livery = 'random_skin'
