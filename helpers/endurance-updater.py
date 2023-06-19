@@ -85,6 +85,12 @@ def load_json(path):
         print('ERROR: Could not load', path)
         print(e)
 
+# Pop all teams with no ids
+team_names = list(teams.keys())
+for team_name in team_names:
+    if len(teams[team_name]['ids'])==0:
+        teams.pop(team_name)
+
 # Now loop over the teams and update the championship
 # Function for loading a json at the specified path
 c = load_json(championship_path)
@@ -97,8 +103,8 @@ team_names = list(teams.keys())
 for n in range(len(list(c['Events'][0]['EntryList'].keys()))): 
     print('Entry', n+1)
 
-    # If we have a team fill the slot and there are id's left in this team
-    if n < len(team_names) and len(teams[team_names[len(team_names)-1-n]]['ids']):
+    # If we have a team fill the slot
+    if n < len(team_names):
 
         # Get earliest entry first.
         team_name = team_names[len(team_names)-1-n]
