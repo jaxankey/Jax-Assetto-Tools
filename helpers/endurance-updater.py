@@ -33,6 +33,7 @@ for n in range(len(data['Team Name'])-1,-1,-1):
     team_name = data['Team Name'][n].strip()
     car       = car_folders[data['Team Car'][n].strip()].strip()
     livery    = str(data['Livery FOLDER Name'][n]).strip()
+    if livery == 'nan': livery = 'random_skin'
 
     # If we have not already made this team (i.e., favoring later entries)
     if not team_name in teams:
@@ -113,10 +114,8 @@ for n in range(len(list(c['Events'][0]['EntryList'].keys()))):
         car = teams[team_name]['car']
 
         # If the livery folder exists, use it; otherwise, use 'random_skin'
-        if os.path.exists(os.path.join(assetto_path, 'content', 'cars', car, 'skins', teams[team_name]['livery'])): 
-            livery = teams[team_name]['livery']
-        else:                                                               
-            livery = 'random_skin'
+        livery = teams[team_name]['livery']
+        if livery != 'random_skin' and not os.path.exists(os.path.join(assetto_path, 'content', 'cars', car, 'skins', livery)): 
             print('  WARNING: No skin folder', repr(teams[team_name]['livery']))
         ids = ';'.join(teams[team_name]['ids'])
         print(' ', repr(team_name), repr(livery), repr(ids))
