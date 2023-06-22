@@ -120,11 +120,11 @@ for n in range(len(list(c['Events'][0]['EntryList'].keys()))):
         livery = teams[team_name]['livery']
         ids = ';'.join(teams[team_name]['ids'])
         
-        print(str(n+1)+'.', repr(team_name), repr(livery), repr(ids))
+        print('\n'+str(n+1)+'.', repr(team_name), repr(livery), repr(ids))
         print('    '+'\n    '.join(teams[team_name]['names']))
         
         if livery != 'random_skin' and not os.path.exists(os.path.join(assetto_path, 'content', 'cars', car, 'skins', livery)): 
-            print('    WARNING: No skin folder', repr(teams[team_name]['livery']))
+            print('  WARNING: No skin folder', repr(teams[team_name]['livery']))
         
         
         
