@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-import pandas, os, json, pprint, codecs, shutil, sys
+import pandas, os, json, pprint, codecs, shutil, sys, discord
 
 # Change to the directory of this script
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
@@ -126,10 +126,8 @@ for n in range(len(list(c['Events'][0]['EntryList'].keys()))):
         
         if livery != 'random_skin' and not os.path.exists(os.path.join(assetto_path, 'content', 'cars', car, 'skins', livery)): 
             missing_skins.append('  '+ repr(teams[team_name]['livery']) + ' ('+team_name+')')
+            livery = 'random_skin'
         
-        
-        
-
     # One of the remaining slots. Make sure to overwrite what's there with "no team"
     else: 
         team_name = ''
@@ -158,9 +156,9 @@ for n in range(len(list(c['Events'][0]['EntryList'].keys()))):
     c['Events'][0]['EntryList']['CAR_%d'%(n  )]['GUID'] = ids
 
 if len(missing_skins): 
-    print('\n-------------------------------------')
-    print('MISSING SKIN FOLDERS')
-    print('\n'.join(missing_skins))
+    s = 'MISSING SKIN FOLDERS'+'\n'.join(missing_skins)
+    print('\n-------------------------------------\n'+s)
+   
     
 print()
 
