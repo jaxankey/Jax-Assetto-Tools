@@ -109,8 +109,7 @@ for n in range(len(list(c['Events'][0]['EntryList'].keys()))):
     
     # If we have a team fill the slot
     if n < len(team_names):
-        print('Entry', n+1)
-
+        
         # Get earliest entry first.
         team_name = team_names[len(team_names)-1-n]
 
@@ -119,13 +118,16 @@ for n in range(len(list(c['Events'][0]['EntryList'].keys()))):
 
         # If the livery folder exists, use it; otherwise, use 'random_skin'
         livery = teams[team_name]['livery']
-        if livery != 'random_skin' and not os.path.exists(os.path.join(assetto_path, 'content', 'cars', car, 'skins', livery)): 
-            print('  WARNING: No skin folder', repr(teams[team_name]['livery']))
         ids = ';'.join(teams[team_name]['ids'])
         print(' ', repr(team_name), repr(livery), repr(ids))
+        
         for i in range(len(teams[team_name]['ids'])):
-            print(' ', teams[team_name]['ids'][i], teams[team_name]['names'][i])
-    
+            print('Entry',str(n+1), teams[team_name]['ids'][i], teams[team_name]['names'][i])
+
+        if livery != 'random_skin' and not os.path.exists(os.path.join(assetto_path, 'content', 'cars', car, 'skins', livery)): 
+            print('  WARNING: No skin folder', repr(teams[team_name]['livery']))
+        
+
     # One of the remaining slots. Make sure to overwrite what's there with "no team"
     else: 
         team_name = ''
