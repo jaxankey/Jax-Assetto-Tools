@@ -23,6 +23,9 @@ data = pandas.read_csv(csv_path, dtype=str)
 teams = dict() # Dictionary of team info by team name
 ids   = dict() # Dictionary of activity by steam id
 
+print('-----------------------------------------------')
+print('CSV PARSE\n')
+
 # Run through the spreadsheet in reverse order to favor later submissions.
 for n in range(len(data['Team Name'])-1,-1,-1): 
     
@@ -69,7 +72,8 @@ for n in range(len(data['Team Name'])-1,-1,-1):
 
 # print('-----------------------------------------------')
 #pprint.pprint(teams)
-print('-----------------------------------------------')
+print('\n-----------------------------------------------')
+print('CHAMPIONSHIP UPDATE\n')
 
 def load_json(path):
     """
