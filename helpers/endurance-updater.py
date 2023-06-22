@@ -120,7 +120,7 @@ for n in range(len(list(c['Events'][0]['EntryList'].keys()))):
         livery = teams[team_name]['livery']
         ids = ';'.join(teams[team_name]['ids'])
         
-        print(str(n+1)+'.', repr(team_name), repr(livery), repr(ids), repr(';'.join(teams[team_name]['names']))
+        print(str(n+1)+'.', repr(team_name), repr(livery), repr(ids), repr(';'.join(teams[team_name]['names'])))
         
         if livery != 'random_skin' and not os.path.exists(os.path.join(assetto_path, 'content', 'cars', car, 'skins', livery)): 
             print('  WARNING: No skin folder', repr(teams[team_name]['livery']))
@@ -139,7 +139,7 @@ for n in range(len(list(c['Events'][0]['EntryList'].keys()))):
     c['Events'][0]['EntryList']['CAR_%d'%(n  )]['InternalUUID'] = uuid
 
     c['Classes'][0]['Entrants']['CAR_%d'%(n+1)]['PitBox'] = n
-    c['Events'][0]['EntryList']['CAR_%d'%(n  )]['PitBox'] = n
+    c['Events'List']['CAR_%d'%(n  )]['PitBox'] = n
 
     c['Classes'][0]['Entrants']['CAR_%d'%(n+1)]['Name'] = team_name
     c['Events'][0]['EntryList']['CAR_%d'%(n  )]['Name'] = team_name
@@ -151,7 +151,7 @@ for n in range(len(list(c['Events'][0]['EntryList'].keys()))):
     c['Events'][0]['EntryList']['CAR_%d'%(n  )]['Skin'] = livery
 
     c['Classes'][0]['Entrants']['CAR_%d'%(n+1)]['GUID'] = ids
-    c['Events'][0]['EntryList']['CAR_%d'%(n  )]['GUID'] = ids
+    c['Events'][0]['EntryList'][][0]['Entry'CAR_%d'%(n  )]['GUID'] = ids
 
 if len(sys.argv) > 1 and sys.argv[1] == 'yes' or input('Do it? ').strip() == 'yes':
 
