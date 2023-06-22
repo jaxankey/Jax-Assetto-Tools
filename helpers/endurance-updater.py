@@ -105,6 +105,7 @@ if c == None:
     quit()
 
 team_names = list(teams.keys())
+missing_skins = []
 for n in range(len(list(c['Events'][0]['EntryList'].keys()))): 
     
     # If we have a team fill the slot
@@ -124,7 +125,7 @@ for n in range(len(list(c['Events'][0]['EntryList'].keys()))):
         print('    '+'\n    '.join(teams[team_name]['names']))
         
         if livery != 'random_skin' and not os.path.exists(os.path.join(assetto_path, 'content', 'cars', car, 'skins', livery)): 
-            print('  WARNING: No skin folder', repr(teams[team_name]['livery']))
+            missing_skins.append('  '+ repr(teams[team_name]['livery']) + '('+team_name+')')
         
         
         
@@ -134,6 +135,13 @@ for n in range(len(list(c['Events'][0]['EntryList'].keys()))):
         team_name = ''
         livery = 'random_skin'
         ids = ''
+
+    if len(missing_skins):
+        print('\n-------------------------------------')
+        print('MISSING SKIN FOLDERS')
+        print('\n'.join(missing_skins))
+    
+    print()
 
     # Make sure the internal uuid's match
     uuid = c['Classes'][0]['Entrants']['CAR_%d'%(n+1)]['InternalUUID']
