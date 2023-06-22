@@ -102,10 +102,10 @@ if c == None:
 
 team_names = list(teams.keys())
 for n in range(len(list(c['Events'][0]['EntryList'].keys()))): 
-    print('Entry', n+1)
-
+    
     # If we have a team fill the slot
     if n < len(team_names):
+        print('Entry', n+1)
 
         # Get earliest entry first.
         team_name = team_names[len(team_names)-1-n]
@@ -119,6 +119,8 @@ for n in range(len(list(c['Events'][0]['EntryList'].keys()))):
             print('  WARNING: No skin folder', repr(teams[team_name]['livery']))
         ids = ';'.join(teams[team_name]['ids'])
         print(' ', repr(team_name), repr(livery), repr(ids))
+        for i in range(len(teams[team_name]['ids'])):
+            print(' ', teams[team_name]['ids'][i], teams[team_name]['names'][i])
     
     # One of the remaining slots. Make sure to overwrite what's there with "no team"
     else: 
