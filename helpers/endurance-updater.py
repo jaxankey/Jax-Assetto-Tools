@@ -73,7 +73,7 @@ for n in range(len(data['Team Name'])-1,-1,-1):
 # print('-----------------------------------------------')
 #pprint.pprint(teams)
 print('\n-----------------------------------------------')
-print('CHAMPIONSHIP UPDATE\n')
+print('CHAMPIONSHIP UPDATE')
 
 def load_json(path):
     """
