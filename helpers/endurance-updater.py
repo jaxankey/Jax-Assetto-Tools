@@ -156,7 +156,7 @@ for n in range(len(list(c['Events'][0]['EntryList'].keys()))):
     c['Events'][0]['EntryList']['CAR_%d'%(n  )]['GUID'] = ids
 
 if len(missing_skins): 
-    s = 'MISSING SKIN FOLDERS'+'\n'.join(missing_skins)
+    s = 'MISSING SKIN FOLDERS\n'+'\n'.join(missing_skins)
     print('\n-------------------------------------\n'+s)
    
     
