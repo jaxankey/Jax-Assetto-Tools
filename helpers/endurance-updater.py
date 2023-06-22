@@ -56,13 +56,13 @@ for n in range(len(data['Team Name'])-1,-1,-1):
                 # n is the row number, m is column
                 name = data[key_name][n]
                 id   = data[key_id  ][n]
-                print(' ', m, id, name)
                 if id in ids.keys(): 
                     print('  WARNING: ', id, '('+name+')', 'is in', repr(team_name), 'and', repr(ids[id]), '('+name+')')
                     print('            ID was not added to the earlier entry', repr(team_name))
                 
                 # Otherwise we add it to the dictionary
                 else:
+                    print(' ', m, id, name)
                     ids[id] = team_name
                     teams[team_name]['ids']  .append(id)
                     teams[team_name]['names'].append(name)
