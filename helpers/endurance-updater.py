@@ -125,7 +125,7 @@ for n in range(len(list(c['Events'][0]['EntryList'].keys()))):
             print('WARNING: No skin folder', repr(teams[team_name]['livery']))
         
         for i in range(len(teams[team_name]['ids'])):
-            print(' ', str(i)+'.', teams[team_name]['ids'][i], teams[team_name]['names'][i])
+            print(' ', str(i)+'.', teams[team_name]['names'][i])
     
         
 
