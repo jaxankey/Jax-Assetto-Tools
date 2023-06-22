@@ -59,7 +59,7 @@ for n in range(len(data['Team Name'])-1,-1,-1):
                 print(' ', m, id, name)
                 if id in ids.keys(): 
                     print('  WARNING: ', id, '('+name+')', 'is in', team_name, 'and', ids[id], '('+name+')')
-                    print('  They were not added to the earlier entry', team_name)
+                    print('             ID not added to the earlier entry', team_name)
                 
                 # Otherwise we add it to the dictionary
                 else:
