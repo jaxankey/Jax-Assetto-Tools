@@ -125,7 +125,7 @@ for n in range(len(list(c['Events'][0]['EntryList'].keys()))):
         print('    '+'\n    '.join(teams[team_name]['names']))
         
         if livery != 'random_skin' and not os.path.exists(os.path.join(assetto_path, 'content', 'cars', car, 'skins', livery)): 
-            missing_skins.append('  '+ repr(teams[team_name]['livery']) + '('+team_name+')')
+            missing_skins.append('  '+ repr(teams[team_name]['livery']) + ' ('+team_name+')')
         
         
         
@@ -136,12 +136,7 @@ for n in range(len(list(c['Events'][0]['EntryList'].keys()))):
         livery = 'random_skin'
         ids = ''
 
-    if len(missing_skins):
-        print('\n-------------------------------------')
-        print('MISSING SKIN FOLDERS')
-        print('\n'.join(missing_skins))
     
-    print()
 
     # Make sure the internal uuid's match
     uuid = c['Classes'][0]['Entrants']['CAR_%d'%(n+1)]['InternalUUID']
@@ -161,6 +156,13 @@ for n in range(len(list(c['Events'][0]['EntryList'].keys()))):
 
     c['Classes'][0]['Entrants']['CAR_%d'%(n+1)]['GUID'] = ids
     c['Events'][0]['EntryList']['CAR_%d'%(n  )]['GUID'] = ids
+
+if len(missing_skins): 
+    print('\n-------------------------------------')
+    print('MISSING SKIN FOLDERS')
+    print('\n'.join(missing_skins))
+    
+print()
 
 if len(sys.argv) > 1 and sys.argv[1] == 'yes' or input('Do it? ').strip() == 'yes':
 
