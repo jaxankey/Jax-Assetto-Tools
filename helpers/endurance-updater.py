@@ -42,7 +42,7 @@ for n in range(len(data['Team Name'])-1,-1,-1):
         teams[team_name] = dict(ids=[], names=[])
         teams[team_name]['car']    = car
         teams[team_name]['livery'] = livery
-        print(n, repr(team_name), car, livery)
+        #print(n, repr(team_name), car, livery)
 
         # Loop over the up to 8 drivers, adding their names and ids
         for m in range(1,9):
@@ -62,7 +62,7 @@ for n in range(len(data['Team Name'])-1,-1,-1):
                 
                 # Otherwise we add it to the dictionary
                 else:
-                    print(' ', m, id, name)
+                    #print(' ', m, id, name)
                     ids[id] = team_name
                     teams[team_name]['ids']  .append(id)
                     teams[team_name]['names'].append(name)
