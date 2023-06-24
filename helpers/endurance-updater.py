@@ -125,7 +125,7 @@ for n in range(len(list(c['Events'][0]['EntryList'].keys()))):
         print('    '+'\n    '.join(teams[team_name]['names']))
         
         if livery != 'random_skin' and not os.path.exists(os.path.join(assetto_path, 'content', 'cars', car, 'skins', livery)): 
-            missing_skins.append('  '+ repr(teams[team_name]['livery']) + ' ('+team_name+')')
+            missing_skins.append('  '+ repr(teams[team_name]['livery']) + ' ('+team_name+', '+car+')')
             livery = 'random_skin'
         
     # One of the remaining slots. Make sure to overwrite what's there with "no team"
