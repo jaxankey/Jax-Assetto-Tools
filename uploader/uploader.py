@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-import os, sys
+import os, sys, random
 from importlib import util
 from datetime import timedelta, datetime, timezone
 from time import time, sleep
@@ -176,6 +176,14 @@ def load_json(path):
     except Exception as e:
         print('ERROR: Could not load', path)
         print(e)
+
+def dump_json(json, path, indent=2):
+    """
+    Opens the file, dumps it, indented.
+    """
+    f = open(path,'w', encoding="utf8")
+    dump(json, f, indent=indent)
+    f.close()
 
 def rmtree(top):
     """
@@ -443,7 +451,7 @@ class Uploader:
         self.tab_settings.new_autorow()
         self.tab_settings.add(egg.gui.Label('Custom Skins:'))
         self.text_skins = self.tab_settings.add(egg.gui.TextBox('',
-            tip='Optional path to a custom skins folder (containing a content folder).\n' +\
+            tip='Optional path to a custom skins uploading / packaging folder.\n' +\
                 'Setting this will package the selected carset skins in content folder.',
             signal_changed=self._any_server_setting_changed), alignment=0)
         self.button_browse_skins = self.tab_settings.add(egg.gui.Button('Browse',
@@ -711,6 +719,109 @@ class Uploader:
         #self.server['settings']['text_filter_cars'] = self.text_filter_cars()
         if not self._loading_server: self.button_save_server.click()
 
+    def unpack_skin(self, path):
+        """
+        Takes the supplied full zip path, validates it (sorta) and 
+        puts it into the cars folder.
+        """
+        self.log('  ', os.path.split(path)[-1])
+        skins   = self.text_skins().strip()
+        local   = self.text_local().strip()
+        cars = os.path.join(local, 'content', 'cars')
+        
+        # Sanity checks
+        if not os.path.exists(path): return
+        if skins == '' or not os.path.exists(skins): return
+        if local == '' or not os.path.exists(cars) : return
+        
+        # Whether we found a skins folder in the archive
+        skins_found = False
+
+        # Try navigating the zip file
+        try: 
+            # Get the zipfile object
+            z = ZipFile(path, 'r')
+
+            # Open / create the json containing custom skins list
+            j = load_json('custom_skins.json')
+            if not j: j = dict()
+            
+            # Loop over each element.
+            for x in z.infolist():
+
+                # If this one is not a directory
+                if not x.is_dir():
+
+                    # split the path to get components
+                    ls = x.filename.lower().split('/') # Lower case
+                    us = x.filename.split('/')         # Normal case
+
+                    # Look for the skins folder
+                    i_skins = -1
+                    if 'skins' in ls: 
+                        i_skins = ls.index('skins')
+                        skins_found = True
+
+                    # if the index is zero or lower, we don't know what car it is
+                    if i_skins > 0: 
+
+                        # Get the output path
+                        path_out = os.path.join(cars, *us[i_skins-1:])
+                        
+                        # Make sure it doesn't exist
+                        if os.path.exists(path_out): os.unlink(path_out)
+
+                        # Make the zipinfo filename just the file
+                        x.filename = os.path.basename(x.filename)
+
+                        if x.filename not in ['desktop.ini'] and len(us)-i_skins == 3:
+
+                            # Extract
+                            #print('  Extracting to', path_out)
+                            dir_path_out = os.path.dirname(path_out)
+                            z.extract(x, dir_path_out)
+                            
+                            # Append path to dir if not there
+                            car = us[i_skins-1]
+                            skin = us[i_skins+1]
+                            if car not in j: j[car] = []
+                            if skin not in j[car]: j[car].append(skin) 
+                                
+            # It... worked?
+            z.close()
+            os.unlink(path)
+            
+            # Save the list
+            dump_json(j, 'custom_skins.json')
+                        
+        # Just in case it's a bad file.
+        except Exception as e: 
+            self.log('Ass.', e)
+            skins_found = False
+
+        # Invalid file
+        if not skins_found:
+            self.log('Queue file', os.path.split(path)[-1], 'is invalid.')
+            # dir_failed = os.path.join(skins, 'Queue', 'Failed')
+            # if not os.path.exists(dir_failed): os.mkdir(dir_failed)
+            # os.replace(path, os.path.join(dir_failed, os.path.basename(path)))
+
+
+    def unpack_skins_queue(self):
+        """
+        Validates and unpacks the zip files in the queue
+        """
+        skins  = self.text_skins().strip()
+        if skins == '': return
+
+        # Get a list of (full) paths to the zip files
+        paths = glob(os.path.join(skins, 'Queue', '*.zip'))
+
+        # Now unpack each
+        if len(paths): self.log('Unpacking queued skins:')
+        for path in paths: self.unpack_skin(path)
+
+
     def import_and_package_skins(self):
         """
         Copies all the custom skins associated with the currently selected
@@ -731,6 +842,9 @@ class Uploader:
         carset_safe = carset
         for naughty in naughties: carset_safe.replace(naughty,'')
 
+        # Validate and unpack all skin zips in the queue
+        self.unpack_skins_queue()
+
         # Get the root directory of the packs
         packs_path = os.path.join(skins,'Livery Packs')
         if not os.path.exists(packs_path): os.mkdir(packs_path)
@@ -739,55 +853,38 @@ class Uploader:
         zip_path = os.path.join(packs_path, carset_safe + '.zip')
         if os.path.exists(zip_path): os.remove(zip_path)
 
-        # Get the latest.zip path
-        if latest: latest_path = os.path.join(skins,latest)
-        else:      latest_path = None
-
-        # Loop over the selected cars and copy them from a custom skins folder
-        # into the main local assetto folder
-        # Also assemble the list of files to zip
-        directories_to_zip = []
-        #command = ['7z', '-mx4', '-xr!*desktop.ini', 'a', '"'+zip_path+'"']
-        #if not wait_for_zip: command = ['start', '"Compressing Skins"']+command
-        for car in cars:
-            source      = os.path.join(skins,'content','cars',car) # Google drive, e.g.
-            destination = os.path.join(local,'content','cars',car) # Local assetto
-            if os.path.exists(source):
-                print('Copying', source,'\n  ->',destination)
-                try: copytree(source, destination, dirs_exist_ok=True, copy_function=copy, ignore=ignore_patterns('desktop.ini'))
-                except Exception as e:
-                    self.log('ERROR COPYING', car)
-                    try:
-                        for x in e.args[0]: self.log(x[-1])
-                    except Exception as f:
-                        print('I need an adult!', f)
-
-            # Add this to the zip command.
-        #    command.append('"' + source + '"')
-            directories_to_zip.append(source)
+        # Load the custom skins list
+        j = load_json('custom_skins.json')
         
+        # Temporarily switch working directory to the local cars folder.
         cwd = os.getcwd()
-        os.chdir(os.path.join(skins,'content','cars'))
-        
+        os.chdir(os.path.join(local,'content','cars'))
+    
+        # Loop over the selected cars and copy them from a custom skins folder into the 
+        # main local assetto folder. Also assemble the list of files to zip
+        directories_to_zip = [] # list of sub-directories we will transfer to the archive
+        if j:
+            for car in cars:
+                if car in j:
+                    for skin in j[car]:
+                        source = os.path.join(car, 'skins', skin)
+                        if os.path.exists(source): directories_to_zip.append(source)
+        else: self.log('No custom skins to package.')
+
         # Zip the pack up in the archive
-        zip_directories(cars, zip_path, zip_excludes, self.update_progress)
+        if len(directories_to_zip):
+            self.log('Zipping up skin pack...')
+            zip_directories(directories_to_zip, zip_path, zip_excludes, self.update_progress)
         
-        # If we have a "latest.zip" path, copy it there
-        if latest_path: 
+        # Get the latest.zip path
+        if latest != '': 
             self.log('Copying pack to ../'+latest)
-            copy(zip_path, latest_path)
+            copy(zip_path, os.path.join(skins,latest))
         
+        # Back to the previous wd
         os.chdir(cwd)
 
         
-        # Now in a separate thread, start the zip process
-        #command_string = ' '.join(command)
-        #print(command_string)
-        #os.system(command_string)
-
-        # Now copy this zip file to the "latest.zip" pack
-        # self.log('Copying to latest.zip')
-        # copy(zip_path, os.path.join(skins, 'latest.zip'))
 
     def _button_browse_skins_clicked(self, *a):
         """
@@ -1193,7 +1290,7 @@ class Uploader:
             combo_send_to=self.combo_send_to.get_text()
         )
         print('save_server_gui')
-        dump(gui, open('server.json', 'w'), indent=2)
+        dump(gui, open('server.json', 'w', encoding="utf8"), indent=2)
 
     def load_server_gui(self):
         """
@@ -1548,13 +1645,13 @@ class Uploader:
             self.log('No cars selected?')
             return
 
-        # Add the missing directories to make skin uploading easier
-        if self.text_skins() != '':
-            for car in cars:
-                d = os.path.join(self.text_skins(), 'content', 'cars', car, 'skins')
-                if not os.path.exists(d): 
-                    self.log('Creating skins folder for', car)
-                    os.makedirs(d, exist_ok=True)
+        # # Add the missing directories to make skin uploading easier
+        # if self.text_skins() != '':
+        #     for car in cars:
+        #         d = os.path.join(self.text_skins().strip(), 'Cars', car, 'skins')
+        #         if not os.path.exists(d): 
+        #             self.log('Creating skins folder for', car)
+        #             os.makedirs(d, exist_ok=True)
 
         # Make sure we have a track
         if track == '' and not skins_only:
@@ -1563,8 +1660,8 @@ class Uploader:
 
         # COPY EVERYTHING TO TEMP DIRECTORY
         # Cars: we just need data dir and data.acd (if present)
-        if skins_only: self.log('Collecting skins')
-        else:          self.log('Collecting cars')
+        if skins_only: self.log('Collecting venue skins for upload:')
+        else:          self.log('Collecting venue cars for upload:')
         for car in cars:
             self.log('  '+ self.cars[car])
             self.collect_assetto_files(os.path.join('cars',car), skins_only)
