@@ -400,9 +400,10 @@ class Monitor:
                 server_state_changed = True
 
                 # Run the server down->up script ONCE
-                log('RUNNING SERVER UP SCRIPT\n  ', script_server_up)
-                try: os.system(script_server_up)
-                except Exception as e: print('OOPS!', e)
+                if script_server_up:
+                    log('RUNNING SERVER UP SCRIPT\n  ', script_server_up)
+                    try: os.system(script_server_up)
+                    except Exception as e: print('OOPS!', e)
 
             # Toggle it to up (it's up!)
             self['server_is_up'] = True
