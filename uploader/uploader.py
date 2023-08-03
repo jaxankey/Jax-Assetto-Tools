@@ -746,7 +746,7 @@ class Uploader:
             j = load_json('custom_skins.json')
             if not j: j = dict()
             
-            # Loop over each element.
+            # Loop over every single file path in the zip.
             for x in z.infolist():
 
                 # If this one is not a directory
@@ -789,8 +789,8 @@ class Uploader:
                                 
             # It... worked?
             z.close()
-            os.unlink(path)
-            
+            if skins_found: os.unlink(path)
+
             # Save the list
             dump_json(j, 'custom_skins.json')
                         
@@ -801,7 +801,7 @@ class Uploader:
 
         # Invalid file
         if not skins_found:
-            self.log('Queue file', os.path.split(path)[-1], 'is invalid.')
+            self.log('    ', os.path.split(path)[-1], 'is invalid.')
             # dir_failed = os.path.join(skins, 'Queue', 'Failed')
             # if not os.path.exists(dir_failed): os.mkdir(dir_failed)
             # os.replace(path, os.path.join(dir_failed, os.path.basename(path)))
