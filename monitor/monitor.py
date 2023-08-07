@@ -8,7 +8,10 @@
 # See monitor.ini for configuration!                             #
 ##################################################################
 
-import os, json, discord, shutil, pprint, glob, time, datetime, urllib, dateutil.parser, socket, requests
+# HANDLE Join link error: <https://acstuff.ru/s/q:race/online/join?ip=upstream connect error or disconnect/reset before headers. retried and the latest reset reason: connection failure&httpPort=8082>)
+# Race servers show EVERYONE online at the same time, even if they aren't.
+
+import os, json, discord, shutil, pprint, glob, time, datetime, urllib, dateutil.parser, socket, requests, ipaddress
 from numpy import median
 from copy import deepcopy
 
@@ -1345,21 +1348,31 @@ class Monitor:
         """
         Generates a join link string.
         """
+        # Keeps track of the last known server_ip, in case ifconfig.me bonks out.
+        global server_ip
+
         # Generate the join link if we're supposed to
         join_link = ''
-        if join_link_finish:
+        if join_link_finish: # Means we want a join link
             
+            # Default is no link, just the word "Join" for a down server.
+            join_link = '**Join**'
+
             # If the server is up, return the full join link etc.
             if self['server_is_up']:
                 try: 
-                    server_ip = requests.get('https://ifconfig.me', timeout=3).text
-                    join_link = '**[Join](<https://acstuff.ru/s/q:race/online/join?ip=' + server_ip + join_link_finish + '>)**'
-                except Exception as e: 
-                    log('  WARNING: no join link', e)
+                    new_ip = requests.get('https://ifconfig.me', timeout=3).text
 
-            # Otherwise return an unlinked "join" so people know where it WILL be when the server is up.
-            else:
-                join_link = '**Join**'
+                    # Test if it breaks
+                    ipaddress.ip_address(new_ip)
+
+                    # Didn't break, use it
+                    server_ip = new_ip
+
+                except Exception as e: pass
+
+                # If we have a server_ip, use it
+                if server_ip: join_link = '**[Join](<https://acstuff.ru/s/q:race/online/join?ip=' + server_ip + join_link_finish + '>)**'   
 
         return join_link
 
