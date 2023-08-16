@@ -418,6 +418,9 @@ class Monitor:
                 self.save_and_archive_state()
 
             # Try to load the details from the server port
+            # JACK: FOR THE EARLY AND LATE RACES DURING THE RACE, THIS SHOWS EVERYONE WHO IS REGISTERED, NOT ONLINE!
+            # "DriverName":"Jack","DriverTeam":"","DriverNation":"PLA","IsConnected":false,
+            # DURING NEXT EARLY RACE, SEE IF ALL THE REGISTERED DRIVERS SAY "IsConnected"
             try: details = json.loads(urllib.request.urlopen(url_api_details, timeout=5).read(), strict=False)
             except Exception as e:
                 log('\n\nERROR: Could not open', url_api_details, e)
@@ -1285,7 +1288,7 @@ class Monitor:
         Returns a string list of who is online.
         """
         # If there are no onlines, return None, which prevents printing and 
-        # sets the message color to gray.
+        # sets the message color appropriately.
         if len(self['online'].keys()) == 0: return None
 
         # If there are any online

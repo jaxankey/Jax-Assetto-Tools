@@ -548,6 +548,13 @@ class Uploader:
             tip='Allowed tyres list, usually one or two capital characters, separated by semicolons.',
             signal_changed=self._any_server_setting_changed)).set_width(200)
 
+        # Fixed setup
+        self.grid_tyres.new_autorow()
+        self.grid_tyres.add(egg.gui.Label('Fixed Setup:'))
+        self.text_setup = self.grid_tyres.add(egg.gui.TextBox('',
+            tip='Fixed setup path, applied to all cars. Needs the subfolder and extension as well, e.g. "generic/LoPeN.ini".',
+            signal_changed=self._any_server_setting_changed)).set_width(200)
+
         # Server stuff
         self.tab_uploader.new_autorow()
         self.tab_uploader.add(egg.gui.Label('\nServer').set_style(self.style_category))
@@ -617,7 +624,7 @@ class Uploader:
             tip='Send the track, layout, and car selection to the selected server profile and switch to that profile.',
             signal_clicked=self._button_send_to_clicked), alignment=0).set_width(80)
         self.button_send_to.set_style(self.style_fancybutton)
-        self.combo_send_to = self.grid_go.add(egg.gui.ComboBox([])).set_width(120)
+        self.combo_send_to = self.grid_go.add(egg.gui.ComboBox([], signal_changed=self._any_server_setting_changed)).set_width(120)
 
         # List of items to save associated with each "server" entry in the top combo
         self._server_keys = [
@@ -641,6 +648,7 @@ class Uploader:
             'text_skins',
             'text_latest_skins',
             'text_tyres',
+            'text_setup',
             'number_slots',
             'checkbox_pre',
             'checkbox_modify',
@@ -653,8 +661,10 @@ class Uploader:
             'checkbox_monitor',
             'checkbox_url',
             'checkbox_post',
-            'text_filter_cars', # Do this as a last step
+            'combo_send_to', 
+            'text_filter_cars', # Do this as a last step!!!
         ]
+        
 
         ###################
         # Load the servers list
@@ -716,7 +726,6 @@ class Uploader:
             if item2: item2.setHidden(not search in item2.data(0).lower() and not item2.isSelected())
 
         # Save the setting in case we ever decide to load on boot. 
-        #self.server['settings']['text_filter_cars'] = self.text_filter_cars()
         if not self._loading_server: self.button_save_server.click()
 
     def unpack_skin(self, path):
@@ -912,7 +921,7 @@ class Uploader:
             self.combo_tracks.set_text(trackname)
             if len(self.combo_layouts.get_all_items()) > 0: self.combo_layouts.set_text(layoutname)
 
-            # JACK: Some problem here if we overwrite a carset
+            # JACK: Some problem here if we overwrite a carset, sometimes
             # If we have an unsaved carset, use the list, otherwise just choose the carset
             if carset == _unsaved_carset: self.set_list_selection(cars, self.list_cars, self._list_cars_changed)
             self.combo_carsets.set_text(carset)
@@ -1110,13 +1119,6 @@ class Uploader:
         # Refresh the content based on the assetto path
         self._button_refresh_clicked()
 
-        # Populate the send to combo
-        self.combo_send_to.clear()
-        for item in self.combo_server.get_all_items():
-            if item not in [self.combo_server.get_text(), _create_new_profile]:
-                self.combo_send_to.add_item(item)
-
-
     def _load_server_settings(self):
         """
         Loads the data for the settings tab only, based on the chosen server.
@@ -1127,11 +1129,19 @@ class Uploader:
         print('  loaded json')
 
         self._loading_server = True
+
+        # Populate the send to combo
+        self.combo_send_to.clear()
+        for item in self.combo_server.get_all_items():
+            if item not in [self.combo_server.get_text(), _create_new_profile]:
+                self.combo_send_to.add_item(item)
+
         dead_keys = []
         for key in self.server['settings']:
             try:    
                 # Special case: we do this one manually at the end.
-                exec('self.'+key+'.set_value(value)', dict(self=self, value=self.server['settings'][key]))
+                if key in self._server_keys: 
+                    exec('self.'+key+'.set_value(value)', dict(self=self, value=self.server['settings'][key]))
             except: 
                 print('  deleting', key)
                 dead_keys.append(key)
@@ -1227,10 +1237,9 @@ class Uploader:
 
         # Set up the server dictionary / json
         self.server['settings'] = dict()
-        for key in self._server_keys:
-            value = eval('self.'+key+'()', dict(self=self))
-            self.server['settings'][key] = value
-
+        for key in self._server_keys:  
+            self.server['settings'][key] = eval('self.'+key+'()', dict(self=self))
+    
         self.server['uploader'] = dict(
             combo_tracks  = self.combo_tracks.get_text(),
             combo_layouts = self.combo_layouts.get_text(),
@@ -1294,7 +1303,7 @@ class Uploader:
 
     def load_server_gui(self):
         """
-        Loads the previously selected profile and send to.
+        Loads the previously selected profile # and send to.
         """
         print('load_server_gui')
         gui = load_json('server.json')
@@ -1303,8 +1312,8 @@ class Uploader:
         try: self.combo_server.set_text(gui['combo_server'])
         except Exception as e: print('load_server_gui combo_server', e)
 
-        try: self.combo_send_to.set_text(gui['combo_send_to'])
-        except Exception as e: print('load_server_gui combo_send_to', e)
+        # try: self.combo_send_to.set_text(gui['combo_send_to'])
+        # except Exception as e: print('load_server_gui combo_send_to', e)
 
     def _checkbox_clean_changed(self, e=None):
         """
@@ -2101,9 +2110,6 @@ class Uploader:
         if 'pitboxes' not in self.track: self.track['pitboxes'] = 0
         N = min(N, int(self.track['pitboxes']))
 
-        #JACK: Add check to championship.json handling to see if it's a custom race, and adjust accordingly
-        #      when updating everything.
-
         # If this has 'Events' then it is a championship json. If not, then assume it is a custom race
         if 'Events' in c:
             self.log('Championship detected...')
@@ -2127,7 +2133,7 @@ class Uploader:
             e['RaceSetup']['Cars']  = ';'.join(selected_cars)
             e['RaceSetup']['Track']       = track
             e['RaceSetup']['TrackLayout'] = layout
-            e['RaceSetup']['LegalTyres']  = self.text_tyres() # JACK: UNPACK AND SCRAPE DATA.ACD? GROSS!!
+            e['RaceSetup']['LegalTyres']  = self.text_tyres() 
             
             # Reset the signup form, classes and events entrants
             c['SignUpForm']['Responses'] = [] # Always start clean now. Simpler
@@ -2140,6 +2146,13 @@ class Uploader:
             # Now fill the pitboxes
             for n in range(N):
                 
+                # Cyclic cars
+                entrant_car = selected_cars[n%len(selected_cars)]
+
+                # Fixed setup
+                setup = self.text_setup().strip()
+                if len(setup): setup = entrant_car+'/'+setup
+
                 # Create an entry for this one.
                 c['Classes'][0]['Entrants']['CAR_'+str(n+1)] = {
                     "InternalUUID": "%08d-0000-0000-0000-000000000000" % (n+1),
@@ -2147,13 +2160,13 @@ class Uploader:
                     "Name": "",
                     "Team": "",
                     "GUID": "",
-                    "Model": "any_car_model",
+                    "Model": "any_car_model" if setup == '' else entrant_car,
                     "Skin": "random_skin",
                     "ClassID": c['Classes'][0]['ID'], # Must match for championship
                     "Ballast":    0, # self.tree_cars[car+'/ballast']    if car+'/ballast'    in self.tree_cars.keys() else 0,
                     "Restrictor": 0, # self.tree_cars[car+'/restrictor'] if car+'/restrictor' in self.tree_cars.keys() else 0,
                     "SpectatorMode": 0,
-                    "FixedSetup": "",
+                    "FixedSetup": setup,
                     "ConnectAsSpectator": False,
                     "IsPlaceHolder": False}
 
@@ -2162,7 +2175,7 @@ class Uploader:
         
                 # Manually cycle the cars in the event so there are good cars for practice 
                 # (default server behavior is annoying)
-                c['Events'][0]['EntryList']['CAR_'+str(n)].update({'Model' : selected_cars[n%len(selected_cars)], })
+                c['Events'][0]['EntryList']['CAR_'+str(n)].update({'Model' : entrant_car, })
         
             # Finally, update the schedule, but only if we're in ACSM mode (we must be for this
             # function to have been called!) and the key exists, and it's actually scheduled!
@@ -2217,7 +2230,7 @@ class Uploader:
                     "Ballast":    0, # self.tree_cars[car+'/ballast']    if car+'/ballast'    in self.tree_cars.keys() else 0,
                     "Restrictor": 0, # self.tree_cars[car+'/restrictor'] if car+'/restrictor' in self.tree_cars.keys() else 0,
                     "SpectatorMode": 0,
-                    "FixedSetup": "",
+                    "FixedSetup": self.text_setup().strip(),
                     "ConnectAsSpectator": False,
                     "IsPlaceHolder": False}
 
