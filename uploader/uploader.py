@@ -50,7 +50,7 @@ _create_new_profile = '[Create New Profile]'
 # Get the last argument, which can be used to automate stuff
 if len(sys.argv): print('LAST ARGUMENT:', sys.argv[-1])
 
- 
+
 def get_all_file_paths(directory, excludes=[]):
   
     # initializing empty file paths list
@@ -554,6 +554,7 @@ class Uploader:
         self.text_setup = self.grid_tyres.add(egg.gui.TextBox('',
             tip='Fixed setup path, applied to all cars. Needs the subfolder and extension as well, e.g. "generic/LoPeN.ini".',
             signal_changed=self._any_server_setting_changed)).set_width(200)
+        self.checkbox_setup = self.grid_tyres.add(egg.gui.CheckBox('Use it.'))
 
         # Server stuff
         self.tab_uploader.new_autorow()
@@ -649,6 +650,7 @@ class Uploader:
             'text_latest_skins',
             'text_tyres',
             'text_setup',
+            'checkbox_setup',
             'number_slots',
             'checkbox_pre',
             'checkbox_modify',
@@ -858,9 +860,13 @@ class Uploader:
         packs_path = os.path.join(skins,'Livery Packs')
         if not os.path.exists(packs_path): os.mkdir(packs_path)
         
+        print('Packs:', packs_path)
+
         # Get the path to the pack for this carset and delete it.
         zip_path = os.path.join(packs_path, carset_safe + '.zip')
         if os.path.exists(zip_path): os.remove(zip_path)
+
+        print('Zip:', zip_path)
 
         # Load the custom skins list
         j = load_json('custom_skins.json')
@@ -884,9 +890,10 @@ class Uploader:
         if len(directories_to_zip):
             self.log('Zipping up skin pack...')
             zip_directories(directories_to_zip, zip_path, zip_excludes, self.update_progress)
-        
+            self.progress_bar.setValue(100)
+
         # Get the latest.zip path
-        if latest != '': 
+        if latest != '' and os.path.exists(zip_path): 
             self.log('Copying pack to ../'+latest)
             copy(zip_path, os.path.join(skins,latest))
         
@@ -1531,9 +1538,10 @@ class Uploader:
         """
         Uploads the current configuration to the server.
         """
-        try: self.do_upload(skins_only=skins_only)
-        except Exception as e:
-            self.log('ERROR:', e)
+        self.do_upload(skins_only=skins_only)
+#        try: self.do_upload(skins_only=skins_only)
+#        except Exception as e:
+#            self.log('ERROR:', e)
     
     def set_safe_mode(self, enabled=True):
         """
@@ -1553,12 +1561,16 @@ class Uploader:
         self.log('------- GO TIME! --------')
         self.set_safe_mode(True)
 
+        # Remove the uploads directory if it's there.
+        if os.path.exists('uploads'): rmtree('uploads')
+        if os.path.exists('uploads.zip'): os.remove('uploads.zip')
+
         # Pre-command
         if self.checkbox_pre() and self.text_precommand().strip() != '':
             self.log('Running pre-command')
             if self.system([self.text_precommand()]): return
 
-        # Generate the appropriate config files
+        # Generate the appropriate config files; This creates a setups folder if needed
         if self.checkbox_modify() and not skins_only: 
             if self.combo_mode() == SERVER_MODE_VANILLA: self.generate_acserver_cfg()
             elif self.generate_acsm_cfg(): return
@@ -1642,8 +1654,8 @@ class Uploader:
         self.import_and_package_skins()
 
         # Make sure it's clean
-        if os.path.exists('uploads'): rmtree('uploads')
-        if os.path.exists('uploads.zip'): os.remove('uploads.zip')
+        #if os.path.exists('uploads'): rmtree('uploads')
+        #if os.path.exists('uploads.zip'): os.remove('uploads.zip')
         
         # get the tracks and cars folders
         track = self.skcart[self.combo_tracks.get_text()] # Track directory
@@ -1686,7 +1698,7 @@ class Uploader:
 
     def upload_content(self, skins_only=False):
         """
-        Uploads uploads.zip and unpacks it remotely (if checked).
+        Compresses uploads folder to uploads.zip and uploads it.
         """
 
         # Server info
@@ -1890,8 +1902,9 @@ class Uploader:
         track  = self.skcart[self.combo_tracks.get_text()]
         layout = self.combo_layouts.get_text()
 
-        self.log(layout)
-        if layout != _default_layout: layout = self.stuoyal[layout]
+        self.log('Layout:', layout)
+        if layout == '': layout = _default_layout
+        if layout not in [_default_layout,'']: layout = self.stuoyal[layout]
 
         # Path to ui.json
         if layout == _default_layout: p = os.path.join(local,'content','tracks',track,'ui',       'ui_track.json')
@@ -2102,8 +2115,8 @@ class Uploader:
         selected_cars = self.get_selected_cars()
         track  = self.skcart[self.combo_tracks.get_text()]
         layout = self.combo_layouts.get_text()
-        if layout == _default_layout: layout = ''
-        else:                         layout = self.stuoyal[layout]
+        if layout not in [_default_layout, '']: layout = self.stuoyal[layout]
+        else:                                   layout = ''
 
         # Find the number of pitboxes
         N = self.number_slots()
@@ -2150,8 +2163,36 @@ class Uploader:
                 entrant_car = selected_cars[n%len(selected_cars)]
 
                 # Fixed setup
-                setup = self.text_setup().strip()
-                if len(setup): setup = entrant_car+'/'+setup
+                setup = ''
+                if self.checkbox_setup():
+                    setup = self.text_setup().strip()
+                    if len(setup): 
+                        # Get the "full" folder name
+                        setup = entrant_car+'/'+setup
+                    
+                        # This only works if the cars are cyclic; we do it once.
+                        if n < len(selected_cars):  
+                            self.log(' Fixed setup:', setup)
+
+                            # Setup path
+                            source = os.path.join(os.path.expanduser('~'), 'Documents', 'Assetto Corsa', 'setups', setup)
+
+                            # If the file exists copy it
+                            if os.path.exists(source):
+
+                                # Make the directory for the setup
+                                destination = os.path.join(os.getcwd(), 'uploads','setups',setup)
+                                os.makedirs(os.path.dirname(destination), exist_ok=True)
+                                try: copy(source, destination, follow_symlinks=True)
+                                except Exception as e: self.log(e)
+                            
+                            # Setup nonexistent
+                            else:
+                                self.log('SETUP DOES NOT EXIST:', source)
+
+                    # p = 
+                    # The uploads.zip file base folder is content, so we can make a setups folder as well.
+                    # Even if 'content' is not zipped I think.
 
                 # Create an entry for this one.
                 c['Classes'][0]['Entrants']['CAR_'+str(n+1)] = {
@@ -2492,6 +2533,10 @@ class Uploader:
         # Pre-command
         self.log('------- UPDATING SKINS -------')
         self.set_safe_mode(True)
+
+        # Remove the uploads directory if it's there.
+        if os.path.exists('uploads'): rmtree('uploads')
+        if os.path.exists('uploads.zip'): os.remove('uploads.zip')
 
         if self.text_precommand().strip() != '' and self.checkbox_pre():
             self.log('Running pre-command')
