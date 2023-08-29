@@ -701,7 +701,7 @@ class Uploader:
         """
         Runs the test remote command.
         """
-        test = self.text_test.get_text()  # For acsm
+        test = self.text_test()  # For acsm
         self.log('\n'+test+'\n')
 
         if test.strip() != '':
@@ -918,7 +918,9 @@ class Uploader:
         layoutname = self.combo_layouts.get_text()
         carset = self.combo_carsets.get_text()
         cars   = self.get_selected_cars() # This should always return the directories.
-        tyres  = self.text_tyres.get_text()
+        tyres  = self.text_tyres()
+        setup  = self.text_setup()
+        setup_enabled = self.checkbox_setup()
 
         try:
             # Now switch to the "send to" server
@@ -935,6 +937,10 @@ class Uploader:
 
             # Tyres
             self.text_tyres.set_text(tyres)
+
+            # Setup
+            self.text_setup(setup)
+            self.checkbox_setup(setup_enabled)
 
         except Exception as e: print('_button_send_to_clicked', e)
 
@@ -2156,11 +2162,27 @@ class Uploader:
             # Update the metadata
             c['Stats']['NumEntrants'] = N
             
+            # Dictionary containing list of skins for each car
+            skins = dict()
+
             # Now fill the pitboxes
             for n in range(N):
                 
                 # Cyclic cars
                 entrant_car = selected_cars[n%len(selected_cars)]
+
+                # If there is no list of skins yet or we've used them all get the list
+                if not entrant_car in skins or len(skins[entrant_car]) == 0:
+                    
+                    # Get the list
+                    x = os.path.join(self.text_local().strip(),'content','cars',entrant_car,'skins')
+                    skins[entrant_car] = next(os.walk(x))[1] # Cool command!
+                    
+                    # Shuffle it
+                    random.shuffle(skins[entrant_car])
+                
+                # Get the next (shuffled) skin
+                skin = skins[entrant_car].pop(0)
 
                 # Fixed setup
                 setup = ''
@@ -2201,8 +2223,8 @@ class Uploader:
                     "Name": "",
                     "Team": "",
                     "GUID": "",
-                    "Model": "any_car_model" if setup == '' else entrant_car,
-                    "Skin": "random_skin",
+                    "Model": entrant_car,
+                    "Skin": skin,
                     "ClassID": c['Classes'][0]['ID'], # Must match for championship
                     "Ballast":    0, # self.tree_cars[car+'/ballast']    if car+'/ballast'    in self.tree_cars.keys() else 0,
                     "Restrictor": 0, # self.tree_cars[car+'/restrictor'] if car+'/restrictor' in self.tree_cars.keys() else 0,
