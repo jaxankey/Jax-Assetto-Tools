@@ -2216,15 +2216,21 @@ class Uploader:
                     # The uploads.zip file base folder is content, so we can make a setups folder as well.
                     # Even if 'content' is not zipped I think.
 
-                # Create an entry for this one.
+                # In "Classes/Entrants", we have to specify "any_car_model" and "random_skin"
+                # So that there aren't a fixed number of each to choose from for the race.
                 c['Classes'][0]['Entrants']['CAR_'+str(n+1)] = {
                     "InternalUUID": "%08d-0000-0000-0000-000000000000" % (n+1),
                     "PitBox": n,
                     "Name": "",
                     "Team": "",
                     "GUID": "",
-                    "Model": entrant_car,
-                    "Skin": skin,
+
+                    # We need to specify the full car if we do fixed setup
+                    # This unfortunately places restrictions on the number 
+                    # of each type of car. Not a problem with spec races, though.
+                    "Model": entrant_car if len(setup) else "any_car_model",
+                    "Skin" : skin if len(setup) else "any_car_model",
+                    
                     "ClassID": c['Classes'][0]['ID'], # Must match for championship
                     "Ballast":    0, # self.tree_cars[car+'/ballast']    if car+'/ballast'    in self.tree_cars.keys() else 0,
                     "Restrictor": 0, # self.tree_cars[car+'/restrictor'] if car+'/restrictor' in self.tree_cars.keys() else 0,

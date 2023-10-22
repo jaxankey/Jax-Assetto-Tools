@@ -1364,7 +1364,7 @@ class Monitor:
             # If the server is up, return the full join link etc.
             if self['server_is_up']:
                 try: 
-                    new_ip = requests.get('https://ifconfig.me', timeout=3).text
+                    new_ip = requests.get('https://api.ipify.org', timeout=3).text
 
                     # Test if it breaks
                     ipaddress.ip_address(new_ip)
