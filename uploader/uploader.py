@@ -2656,6 +2656,9 @@ class Uploader:
                 # Clear the '-' and spaces.
                 trackname = trackname.replace('-','').strip()
 
+                # If it's nothing, use track
+                if trackname == '': trackname = track
+
             # Store the lookup and reverse-lookup.
             self.tracks[track] = trackname
             self.skcart[trackname] = track
