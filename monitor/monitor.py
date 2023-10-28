@@ -1569,7 +1569,7 @@ class Monitor:
             # This is a hack; I'm not sure why sometimes seen_namecars is empty but there
             # is an online_message_id, except on startup or new venue.
             if len(errbody):
-                body1 = session_complete_header+'\n\nParticipants:\n'+'\n'.join(errbody) + '\n\n'
+                body1 = session_complete_header+'\n\nParticipants:\n'+'\n'.join(errbody) + '\n' # JACK
                 self['online_message_id'] = self.send_message(self.webhook_online, '', body1, '', '\n'+online_footer+self.get_join_link(), self['online_message_id'], 0)
                 
                 # Remember the time this message was "closed". If a new session
