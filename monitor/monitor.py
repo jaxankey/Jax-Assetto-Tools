@@ -1309,12 +1309,12 @@ class Monitor:
 
         # Now assemble the recents list
         recents = []; n=1
-        to_pop = []
+        old_namecars = []
         for namecar in self['seen_namecars'].keys():
             
             # Trim out those that are too old (10 minutes)
             if time.time() - self['seen_namecars'][namecar] > 10*60:
-                to_pop.append(namecar)
+                old_namecars.append(namecar)
             
             # Otherwise, add it to the list of recents
             elif not namecar in online_namecars:
@@ -1322,7 +1322,7 @@ class Monitor:
                 n += 1
         
         # Prune; we do this separately to not change the keys size in the above loop
-        for namecar in to_pop: self['seen_namecars'].pop(namecar)
+        # for namecar in old_namecars: self['seen_namecars'].pop(namecar)
 
         # Return the string
         s = '**'+'\n'.join(onlines)+'**'
