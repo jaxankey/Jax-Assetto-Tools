@@ -1474,7 +1474,8 @@ class Monitor:
                 reg_string1 = nametime1  # Bottom registration stylized
 
         # Get the laps info footer now for later computing the length
-        footer = '\n\n'+reg_string1+laps_footer+join_link
+        # JACK
+        footer = '\n'+reg_string1+laps_footer+join_link
 
         # Track name
         track_name = self['track_name']
