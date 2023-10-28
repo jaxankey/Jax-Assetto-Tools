@@ -1518,7 +1518,7 @@ class Monitor:
         if debug and laps: log('LAPS\n'+laps)
 
         # Below the venue and above laps
-        if laps and len(laps): body1 = body1 + '\n' + laps
+        if laps and len(laps): body1 = body1 + '\n' + laps + '\n' # JACK
 
         # Send the main info message. Body 1 is the laps list, body 2 includes previous onlines
         self['laps_message_id'] = self.send_message(self.webhook_info, '', body1, body2, footer, self['laps_message_id'], color=color)
