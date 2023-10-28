@@ -1504,7 +1504,7 @@ class Monitor:
         # Separate body for who's online (laps get cut first)
         body2 = ''
         if onlines:
-            body2 = '\n\n**' + online_header + '**\n' + onlines
+            body2 = '\n**' + online_header + '**\n' + onlines # JACK
             color = color_onlines
         elif self['server_is_up']: color = color_server_up
         else:                      color = 0
