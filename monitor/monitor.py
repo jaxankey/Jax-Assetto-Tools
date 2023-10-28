@@ -1465,7 +1465,8 @@ class Monitor:
                 # Create the top_timestamp.
                 top_timestamp = '\n' + nametime1 \
                                 + '\n`Qual:` ' + ' <t:' + tq + ':t>' + ' (<t:' + tq + ':R>)' \
-                                + '\n`Race:` ' + ' <t:' + tr + ':t>' + ' (<t:' + tr + ':R>)'
+                                + '\n`Race:` ' + ' <t:' + tr + ':t>' + ' (<t:' + tr + ':R>)' \
+                                + '\n' #JACK
 
             # Linkify it if there is registration info
             if type(url_registration) is str and self['number_slots']:
