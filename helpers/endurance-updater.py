@@ -141,8 +141,9 @@ else:
         # One of the remaining slots. Make sure to overwrite what's there with "no team"
         else: 
             team_name = ''
-            livery = 'random_skin'
-            ids = ''
+            car       = 'any_car_model'
+            livery    = 'random_skin'
+            ids       = ''
 
         
 
