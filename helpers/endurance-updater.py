@@ -114,11 +114,16 @@ if c == None:
 
 # Start the show
 else:
+    # All the team names
     team_names = list(teams.keys())
+    
+    # List of missing skins to print for the user at the end.
     missing_skins = []
+
+    # Loop over the entrylist for the event in the championship json
     for n in range(len(list(c['Events'][0]['EntryList'].keys()))): 
         
-        # If we have a team fill the slot
+        # If we have not yet depleted our teams
         if n < len(team_names):
             
             # Get earliest entry first.
