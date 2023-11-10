@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-import pandas, os, json, pprint, codecs, shutil, sys, discord
+import os, json, pprint, codecs, shutil, sys
+import pandas, discord
 
 # Change to the directory of this script
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
@@ -9,6 +10,7 @@ os.chdir(os.path.dirname(os.path.abspath(__file__)))
 csv_path          = ''
 assetto_path      = ''
 championship_path = ''
+max_drivers       = 4
 car_folders       = {}
 
 # Get the user values from the ini file
@@ -27,13 +29,20 @@ print('-----------------------------------------------')
 print('CSV PARSE\n')
 
 # Run through the spreadsheet in reverse order to favor later submissions.
-for n in range(len(data['Team Name'])-1,-1,-1): 
+for n in range(len(data['Team Car'])-1,-1,-1): 
     
     # Empty lines
-    if not type(data['Team Name'][n]) == str: continue
+    if not type(data['Team Car'][n]) == str: continue
 
-    # Get the team name and car folder
-    team_name = data['Team Name'][n].strip()
+    # Get the team name
+    driver_names = []
+    for m in range(1,max_drivers+1):
+        driver_name = data['Driver '+str(m)+' Short Name'][n]
+        if type(driver_name) == str:
+            driver_names.append(driver_name.strip()[0:8])
+    team_name = '/'.join(driver_names)
+
+    # Get the car folder
     car       = car_folders[data['Team Car'][n].strip()].strip()
     livery    = str(data['Livery FOLDER Name'][n]).strip()
     if livery == 'nan': livery = 'random_skin'
@@ -48,9 +57,9 @@ for n in range(len(data['Team Name'])-1,-1,-1):
         #print(n, repr(team_name), car, livery)
 
         # Loop over the up to 8 drivers, adding their names and ids
-        for m in range(1,9):
+        for m in range(1,max_drivers+1):
             
-            key_name = 'Driver '+str(m)+' Discord Name'
+            key_name = 'Driver '+str(m)+' Short Name'
             key_id   = 'Driver '+str(m)+' Steam ID'
             
             if type(data[key_id][n])==str:
@@ -69,6 +78,12 @@ for n in range(len(data['Team Name'])-1,-1,-1):
                     ids[id] = team_name
                     teams[team_name]['ids']  .append(id)
                     teams[team_name]['names'].append(name)
+
+# Pop all teams with no ids
+team_names = list(teams.keys())
+for team_name in team_names:
+    if len(teams[team_name]['ids'])==0:
+        teams.pop(team_name)
 
 # print('-----------------------------------------------')
 #pprint.pprint(teams)
@@ -90,84 +105,79 @@ def load_json(path):
         print('ERROR: Could not load', path)
         print(e)
 
-# Pop all teams with no ids
-team_names = list(teams.keys())
-for team_name in team_names:
-    if len(teams[team_name]['ids'])==0:
-        teams.pop(team_name)
-
 # Now loop over the teams and update the championship
 # Function for loading a json at the specified path
 c = load_json(championship_path)
-
 if c == None: 
-    print('NOPE', championship_path, 'did not load.')
-    quit()
+    print(championship_path, 'did not load.')
+    pprint.pprint(teams)
 
-team_names = list(teams.keys())
-missing_skins = []
-for n in range(len(list(c['Events'][0]['EntryList'].keys()))): 
-    
-    # If we have a team fill the slot
-    if n < len(team_names):
+# Start the show
+else:
+    team_names = list(teams.keys())
+    missing_skins = []
+    for n in range(len(list(c['Events'][0]['EntryList'].keys()))): 
         
-        # Get earliest entry first.
-        team_name = team_names[len(team_names)-1-n]
+        # If we have a team fill the slot
+        if n < len(team_names):
+            
+            # Get earliest entry first.
+            team_name = team_names[len(team_names)-1-n]
 
-        # Get the car folder
-        car = teams[team_name]['car']
+            # Get the car folder
+            car = teams[team_name]['car']
 
-        # If the livery folder exists, use it; otherwise, use 'random_skin'
-        livery = teams[team_name]['livery']
-        ids = ';'.join(teams[team_name]['ids'])
-        
-        print(str(n+1)+'.', repr(team_name), repr(car), repr(livery)) #, repr(ids))
-        print('    '+'\n    '.join(teams[team_name]['names']))
-        
-        if livery != 'random_skin' and not os.path.exists(os.path.join(assetto_path, 'content', 'cars', car, 'skins', livery)): 
-            missing_skins.append('  '+ repr(teams[team_name]['livery']) + ' ('+team_name+', '+car+')')
+            # If the livery folder exists, use it; otherwise, use 'random_skin'
+            livery = teams[team_name]['livery']
+            ids = ';'.join(teams[team_name]['ids'])
+            
+            print(str(n+1)+'.', repr(team_name), repr(car), repr(livery)) #, repr(ids))
+            print('    '+'\n    '.join(teams[team_name]['names']))
+            
+            if livery != 'random_skin' and not os.path.exists(os.path.join(assetto_path, 'content', 'cars', car, 'skins', livery)): 
+                missing_skins.append('  '+ repr(teams[team_name]['livery']) + ' ('+team_name+', '+car+')')
+                livery = 'random_skin'
+            
+        # One of the remaining slots. Make sure to overwrite what's there with "no team"
+        else: 
+            team_name = ''
             livery = 'random_skin'
+            ids = ''
+
         
-    # One of the remaining slots. Make sure to overwrite what's there with "no team"
+
+        # Make sure the internal uuid's match
+        uuid = c['Classes'][0]['Entrants']['CAR_%d'%(n+1)]['InternalUUID']
+        c['Events'][0]['EntryList']['CAR_%d'%(n  )]['InternalUUID'] = uuid
+
+        c['Classes'][0]['Entrants']['CAR_%d'%(n+1)]['PitBox'] = n
+        c['Events'][0]['EntryList']['CAR_%d'%(n  )]['PitBox'] = n
+
+        c['Classes'][0]['Entrants']['CAR_%d'%(n+1)]['Name'] = team_name
+        c['Events'][0]['EntryList']['CAR_%d'%(n  )]['Name'] = team_name
+
+        c['Classes'][0]['Entrants']['CAR_%d'%(n+1)]['Model'] = car
+        c['Events'][0]['EntryList']['CAR_%d'%(n  )]['Model'] = car
+
+        c['Classes'][0]['Entrants']['CAR_%d'%(n+1)]['Skin'] = livery
+        c['Events'][0]['EntryList']['CAR_%d'%(n  )]['Skin'] = livery
+
+        c['Classes'][0]['Entrants']['CAR_%d'%(n+1)]['GUID'] = ids
+        c['Events'][0]['EntryList']['CAR_%d'%(n  )]['GUID'] = ids
+
+    if len(missing_skins): 
+        s = 'MISSING SKIN FOLDERS\n'+'\n'.join(missing_skins)
+        print('\n-------------------------------------\n'+s)
+    
+        
+    print()
+
+    if len(sys.argv) > 1 and sys.argv[1] == 'yes' or input('Do it? ').strip() == 'yes':
+
+        shutil.move(championship_path, championship_path+'.backup', )
+        f = open(championship_path, 'w', encoding="utf8")
+        json.dump(c, f, indent=2)
+        f.close()
+
     else: 
-        team_name = ''
-        livery = 'random_skin'
-        ids = ''
-
-    
-
-    # Make sure the internal uuid's match
-    uuid = c['Classes'][0]['Entrants']['CAR_%d'%(n+1)]['InternalUUID']
-    c['Events'][0]['EntryList']['CAR_%d'%(n  )]['InternalUUID'] = uuid
-
-    c['Classes'][0]['Entrants']['CAR_%d'%(n+1)]['PitBox'] = n
-    c['Events'][0]['EntryList']['CAR_%d'%(n  )]['PitBox'] = n
-
-    c['Classes'][0]['Entrants']['CAR_%d'%(n+1)]['Name'] = team_name
-    c['Events'][0]['EntryList']['CAR_%d'%(n  )]['Name'] = team_name
-
-    c['Classes'][0]['Entrants']['CAR_%d'%(n+1)]['Model'] = car
-    c['Events'][0]['EntryList']['CAR_%d'%(n  )]['Model'] = car
-
-    c['Classes'][0]['Entrants']['CAR_%d'%(n+1)]['Skin'] = livery
-    c['Events'][0]['EntryList']['CAR_%d'%(n  )]['Skin'] = livery
-
-    c['Classes'][0]['Entrants']['CAR_%d'%(n+1)]['GUID'] = ids
-    c['Events'][0]['EntryList']['CAR_%d'%(n  )]['GUID'] = ids
-
-if len(missing_skins): 
-    s = 'MISSING SKIN FOLDERS\n'+'\n'.join(missing_skins)
-    print('\n-------------------------------------\n'+s)
-   
-    
-print()
-
-if len(sys.argv) > 1 and sys.argv[1] == 'yes' or input('Do it? ').strip() == 'yes':
-
-    shutil.move(championship_path, championship_path+'.backup', )
-    f = open(championship_path, 'w', encoding="utf8")
-    json.dump(c, f, indent=2)
-    f.close()
-
-else: 
-    pprint.pprint(c)
+        pprint.pprint(c)
