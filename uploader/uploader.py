@@ -2229,7 +2229,7 @@ class Uploader:
                     # This unfortunately places restrictions on the number 
                     # of each type of car. Not a problem with spec races, though.
                     "Model": entrant_car if len(setup) else "any_car_model",
-                    "Skin" : skin if len(setup) else "any_car_model",
+                    "Skin" : skin if len(setup) else "random_skin",
                     
                     "ClassID": c['Classes'][0]['ID'], # Must match for championship
                     "Ballast":    0, # self.tree_cars[car+'/ballast']    if car+'/ballast'    in self.tree_cars.keys() else 0,

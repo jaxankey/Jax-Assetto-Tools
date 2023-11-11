@@ -156,7 +156,9 @@ else:
 
         # Make sure the internal uuid's match
         uuid = c['Classes'][0]['Entrants']['CAR_%d'%(m)]['InternalUUID']
+        classID = c['Classes'][0]['ID'], # Must match for championship
         c['Events'][0]['EntryList']['CAR_%d'%(n)]['InternalUUID'] = uuid
+        c['Events'][0]['EntryList']['CAR_%d'%(n)]["ClassID"]      = classID
 
         c['Classes'][0]['Entrants']['CAR_%d'%(m)]['PitBox'] = n
         c['Events'][0]['EntryList']['CAR_%d'%(n)]['PitBox'] = n
