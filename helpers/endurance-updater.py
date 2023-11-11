@@ -150,26 +150,28 @@ else:
             livery    = 'random_skin'
             ids       = ''
 
-        
+        # Some instances start with CAR_0 and some start with CAR_1
+        if 'CAR_0' in c['Classes'][0]['Entrants']: m = n
+        else:                                      m = n+1
 
         # Make sure the internal uuid's match
-        uuid = c['Classes'][0]['Entrants']['CAR_%d'%(n+1)]['InternalUUID']
-        c['Events'][0]['EntryList']['CAR_%d'%(n  )]['InternalUUID'] = uuid
+        uuid = c['Classes'][0]['Entrants']['CAR_%d'%(m)]['InternalUUID']
+        c['Events'][0]['EntryList']['CAR_%d'%(n)]['InternalUUID'] = uuid
 
-        c['Classes'][0]['Entrants']['CAR_%d'%(n+1)]['PitBox'] = n
-        c['Events'][0]['EntryList']['CAR_%d'%(n  )]['PitBox'] = n
+        c['Classes'][0]['Entrants']['CAR_%d'%(m)]['PitBox'] = n
+        c['Events'][0]['EntryList']['CAR_%d'%(n)]['PitBox'] = n
 
-        c['Classes'][0]['Entrants']['CAR_%d'%(n+1)]['Name'] = team_name
-        c['Events'][0]['EntryList']['CAR_%d'%(n  )]['Name'] = team_name
+        c['Classes'][0]['Entrants']['CAR_%d'%(m)]['Name'] = team_name
+        c['Events'][0]['EntryList']['CAR_%d'%(n)]['Name'] = team_name
 
-        c['Classes'][0]['Entrants']['CAR_%d'%(n+1)]['Model'] = car
-        c['Events'][0]['EntryList']['CAR_%d'%(n  )]['Model'] = car
+        c['Classes'][0]['Entrants']['CAR_%d'%(m)]['Model'] = car
+        c['Events'][0]['EntryList']['CAR_%d'%(n)]['Model'] = car
 
-        c['Classes'][0]['Entrants']['CAR_%d'%(n+1)]['Skin'] = livery
-        c['Events'][0]['EntryList']['CAR_%d'%(n  )]['Skin'] = livery
+        c['Classes'][0]['Entrants']['CAR_%d'%(m)]['Skin'] = livery
+        c['Events'][0]['EntryList']['CAR_%d'%(n)]['Skin'] = livery
 
-        c['Classes'][0]['Entrants']['CAR_%d'%(n+1)]['GUID'] = ids
-        c['Events'][0]['EntryList']['CAR_%d'%(n  )]['GUID'] = ids
+        c['Classes'][0]['Entrants']['CAR_%d'%(m)]['GUID'] = ids
+        c['Events'][0]['EntryList']['CAR_%d'%(n)]['GUID'] = ids
 
     if len(missing_skins): 
         s = 'MISSING SKIN FOLDERS\n'+'\n'.join(missing_skins)
