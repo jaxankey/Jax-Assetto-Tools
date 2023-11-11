@@ -12,6 +12,7 @@ assetto_path      = ''
 championship_path = ''
 max_drivers       = 4
 car_folders       = {}
+filler_cars       = []
 
 # Get the user values from the ini file
 if os.path.exists('endurance-updater.ini.private'): p = 'endurance-updater.ini.private'
@@ -143,10 +144,10 @@ else:
                 missing_skins.append('  '+ repr(teams[team_name]['livery']) + ' ('+team_name+', '+car+')')
                 livery = 'random_skin'
             
-        # One of the remaining slots. Make sure to overwrite what's there with "no team"
+        # One of the remaining slots. Make sure to overwrite what's there with "no team" and "no ids"
         else: 
             team_name = ''
-            car       = 'any_car_model'
+            car       = filler_cars[n%len(filler_cars)]
             livery    = 'random_skin'
             ids       = ''
 
