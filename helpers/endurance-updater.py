@@ -44,7 +44,7 @@ for n in range(len(data['Team Car'])-1,-1,-1):
 
             # No id
             if type(data['Driver '+str(m)+' Steam ID'][n]) != str:
-                driver_name = driver_name+'(No SteamID)'
+                driver_name = driver_name+' (NO ID!)'
                 print(driver_name)
 
             driver_names.append(driver_name)
