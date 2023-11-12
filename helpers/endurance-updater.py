@@ -40,6 +40,11 @@ for n in range(len(data['Team Car'])-1,-1,-1):
     for m in range(1,max_drivers+1):
         driver_name = data['Driver '+str(m)+' Short Name'][n]
         if type(driver_name) == str:
+
+            # No id
+            if type(data['Driver '+str(m)+' Steam ID'][n]) != str:
+                driver_name = '[No SteamID]'
+
             driver_names.append(driver_name.strip()[0:8])
     team_name = '/'.join(driver_names)
 
