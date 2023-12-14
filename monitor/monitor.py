@@ -1205,7 +1205,7 @@ class Monitor:
             tm = self.from_ms(median(all_bests), True)
 
             # Append this to the string
-            lines.append('\n**Mid-Pace ('+str(min_lap_count)+' lap minimum)**')
+            lines.append('\n**Mid-Pace ('+str(min_lap_count)+'+ laps)**')
         
             # If N > 1, add a summary
             if len(car_bests) > 1: lines.append('`' + tm + '` Driver Best ('+str(N)+')')

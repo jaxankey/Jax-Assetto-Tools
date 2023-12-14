@@ -830,6 +830,7 @@ class Uploader:
 
         # Now unpack each
         if len(paths): self.log('Unpacking queued skins:')
+        else:          self.log('(no skins in queue)')
         for path in paths: self.unpack_skin(path)
 
 
