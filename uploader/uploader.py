@@ -1905,6 +1905,9 @@ class Uploader:
             ui_path = os.path.join(self.text_local(), 'content', 'tracks', track, 'ui', layout, 'ui_track.json')
             if os.path.exists(ui_path): layoutname = load_json(ui_path)['name']
 
+            # Ensure there are no duplicates
+            layoutname = layoutname + ' ('+layout+')'
+
             # Populate the lookup and reverse lookup
             self.layouts[layout] = layoutname
             self.stuoyal[layoutname] = layout
@@ -1937,7 +1940,7 @@ class Uploader:
         track  = self.skcart[self.combo_tracks.get_text()]
         layout = self.combo_layouts.get_text()
 
-        self.log('Layout:', layout)
+        #self.log('Layout:', layout)
         if layout == '': layout = _default_layout
         if layout not in [_default_layout,'']: layout = self.stuoyal[layout]
 
