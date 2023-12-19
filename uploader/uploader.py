@@ -830,7 +830,6 @@ class Uploader:
 
         # Now unpack each
         if len(paths): self.log('Unpacking queued skins:')
-        else:          self.log('(no skins in queue)')
         for path in paths: self.unpack_skin(path)
 
 
@@ -1694,6 +1693,35 @@ class Uploader:
             self.log('  '+ self.cars[car])
             self.collect_assetto_files(os.path.join('cars',car), skins_only)
 
+            # Fixed setup
+            setup = ''
+            if self.checkbox_setup():
+                setup = self.text_setup().strip()
+                if len(setup): 
+                    # Get the "full" folder name
+                    setup = car+'/'+setup
+                
+                    self.log('    Fixed setup:', setup)
+
+                    # Setup path
+                    source = os.path.join(os.path.expanduser('~'), 'Documents', 'Assetto Corsa', 'setups', setup)
+
+                    # If the file exists copy it
+                    if os.path.exists(source):
+
+                        # Make the directory for the setup
+                        destination = os.path.join(os.getcwd(), 'uploads','setups',setup)
+                        os.makedirs(os.path.dirname(destination), exist_ok=True)
+                        try: copy(source, destination, follow_symlinks=True)
+                        except Exception as e: self.log(e)
+                    
+                    # Setup nonexistent
+                    else:
+                        self.log('SETUP DOES NOT EXIST:', source)
+
+
+
+
         # Copy over the carsets folder too.
         if not skins_only: copytree('carsets', os.path.join('uploads','carsets'))
 
@@ -2185,34 +2213,7 @@ class Uploader:
                 # Get the next (shuffled) skin
                 skin = skins[entrant_car].pop(0)
 
-                # Fixed setup
-                setup = ''
-                if self.checkbox_setup():
-                    setup = self.text_setup().strip()
-                    if len(setup): 
-                        # Get the "full" folder name
-                        setup = entrant_car+'/'+setup
-                    
-                        # This only works if the cars are cyclic; we do it once.
-                        if n < len(selected_cars):  
-                            self.log(' Fixed setup:', setup)
-
-                            # Setup path
-                            source = os.path.join(os.path.expanduser('~'), 'Documents', 'Assetto Corsa', 'setups', setup)
-
-                            # If the file exists copy it
-                            if os.path.exists(source):
-
-                                # Make the directory for the setup
-                                destination = os.path.join(os.getcwd(), 'uploads','setups',setup)
-                                os.makedirs(os.path.dirname(destination), exist_ok=True)
-                                try: copy(source, destination, follow_symlinks=True)
-                                except Exception as e: self.log(e)
-                            
-                            # Setup nonexistent
-                            else:
-                                self.log('SETUP DOES NOT EXIST:', source)
-
+                
                     # p = 
                     # The uploads.zip file base folder is content, so we can make a setups folder as well.
                     # Even if 'content' is not zipped I think.
