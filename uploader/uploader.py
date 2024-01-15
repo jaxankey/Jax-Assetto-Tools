@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 import os, sys, random
+import discord
+from PIL import Image # Cannot seem to save dds as DXT3 yet.
 from importlib import util
 from datetime import timedelta, datetime, timezone
 from time import time, sleep
@@ -20,11 +22,8 @@ from zipfile import ZipFile, ZIP_DEFLATED
 import os
 
 ###JJJJJJJJJJJJJJJACK
-# Rename server not working?
-# Weird server names / length limit / characters {}?
+# Problems with starting from scratch.
 # First time new server can't connect for some reason until close / re-open
-# When connecting, see if connection exists before closing
-# Disconnecting should unfreeze the lefthand controls.
 
 SERVER_MODE_PREMIUM = 0
 SERVER_MODE_VANILLA = 1
@@ -467,6 +466,18 @@ class Uploader:
             signal_changed=self._any_server_setting_changed), alignment=0)
         
 
+        self.tab_settings.new_autorow()
+        self.tab_settings.add(egg.gui.Label('Discord Webhook for Errors:'))
+        self.text_webhook_errors = self.tab_settings.add(egg.gui.TextBox('',
+            tip='Optional discord webhook for sending error messages. Currently only for issues with liveries.',
+            signal_changed=self._any_server_setting_changed), alignment=0)
+        
+        self.tab_settings.new_autorow()
+        self.tab_settings.add(egg.gui.Label('Maximum Texture Resolution:'))
+        self.number_max_dds_size = self.tab_settings.add(egg.gui.NumberBox(2048,
+            tip='Maximum allowed width / height (in pixels) of uploaded livery dds files. Zero to disable this check.',
+            signal_changed=self._any_server_setting_changed), alignment=0)
+        
         # self.tab_settings.new_autorow()
         # self.label_test = self.tab_settings.add(egg.gui.Label('Test Remote Command:'))
         # self.text_test = self.tab_settings.add(egg.gui.TextBox('', tip='Remote test command for debugging.'), alignment=0)
@@ -648,6 +659,8 @@ class Uploader:
             'text_url2',
             'text_skins',
             'text_latest_skins',
+            'text_webhook_errors',
+            'number_max_dds_size',
             'text_tyres',
             'text_setup',
             'checkbox_setup',
@@ -730,6 +743,59 @@ class Uploader:
         # Save the setting in case we ever decide to load on boot. 
         if not self._loading_server: self.button_save_server.click()
 
+    def send_discord_error_message(self, message='', body='', color=15548997):
+        """
+        Sends a message (message, 2000 character limit) and an embed
+        (body1, body2, footer, 4096 characters total). Returns the message id
+        """
+        webhook_url = self.text_webhook_errors.get_text().strip()
+        if not len(webhook_url): return
+        
+        # Make the webhook
+        try: webhook = discord.SyncWebhook.from_url(webhook_url)
+        except Exception as e:
+            self.log('ERROR: Could not create webhook.\n', e)
+            return
+        
+        # Keep the total character limit below 4096, cutting body1 first, then body 2
+        if len(body)    > 4090: body    = body[0:4090]    + ' ...'
+        if len(message) > 2000: message = message[0:1995] + '\n...'
+
+        # Make the discord embed for the body
+        e = discord.Embed()
+        e.color       = color
+        e.description = body
+        
+        # Try to send it
+        try: 
+            if len(e.description): message_id = webhook.send(message, embeds=[e], wait=True).id
+            else:                  message_id = webhook.send(message, embeds=[ ], wait=True).id
+        except Exception as x:
+            self.log('ERROR: Could not send discord message.', message_id, e, x)
+            message_id = None
+
+        # Return the id just in case.
+        return message_id
+    
+
+
+    def valid_dds_file(self, path):
+        """
+        Give the path to a dds and it will check it against self.number_dds_max_size
+        """
+        if path.split('.')[-1] != 'dds' or self.number_max_dds_size() <= 0: return True
+
+        # Check the size
+        try:
+            img = Image.open(path)
+            if img.width > self.number_max_dds_size(): return False
+            return True
+        
+        # Couldn't open the file or something
+        except:
+            self.log('  ERROR: Could not check size of', path.split('assettocorsa')[-1])
+            return False
+            
     def unpack_skin(self, path):
         """
         Takes the supplied full zip path, validates it (sorta) and 
@@ -745,9 +811,10 @@ class Uploader:
         if skins == '' or not os.path.exists(skins): return
         if local == '' or not os.path.exists(cars) : return
         
-        # Whether we found a skins folder in the archive
-        skins_found = False
-
+        # Validity conditions
+        skins_found = False # Whether we found a skins folder in the archive
+        bad_files   = []    # List of bad (dds) files
+        
         # Try navigating the zip file
         try: 
             # Get the zipfile object
@@ -761,61 +828,85 @@ class Uploader:
             for x in z.infolist():
 
                 # If this one is not a directory
-                if not x.is_dir():
+                if x.is_dir(): continue
 
-                    # split the path to get components
-                    ls = x.filename.lower().split('/') # Lower case
-                    us = x.filename.split('/')         # Normal case
+                # split the path to get components
+                ls = x.filename.lower().split('/') # Lower case
+                us = x.filename.split('/')         # Normal case
 
-                    # Look for the skins folder
-                    i_skins = -1
-                    if 'skins' in ls: 
-                        i_skins = ls.index('skins')
-                        skins_found = True
+                # Look for the skins folder
+                i_skins = -1
+                if 'skins' in ls: 
+                    i_skins = ls.index('skins')
+                    skins_found = True
 
-                    # if the index is zero or lower, we don't know what car it is
-                    if i_skins > 0: 
+                # if the index is zero or lower, we don't know what car it is
+                if i_skins <= 0: continue 
 
-                        # Get the output path
-                        path_out = os.path.join(cars, *us[i_skins-1:])
-                        
-                        # Make sure it doesn't exist
-                        if os.path.exists(path_out): os.unlink(path_out)
+                # Remember the last valid car and skin folder
+                car = us[i_skins-1]
+                skin = us[i_skins+1]
 
-                        # Make the zipinfo filename just the file
-                        x.filename = os.path.basename(x.filename)
+                # Get the output path
+                path_out = os.path.join(cars, *us[i_skins-1:])
+                
+                # Make sure it doesn't exist
+                if os.path.exists(path_out): os.unlink(path_out)
 
-                        if x.filename not in ['desktop.ini'] and len(us)-i_skins == 3:
+                # Make the zipinfo filename just the file
+                x.filename = os.path.basename(x.filename)
 
-                            # Extract
-                            #print('  Extracting to', path_out)
-                            dir_path_out = os.path.dirname(path_out)
-                            z.extract(x, dir_path_out)
-                            
-                            # Append path to dir if not there
-                            car = us[i_skins-1]
-                            skin = us[i_skins+1]
-                            if car not in j: j[car] = []
-                            if skin not in j[car]: j[car].append(skin) 
-                                
-            # It... worked?
+                # If this is a file we care about, and it comes from a path
+                # at least 3 deep
+                if x.filename not in ['desktop.ini'] and len(us)-i_skins == 3:
+
+                    # Extract
+                    dir_path_out = os.path.dirname(path_out)
+                    z.extract(x, dir_path_out)
+                    
+                    # If this is a bad file
+                    if not self.valid_dds_file(os.path.join(dir_path_out, x.filename)):
+                        bad_files.append(x.filename)   
+
+            # End of loop over files in zip
+
+            # Close the zip file and delete it, regardless of whether it worked
             z.close()
-            if skins_found: os.unlink(path)
+            os.unlink(path)
 
-            # Save the list
-            dump_json(j, 'custom_skins.json')
-                        
+            # If it's valid, dump the updated list of skins.
+            if skins_found and len(bad_files)==0: 
+                
+                # Add this to the json using the last valid car and skin folder names
+                if car not in j: j[car] = []
+                if skin not in j[car]: j[car].append(skin) 
+                dump_json(j, 'custom_skins.json')
+            
+            # Otherwise something went wrong, so send a message about it.
+            else: 
+                # Assemble the error log for this car
+                zip_filename = os.path.split(path)[-1]
+                message = '   ' + zip_filename + ' is invalid:'
+
+                # Add custom issues.
+                if not skins_found   : message = message + '\n   * skins folder not found'
+                for file in bad_files: message = message + '\n   * '+file+' resolution greater than %d' % self.number_max_dds_size()
+
+                # Log
+                self.log(message)
+                self.send_discord_error_message('', message)
+                
+                
+
+            # End of different cases for validity of zip file.
+
+        # End of try
+
         # Just in case it's a bad file.
-        except Exception as e: 
-            self.log('Ass.', e)
-            skins_found = False
-
-        # Invalid file
-        if not skins_found:
-            self.log('    ', os.path.split(path)[-1], 'is invalid.')
-            # dir_failed = os.path.join(skins, 'Queue', 'Failed')
-            # if not os.path.exists(dir_failed): os.mkdir(dir_failed)
-            # os.replace(path, os.path.join(dir_failed, os.path.basename(path)))
+        except Exception as e: self.log('Ass.', e)
+            
+        
+        
 
 
     def unpack_skins_queue(self):
@@ -1549,12 +1640,12 @@ class Uploader:
 #        except Exception as e:
 #            self.log('ERROR:', e)
     
-    def set_safe_mode(self, enabled=True):
+    def set_safe_mode(self, safe_mode=True):
         """
         Disables dangerous controls.
         """
-        self.tabs.disable(enabled)
-        self.grid_top.disable(enabled)
+        self.tabs.disable(safe_mode)
+        self.grid_top.disable(safe_mode)
 
 
     def do_upload(self, skins_only=False):
@@ -1649,7 +1740,6 @@ class Uploader:
         self.log('------- DONE! -------\n')
         self.set_safe_mode(False)
 
-
     def package_content(self, skins_only=False):
         """
         Packages all the content. Or just the skins.
@@ -1658,10 +1748,6 @@ class Uploader:
 
         # If we're importing / packaging the skins as well (this function does nothing if no skins folder is supplied)
         self.import_and_package_skins()
-
-        # Make sure it's clean
-        #if os.path.exists('uploads'): rmtree('uploads')
-        #if os.path.exists('uploads.zip'): os.remove('uploads.zip')
         
         # get the tracks and cars folders
         track = self.skcart[self.combo_tracks.get_text()] # Track directory
@@ -1788,6 +1874,7 @@ class Uploader:
             rmtree('uploads')
             if os.path.exists('uploads.zip'): os.remove('uploads.zip')
 
+    # JACK! This is where to check for the DDS validity
     def collect_assetto_files(self, source_folder, skins_only=False):
         """
         Copies all the required files from the supplied content folder. 
@@ -1808,11 +1895,15 @@ class Uploader:
         for root, dirs, files in os.walk(source_folder):
             for file in files:
                 
-                if os.path.splitext(file)[-1][1:] in filetypes:
+                # Get the file extension
+                ext = os.path.splitext(file)[-1][1:]
+                
+                # Files we want to actually upload
+                if ext in filetypes:
                     
                     # Source path full
                     source = os.path.join(root,file)
-                    
+
                     # Lower case extension
                     o,x = os.path.splitext(source)
                     if x in ['JPG','PNG']:
@@ -2233,14 +2324,14 @@ class Uploader:
                     # We need to specify the full car if we do fixed setup
                     # This unfortunately places restrictions on the number 
                     # of each type of car. Not a problem with spec races, though.
-                    "Model": entrant_car if len(setup) else "any_car_model",
-                    "Skin" : skin if len(setup) else "random_skin",
+                    "Model": entrant_car if self.checkbox_setup() else "any_car_model",
+                    "Skin" : skin if self.checkbox_setup() else "random_skin",
                     
                     "ClassID": c['Classes'][0]['ID'], # Must match for championship
                     "Ballast":    0, # self.tree_cars[car+'/ballast']    if car+'/ballast'    in self.tree_cars.keys() else 0,
                     "Restrictor": 0, # self.tree_cars[car+'/restrictor'] if car+'/restrictor' in self.tree_cars.keys() else 0,
                     "SpectatorMode": 0,
-                    "FixedSetup": setup,
+                    "FixedSetup": self.text_setup().strip() if self.checkbox_setup() else '',
                     "ConnectAsSpectator": False,
                     "IsPlaceHolder": False}
 
@@ -2304,7 +2395,7 @@ class Uploader:
                     "Ballast":    0, # self.tree_cars[car+'/ballast']    if car+'/ballast'    in self.tree_cars.keys() else 0,
                     "Restrictor": 0, # self.tree_cars[car+'/restrictor'] if car+'/restrictor' in self.tree_cars.keys() else 0,
                     "SpectatorMode": 0,
-                    "FixedSetup": self.text_setup().strip(),
+                    "FixedSetup": self.text_setup().strip() if self.checkbox_setup() else '',
                     "ConnectAsSpectator": False,
                     "IsPlaceHolder": False}
 
