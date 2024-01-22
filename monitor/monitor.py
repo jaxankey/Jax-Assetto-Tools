@@ -227,11 +227,11 @@ class Monitor:
 
         # Create the webhook for who is online
         if url_webhook_online:
-            self.webhook_online = discord.Webhook.from_url(url_webhook_online, adapter=discord.RequestsWebhookAdapter())
+            self.webhook_online = discord.Webhook.from_url(url_webhook_online)
 
         # Create the webhook for more info
         if url_webhook_info: 
-            self.webhook_info = discord.Webhook.from_url(url_webhook_info, adapter=discord.RequestsWebhookAdapter())
+            self.webhook_info = discord.Webhook.from_url(url_webhook_info)
 
         # Reset the state to start
         self.reset_state()
