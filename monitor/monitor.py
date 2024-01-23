@@ -463,36 +463,37 @@ class Monitor:
             race_json = c = load_json(path_race_json)
             
             # If it's NOT None, we get timestamp information.
-            if c is not None:
+            if c is None:
+                raise Exception('Bad path_race_json: '+path_race_json)
 
-                # We only get timestamps and registration warnings etc for championships,
-                # which have a sign-up form in the top level.
-                if 'SignUpForm' in c:
+            # We only get timestamps and registration warnings etc for championships,
+            # which have a sign-up form in the top level.
+            if 'SignUpForm' in c:
 
-                    # Parse the scheduled timestamp and add the qualifying time, and registered
-                    tq = dateutil.parser.parse(c['Events'][0]['Scheduled']).timestamp()
-                    
-                    # Special case: if tq < 0, it means the race already started and it is meaningless
-                    if tq < 0 and self['qual_timestamp']: tq = self['qual_timestamp']
-                    
-                    # Get the race time from the duration of qualifying
-                    tr = tq + c['Events'][0]['RaceSetup']['Sessions']['QUALIFY']['Time'] * 60
-                    ns = len(c['Events'][0]['EntryList'])
+                # Parse the scheduled timestamp and add the qualifying time, and registered
+                tq = dateutil.parser.parse(c['Events'][0]['Scheduled']).timestamp()
+                
+                # Special case: if tq < 0, it means the race already started and it is meaningless
+                if tq < 0 and self['qual_timestamp']: tq = self['qual_timestamp']
+                
+                # Get the race time from the duration of qualifying
+                tr = tq + c['Events'][0]['RaceSetup']['Sessions']['QUALIFY']['Time'] * 60
+                ns = len(c['Events'][0]['EntryList'])
 
-                    # Have to manually count these since people can cancel registrations
-                    nr = 0
-                    if c['Classes'] and len(c['Classes']):
-                        for r in c['Classes'][0]['Entrants'].values():
-                            if r['GUID'] != '' or r['Name'] != '': nr += 1
+                # Have to manually count these since people can cancel registrations
+                nr = 0
+                if c['Classes'] and len(c['Classes']):
+                    for r in c['Classes'][0]['Entrants'].values():
+                        if r['GUID'] != '' or r['Name'] != '': nr += 1
 
-                    # If it's different, update the state and send messages
-                    if tq != self['qual_timestamp']    or tr != self['race_timestamp'] \
-                    or nr != self['number_registered'] or ns != self['number_slots']:
-                        event_time_slots_changed = True
-                        self['qual_timestamp']    = tq
-                        self['race_timestamp']    = tr
-                        self['number_registered'] = nr
-                        self['number_slots']      = ns
+                # If it's different, update the state and send messages
+                if tq != self['qual_timestamp']    or tr != self['race_timestamp'] \
+                or nr != self['number_registered'] or ns != self['number_slots']:
+                    event_time_slots_changed = True
+                    self['qual_timestamp']    = tq
+                    self['race_timestamp']    = tr
+                    self['number_registered'] = nr
+                    self['number_slots']      = ns
             
             # Get the track, layout, and cars from the website if there is no race_json
             track  = 'Unknown Track'
@@ -619,8 +620,9 @@ class Monitor:
         # Try to grab the live_timings data; load_json returns None if the file was moved.
         if path_live_timings and path_live_timings != '': 
             self.live_timings = load_json(path_live_timings, True)
-            # if not self.live_timings: 
-            #     print('\n\nINVALID live_timing.json?', path_live_timings, repr(self.live_timings))
+            if not self.live_timings: 
+                raise Exception('INVALID live_timing.json: ' + str(path_live_timings) + '\n' + repr(self.live_timings))
+                
         
         # If we found and loaded live_timings, and the track / layout matches (i.e., it's not old!)
         if self.live_timings and self.live_timings['Track'] == self['track'] and self.live_timings['TrackLayout'] == self['layout']:
@@ -975,6 +977,9 @@ class Monitor:
 
         # If we're here, there is no race.json, so let's look for information
         # in the ui_*.json files for the track and cars.
+
+        if not os.path.exists(path_ac):
+            raise Exception('ERROR: path_ac does not exists\n  '+path_ac)
 
         # Start by looking for the track and layout
         if not self['layout'] is None:
