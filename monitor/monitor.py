@@ -464,7 +464,7 @@ class Monitor:
             
             # If it's NOT None, we get timestamp information.
             if c is None:
-                raise Exception('Bad path_race_json: '+path_race_json)
+                raise Exception('Bad path_race_json: '+str(path_race_json))
 
             # We only get timestamps and registration warnings etc for championships,
             # which have a sign-up form in the top level.
