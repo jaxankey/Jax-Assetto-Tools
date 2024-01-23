@@ -458,83 +458,83 @@ class Monitor:
             self['race_timestamp'] = timestamp_qual_start + timestamp_qual_minutes*60
 
         # Now load the race json data
-        try:
-            # c comes back None if path_race_json is None
-            race_json = c = load_json(path_race_json)
+        #try:
+        # c comes back None if path_race_json is None
+        race_json = c = load_json(path_race_json)
+        
+        # If it's NOT None, we get timestamp information.
+        if c is None:
+            raise Exception('Bad path_race_json: '+str(path_race_json))
+
+        # We only get timestamps and registration warnings etc for championships,
+        # which have a sign-up form in the top level.
+        if 'SignUpForm' in c:
+
+            # Parse the scheduled timestamp and add the qualifying time, and registered
+            tq = dateutil.parser.parse(c['Events'][0]['Scheduled']).timestamp()
             
-            # If it's NOT None, we get timestamp information.
-            if c is None:
-                raise Exception('Bad path_race_json: '+str(path_race_json))
-
-            # We only get timestamps and registration warnings etc for championships,
-            # which have a sign-up form in the top level.
-            if 'SignUpForm' in c:
-
-                # Parse the scheduled timestamp and add the qualifying time, and registered
-                tq = dateutil.parser.parse(c['Events'][0]['Scheduled']).timestamp()
-                
-                # Special case: if tq < 0, it means the race already started and it is meaningless
-                if tq < 0 and self['qual_timestamp']: tq = self['qual_timestamp']
-                
-                # Get the race time from the duration of qualifying
-                tr = tq + c['Events'][0]['RaceSetup']['Sessions']['QUALIFY']['Time'] * 60
-                ns = len(c['Events'][0]['EntryList'])
-
-                # Have to manually count these since people can cancel registrations
-                nr = 0
-                if c['Classes'] and len(c['Classes']):
-                    for r in c['Classes'][0]['Entrants'].values():
-                        if r['GUID'] != '' or r['Name'] != '': nr += 1
-
-                # If it's different, update the state and send messages
-                if tq != self['qual_timestamp']    or tr != self['race_timestamp'] \
-                or nr != self['number_registered'] or ns != self['number_slots']:
-                    event_time_slots_changed = True
-                    self['qual_timestamp']    = tq
-                    self['race_timestamp']    = tr
-                    self['number_registered'] = nr
-                    self['number_slots']      = ns
+            # Special case: if tq < 0, it means the race already started and it is meaningless
+            if tq < 0 and self['qual_timestamp']: tq = self['qual_timestamp']
             
-            # Get the track, layout, and cars from the website if there is no race_json
-            track  = 'Unknown Track'
-            layout = ''
-            cars   = []
-            #
-            # With no race_json, we use details (if we got them above!)
-            if race_json is None:
+            # Get the race time from the duration of qualifying
+            tr = tq + c['Events'][0]['RaceSetup']['Sessions']['QUALIFY']['Time'] * 60
+            ns = len(c['Events'][0]['EntryList'])
 
-                # We already got the details above; these can be out of date sometimes, which is why we use
-                # the race_json when available (below)
-                if details:
-                    track_layout = details['track'].split('-')
-                    if len(track_layout) >= 2: layout = track_layout.pop(-1)
-                    else:                      layout = ''
-                    track = '-'.join(track_layout)
-                    cars = details['cars']
+            # Have to manually count these since people can cancel registrations
+            nr = 0
+            if c['Classes'] and len(c['Classes']):
+                for r in c['Classes'][0]['Entrants'].values():
+                    if r['GUID'] != '' or r['Name'] != '': nr += 1
 
-            # Otherwise we use the more reliable race_json information
-            else:
-                
-                # If this is a championship json or custom race, we get the race info differently.
-                if 'Events' in race_json: rs = race_json['Events'][0]['RaceSetup']
-                else:                     rs = race_json['RaceConfig']
-                
-                # Get the race info
-                cars   = rs['Cars'].split(';') if rs['Cars'] else []
-                track  = rs['Track']
-                layout = rs['TrackLayout']
+            # If it's different, update the state and send messages
+            if tq != self['qual_timestamp']    or tr != self['race_timestamp'] \
+            or nr != self['number_registered'] or ns != self['number_slots']:
+                event_time_slots_changed = True
+                self['qual_timestamp']    = tq
+                self['race_timestamp']    = tr
+                self['number_registered'] = nr
+                self['number_slots']      = ns
+        
+        # Get the track, layout, and cars from the website if there is no race_json
+        track  = 'Unknown Track'
+        layout = ''
+        cars   = []
+        #
+        # With no race_json, we use details (if we got them above!)
+        if race_json is None:
 
-            # See if the carset fully changed
-            carset_fully_changed = len(set(cars).intersection(self['cars'])) == 0
-            self['cars'] = cars
+            # We already got the details above; these can be out of date sometimes, which is why we use
+            # the race_json when available (below)
+            if details:
+                track_layout = details['track'].split('-')
+                if len(track_layout) >= 2: layout = track_layout.pop(-1)
+                else:                      layout = ''
+                track = '-'.join(track_layout)
+                cars = details['cars']
 
-            # See if the track or layout changed
-            track_changed = (track != self['track'] or layout != self['layout'])
-            self['track']  = track
-            self['layout'] = layout
+        # Otherwise we use the more reliable race_json information
+        else:
+            
+            # If this is a championship json or custom race, we get the race info differently.
+            if 'Events' in race_json: rs = race_json['Events'][0]['RaceSetup']
+            else:                     rs = race_json['RaceConfig']
+            
+            # Get the race info
+            cars   = rs['Cars'].split(';') if rs['Cars'] else []
+            track  = rs['Track']
+            layout = rs['TrackLayout']
 
-        except Exception as e:
-            log('ERROR with race_json.json(s):', e)
+        # See if the carset fully changed
+        carset_fully_changed = len(set(cars).intersection(self['cars'])) == 0
+        self['cars'] = cars
+
+        # See if the track or layout changed
+        track_changed = (track != self['track'] or layout != self['layout'])
+        self['track']  = track
+        self['layout'] = layout
+
+        # except Exception as e:
+        #     log('ERROR with race_json.json(s):', e)
 
         # If, after all that nonsense, we have a qual_timestamp and race_timestamp, 
         # then get the current time and send the messages warning about the event if we're within windows
