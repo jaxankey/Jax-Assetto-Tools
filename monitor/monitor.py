@@ -623,7 +623,11 @@ class Monitor:
         if path_live_timings and path_live_timings != '': 
             self.live_timings = load_json(path_live_timings, True)
             if not self.live_timings: 
-                raise Exception('INVALID live_timing.json: ' + str(path_live_timings) + '\n' + repr(self.live_timings))
+                # Warn; perhaps it was being written when accessed?
+                # This happened randomly at some point.
+                log('WARNING: INVALID live_timing.json: '+str(path_live_timings))
+                
+                #raise Exception('INVALID live_timing.json: ' + str(path_live_timings) + '\n' + repr(self.live_timings))
                 
         
         # If we found and loaded live_timings, and the track / layout matches (i.e., it's not old!)

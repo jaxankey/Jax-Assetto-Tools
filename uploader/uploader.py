@@ -1635,7 +1635,8 @@ class Uploader:
         """
         Uploads the current configuration to the server.
         """
-        self.do_upload(skins_only=skins_only)
+        if self.do_upload(skins_only=skins_only):
+            self.set_safe_mode(False)
 #        try: self.do_upload(skins_only=skins_only)
 #        except Exception as e:
 #            self.log('ERROR:', e)
