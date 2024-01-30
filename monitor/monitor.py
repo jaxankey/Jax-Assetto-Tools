@@ -33,7 +33,6 @@ path_live_timings = None
 path_race_json    = None
 url_registration  = None
 registration_name = None
-time_last_live_timings_fail = 0
 
 # Path to assettocorsa for scrapping ...ui.json data.
 path_ac = None
@@ -218,6 +217,7 @@ class Monitor:
         # json's from premium server manager
         self.info          = None
         self.live_timings  = None
+        self.time_last_live_timings_fail = 0
 
         # Discord webhook objects
         self.webhook_online  = None # List of webhooks
@@ -621,14 +621,14 @@ class Monitor:
             self.live_timings = None
 
         # Try to grab the live_timings data; load_json returns None if the file was moved.
-        if time.time() - time_last_live_timings_fail > 10*60:
+        if time.time() - self.time_last_live_timings_fail > 10*60:
             if path_live_timings and path_live_timings != '': 
                 self.live_timings = load_json(path_live_timings, True)
                 if not self.live_timings: 
                     # Warn; perhaps it was being written when accessed?
                     # This happened randomly at some point.
                     log('WARNING: INVALID live_timing.json: '+str(path_live_timings)+'\nNot checking again for 10 minutes...')
-                    time_last_live_timings_fail = time.time()
+                    self.time_last_live_timings_fail = time.time()
                 
                     #raise Exception('INVALID live_timing.json: ' + str(path_live_timings) + '\n' + repr(self.live_timings))
                 
