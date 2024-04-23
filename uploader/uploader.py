@@ -706,8 +706,6 @@ class Uploader:
         ######################
         # Show the window; no more commands below this.
         else: 
-            
-
             if show: self.window.show(blocking)
 
     def _button_test_clicked(self, *a):
@@ -889,8 +887,8 @@ class Uploader:
                 message = '   ' + zip_filename + ' is invalid:'
 
                 # Add custom issues.
-                if not skins_found   : message = message + '\n   * skins folder not found'
-                for file in bad_files: message = message + '\n   * '+file+' resolution greater than %d' % self.number_max_dds_size()
+                if not skins_found   : message = message + '\n* skins folder not found'
+                for file in bad_files: message = message + '\n* '+file+' resolution greater than %d.' % self.number_max_dds_size()
 
                 # Log
                 self.log(message)
@@ -1529,7 +1527,7 @@ class Uploader:
         """
         Just calls the usual upload with skins_only=True.
         """
-        self.do_skins_only()
+        if self.do_skins_only(): self.set_safe_mode(False)
         
     def disconnect(self):
         """
@@ -1537,8 +1535,8 @@ class Uploader:
         """
         if self.ssh:
             self.log('Disconnecting...')
-            self.sftp.close()
-            self.ssh.close()
+            if self.sftp: self.sftp.close()
+            if self.ssh:  self.ssh.close()
             self.ssh  = None
             self.sftp = None
         
@@ -1618,16 +1616,16 @@ class Uploader:
         """
 
         if not self.sftp: 
-            self.log('ERROR: Cannot download with no connection.')
+            self.log('ERROR: Cannot upload with no connection.')
             return True
-        
+
         # Do the upload
         try:    
             self.sftp.put(source, destination, callback=self.update_progress)
             self.progress_bar.setValue(100)
             self.transfer_percentage = 100
         except Exception as e:
-            self.log('ERROR: Could not upload', source+'.', e)
+            self.log('ERROR: Could not upload', source+' to '+destination+'.\n', e)
             self.disconnect()
             return True
 
@@ -1635,11 +1633,7 @@ class Uploader:
         """
         Uploads the current configuration to the server.
         """
-        if self.do_upload(skins_only=skins_only):
-            self.set_safe_mode(False)
-#        try: self.do_upload(skins_only=skins_only)
-#        except Exception as e:
-#            self.log('ERROR:', e)
+        if self.do_upload(skins_only=skins_only): self.set_safe_mode(False)
     
     def set_safe_mode(self, safe_mode=True):
         """
@@ -1681,7 +1675,7 @@ class Uploader:
         
         # Upload the main assetto content
         if self.checkbox_upload():
-            self.connect()
+            if self.connect(): return True
 
             # Compresses and uploads the 7z, and clean remote files
             if self.upload_content(skins_only): return True
@@ -2674,7 +2668,7 @@ class Uploader:
         # SERVER STUFF
 
         if self.checkbox_upload():
-            self.connect()
+            if self.connect(): return True
             if self.upload_content(True):          return True
             if self.unpack_uploaded_content(True): return True
             self.disconnect()
