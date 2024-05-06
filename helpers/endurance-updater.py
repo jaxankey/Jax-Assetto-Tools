@@ -19,7 +19,7 @@ if os.path.exists('endurance-updater.ini.private'): p = 'endurance-updater.ini.p
 else                                              : p = 'endurance-updater.ini'
 exec(open(p, 'r', encoding="utf8").read())
 
-# Get the csv from the csv, either on the web or locally
+# Get the csv either on the web or locally
 data = pandas.read_csv(csv_path, dtype=str)
 
 # Master data we assemble while looping
@@ -29,30 +29,44 @@ ids   = dict() # Dictionary of activity by steam id
 print('-----------------------------------------------')
 print('CSV PARSE\n')
 
+def ckey(search):
+    """
+    Returns the actual column key for the given search string.
+    """
+    for ckey in data.keys():
+        if search in ckey: return ckey
+
+    return search+' not found in csv column keys.'
+
 # Run through the spreadsheet in reverse order to favor later submissions.
-for n in range(len(data['Team Car'])-1,-1,-1): 
+for n in range(len(data[ckey('Team Car')])-1,-1,-1): 
     
-    # Empty lines
-    if not type(data['Team Car'][n]) == str: continue
+    # Empty lines; team car is required
+    if not type(data[ckey('Team Car')][n]) == str: continue
 
     # Get the team name
     driver_names = []
     for m in range(1,max_drivers+1):
-        driver_name = data['Driver '+str(m)+' Short Name'][n]
+
+        # Get the driver name, tidy, and add to the team name list
+        driver_name = data[ckey('Driver '+str(m)+' Short Name')][n]
         if type(driver_name) == str:
             driver_name = driver_name.strip()[0:8]
 
             # No id
-            if type(data['Driver '+str(m)+' Steam ID'][n]) != str:
+            if type(data[ckey('Driver '+str(m)+' Steam ID')][n]) != str:
                 driver_name = driver_name+' (NO ID!)'
                 print(driver_name)
 
+            # Append it to the list
             driver_names.append(driver_name)
+    
+    # Join them
     team_name = '/'.join(driver_names)
 
     # Get the car folder
-    car       = car_folders[data['Team Car'][n].strip()].strip()
-    livery    = str(data['Livery FOLDER Name'][n]).strip()
+    car       = car_folders[data[ckey('Team Car')][n].strip()].strip()
+    livery    = str(data[ckey('Livery FOLDER Name')][n]).strip()
     if livery == 'nan': livery = 'random_skin'
 
     # If we have not already made this team (i.e., favoring later entries)
@@ -70,12 +84,12 @@ for n in range(len(data['Team Car'])-1,-1,-1):
             key_name = 'Driver '+str(m)+' Short Name'
             key_id   = 'Driver '+str(m)+' Steam ID'
             
-            if type(data[key_id][n])==str:
+            if type(data[ckey(key_id)][n])==str:
                 
                 # Get the driver name and steam id
                 # n is the row number, m is column
-                name = data[key_name][n]
-                id   = data[key_id  ][n]
+                name = data[ckey(key_name)][n]
+                id   = data[ckey(key_id  )][n]
                 if id in ids.keys(): 
                     print('  WARNING: ', id, '('+name+')', 'is in', repr(team_name), 'and', repr(ids[id]), '('+name+')')
                     print('            ID was not added to the earlier entry', repr(team_name))
