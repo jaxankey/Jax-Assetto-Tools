@@ -49,6 +49,10 @@ _create_new_profile = '[Create New Profile]'
 # Get the last argument, which can be used to automate stuff
 if len(sys.argv): print('LAST ARGUMENT:', sys.argv[-1])
 
+# Clear the terminal
+print('\n\n\n------------------------------')
+
+
 
 def get_all_file_paths(directory, excludes=[]):
   
@@ -143,18 +147,18 @@ def auto_week(t0):
 
     # If the hours match we done.
     if original_hour == t0.hour: 
-        print('----------------OG HOUR')
+        # print('----------------OG HOUR')
         return t0
     
     # Check the options
     tp = t0 + hour
     if original_hour == tp.hour: 
-        print('-----------------PLUS HOUR')
+        # print('-----------------PLUS HOUR')
         return tp
 
     tm = t0 - hour
     if original_hour == tm.hour: 
-        print('-----------------MINUS HOUR')
+        # print('-----------------MINUS HOUR')
         return tm
  
     # Oh well.
@@ -693,14 +697,14 @@ class Uploader:
 
         # If we're automatically uploading skins, do so.
         if len(sys.argv) and sys.argv[-1].split('=')[0].strip() == 'skins':
-            print('\nAUTOMATED SKINS UPLOAD:')
+            # print('\nAUTOMATED SKINS UPLOAD:')
             for server in sys.argv[-1].split('=')[1].split(';'):
                 server = server.strip()
 
-                print('\n\n\n\n----------------------------------------------\nSELECTING '+server)
+                # print('\n\n\n\n----------------------------------------------\nSELECTING '+server)
                 self.combo_server.set_text(server)
 
-                print('UPLOADING SKINS')
+                # print('UPLOADING SKINS')
                 self.do_skins_only()
 
         ######################
@@ -726,7 +730,7 @@ class Uploader:
         """
         Someone changes the filter
         """
-        print('_text_filter_cars_changed')
+        # print('_text_filter_cars_changed')
         
         # Get the search string
         search = self.text_filter_cars().lower()
@@ -949,13 +953,13 @@ class Uploader:
         packs_path = os.path.join(skins,'Livery Packs')
         if not os.path.exists(packs_path): os.mkdir(packs_path)
         
-        print('Packs:', packs_path)
+        # print('Packs:', packs_path)
 
         # Get the path to the pack for this carset and delete it.
         zip_path = os.path.join(packs_path, carset_safe + '.zip')
         if os.path.exists(zip_path): os.remove(zip_path)
 
-        print('Zip:', zip_path)
+        # print('Zip:', zip_path)
 
         # Load the custom skins list
         j = load_json('custom_skins.json')
@@ -1031,7 +1035,7 @@ class Uploader:
             self.text_setup(setup)
             self.checkbox_setup(setup_enabled)
 
-        except Exception as e: print('_button_send_to_clicked', e)
+        except Exception as e: print('ERROR: _button_send_to_clicked', e)
 
     def _button_go_url_clicked(self, *a):
         """
@@ -1082,7 +1086,7 @@ class Uploader:
         """
         Searches servers directory and updates combo box.
         """
-        print('update_server_list')
+        # print('update_server_list')
         
         # Clear existing
         self.combo_server.clear()
@@ -1118,7 +1122,7 @@ class Uploader:
         When the server combo changes, load it (and remember)
         """
         if self._init: return
-        print('_combo_server_changed')
+        # print('_combo_server_changed')
 
         # If we're on "new server" prompt for a save.
         if self.combo_server() == 0: 
@@ -1190,7 +1194,7 @@ class Uploader:
         if not ok or name == '': return
 
         # Otherwise, copy the current selection
-        print('Renaming')
+        # print('Renaming')
         old_path = os.path.join('servers', self.combo_server.get_text()+'.json')
         new_path = os.path.join('servers', name+'.json')
         os.rename(old_path, new_path)
@@ -1208,7 +1212,7 @@ class Uploader:
         """
         Load the selected server.
         """
-        print('_button_load_server_clicked')
+        # print('_button_load_server_clicked')
         
         # If it's "new server" ask for one
         if self.combo_server() == 0: 
@@ -1225,10 +1229,10 @@ class Uploader:
         """
         Loads the data for the settings tab only, based on the chosen server.
         """
-        print('_load_server_settings')
+        # print('_load_server_settings')
         self.server = self.load_server_json()
         if not 'settings' in self.server: return
-        print('  loaded json')
+        # print('  loaded json')
 
         self._loading_server = True
 
@@ -1245,10 +1249,10 @@ class Uploader:
                 if key in self._server_keys: 
                     exec('self.'+key+'.set_value(value)', dict(self=self, value=self.server['settings'][key]))
             except: 
-                print('  deleting', key)
+                # print('  deleting', key)
                 dead_keys.append(key)
         for key in dead_keys: self.server['settings'].pop(key)
-            #print(' ', key, '->', j['settings'][key])
+            ## print(' ', key, '->', j['settings'][key])
         self._loading_server = False
         
 
@@ -1256,13 +1260,13 @@ class Uploader:
         """
         Loads the garbage into the uploader for the chosen server.
         """
-        print('_load_server_uploader')
+        # print('_load_server_uploader')
         #self.server = self.load_server_json()
         if not 'uploader' in self.server: return
         self._loading_uploader = True
 
         # Now re-select the track
-        print('  track')
+        # print('  track')
         try:  
             t = self.server['uploader']['combo_tracks']
             
@@ -1275,23 +1279,23 @@ class Uploader:
             # If it's the same as it was before, run the event to make sure  it updates the rest of the gui
             if self.combo_tracks.get_text() == original: self._combo_tracks_changed() 
 
-        except Exception as e: print('load_upload_gui combo_tracks', e)
+        except Exception as e: print('ERROR: load_upload_gui combo_tracks', e)
         
         # Now re-select the layout
-        print('  layout')
+        # print('  layout')
         try:    
             t = self.server['uploader']['combo_layouts']
             if t in self.combo_layouts.get_all_items():
                 self.combo_layouts.set_text(t)
-        except Exception as e: print('load_upload_gui combo_layouts', e)
+        except Exception as e: print('ERROR: load_upload_gui combo_layouts', e)
         
         # Now re-select the carset
-        print('  carset')
+        # print('  carset')
         try:    
             t = self.server['uploader']['combo_carsets']
             if t in self.combo_carsets.get_all_items():
                 self.combo_carsets.set_text(t)
-        except Exception as e: print('load_upload_gui combo_carsets', e)
+        except Exception as e: print('ERROR: load_upload_gui combo_carsets', e)
         
         # Update the actual cars list based on the server data.
         self.set_list_selection(self.server['uploader']['list_cars'], self.list_cars, self._list_cars_changed)
@@ -1306,7 +1310,7 @@ class Uploader:
 
         #self.send_cars_to_tree()
 
-        print('_load_server_uploader complete')
+        # print('_load_server_uploader complete')
 
 
     def _button_save_server_clicked(self, *a): 
@@ -1315,7 +1319,7 @@ class Uploader:
         if [New Server] is chosen.
         """
         if self._loading_uploader: return
-        print('_button_save_server_clicked')
+        # print('_button_save_server_clicked')
 
         # Special case: first element in combo box is new carset
         if self.combo_server() == 0:
@@ -1366,7 +1370,7 @@ class Uploader:
         Removes the selected server from the list and deletes the file.
         """
         if self.combo_server() == 0: return
-        print('_button_delete_server_clicked')
+        # print('_button_delete_server_clicked')
 
         # Get the name, kill the file
         name = self.combo_server.get_text()
@@ -1400,19 +1404,19 @@ class Uploader:
             combo_server=self.combo_server.get_text(),
             combo_send_to=self.combo_send_to.get_text()
         )
-        print('save_server_gui')
+        # print('save_server_gui')
         dump(gui, open('server.json', 'w', encoding="utf8"), indent=2)
 
     def load_server_gui(self):
         """
         Loads the previously selected profile # and send to.
         """
-        print('load_server_gui')
+        # print('load_server_gui')
         gui = load_json('server.json')
         if not gui: return
 
         try: self.combo_server.set_text(gui['combo_server'])
-        except Exception as e: print('load_server_gui combo_server', e)
+        except Exception as e: print('ERROR: load_server_gui combo_server', e)
 
         # try: self.combo_send_to.set_text(gui['combo_send_to'])
         # except Exception as e: print('load_server_gui combo_send_to', e)
@@ -1437,7 +1441,7 @@ class Uploader:
         """
         """
         if self._loading_uploader or self._updating_cars: return
-        print('_list_carnames_changed')
+        # print('_list_carnames_changed')
 
         # If we changed something, unselect the carset since that's not valid any more
         self.combo_carsets(0)
@@ -1456,7 +1460,7 @@ class Uploader:
         Just set the carset combo when anything changes.
         """
         if self._loading_uploader or self._updating_cars: return
-        print('_list_cars_changed')
+        # print('_list_cars_changed')
 
         # If we changed something, unselect the carset since that's not valid any more
         self.combo_carsets(0)
@@ -1494,7 +1498,7 @@ class Uploader:
         Called when the server mode has changed. Just hides / shows the
         relevant settings.
         """
-        print('_combo_mode_changed')
+        # print('_combo_mode_changed')
         premium = self.combo_mode() == SERVER_MODE_PREMIUM
 
 
@@ -1589,7 +1593,7 @@ class Uploader:
             self.log('ERROR: Cannot send command with no connection.')
             return True
         
-        print('ssh_command', command.strip())
+        # print('ssh_command', command.strip())
         self.ssh.exec_command(command.strip())
 
     def sftp_download(self, source, destination):
@@ -1739,7 +1743,7 @@ class Uploader:
         """
         Packages all the content. Or just the skins.
         """
-        print('package_content()', skins_only)
+        # print('package_content()', skins_only)
 
         # If we're importing / packaging the skins as well (this function does nothing if no skins folder is supplied)
         self.import_and_package_skins()
@@ -1836,7 +1840,7 @@ class Uploader:
         
             self.log('Uploading uploads.zip...')
             if self.sftp_upload('uploads.zip', remote+'/uploads.zip'): return True
-            print()
+            # print()
 
             # If we're cleaning remote files... Note skins only prevents this
             # regardless of the checkbox state.
@@ -1886,7 +1890,7 @@ class Uploader:
             filetypes = filetypes + ['ai', 'bin', 'jpg', 'png', 'JPG', 'PNG']
 
         # Walk through the directory picking up the key files
-        print('collecting', source_folder)
+        # print('collecting', source_folder)
         for root, dirs, files in os.walk(source_folder):
             for file in files:
                 
@@ -1904,7 +1908,7 @@ class Uploader:
                     if x in ['JPG','PNG']:
                         new_source = o+'.'+x.lower()
                         os.rename(source, new_source)
-                        print('-------------------------------------\n',source,'->',new_source)
+                        # print('-------------------------------------\n',source,'->',new_source)
                         source = new_source
                    
                     # Destination path for uploading
@@ -1913,7 +1917,7 @@ class Uploader:
                     # Copy it over, making dirs first
                     os.makedirs(os.path.dirname(destination), exist_ok=True)
                     try: copy(source, destination, follow_symlinks=True)
-                    except Exception as e: print(e)
+                    except Exception as e: print('ERROR:', e)
 
             
 
@@ -1925,15 +1929,15 @@ class Uploader:
         for n in range(len(a)): a[n] = str(a[n])
         text = ' '.join(a)
         self.text_log.append_text(text)
-        print('LOG:',text)
+        print(text)
         self.window.process_events()
 
     def system(self, command):
         """
         Runs a system command and logs it.
         """
-        print()
-        print(command)
+        # print()
+        # print(command)
         self._c = command
         self._r = run(self._c, capture_output=True, shell=True)
         if self._r.returncode:
@@ -1964,7 +1968,7 @@ class Uploader:
         #if self._updating_tracks or self._loading_uploader: return
 
         if self._refilling_tracks: return
-        print('_combo_tracks_changed (populates layouts)')
+        # print('_combo_tracks_changed (populates layouts)')
         
         track = self.skcart[self.combo_tracks.get_text()]
         if track == '': return
@@ -2019,7 +2023,7 @@ class Uploader:
     def _combo_layouts_changed(self,*e):
         #if self._updating_tracks or self._loading_uploader: return
         if self._refilling_layouts: return
-        print('_combo_layouts_changed (extracts pitboxes)')
+        # print('_combo_layouts_changed (extracts pitboxes)')
         
         # Paths
         local  = self.text_local()
@@ -2033,12 +2037,11 @@ class Uploader:
         # Path to ui.json
         if layout == _default_layout: p = os.path.join(local,'content','tracks',track,'ui',       'ui_track.json')
         else:                         p = os.path.join(local,'content','tracks',track,'ui',layout,'ui_track.json')
-        print('HAY', p)
         
         if not os.path.exists(p): return
 
         # Load it and get the pit number
-        print('loading', p)
+        # print('loading', p)
         self.track = load_json(p)
         if self.track: self.label_pitboxes('('+self.track['pitboxes']+' pit boxes)')
         
@@ -2047,7 +2050,7 @@ class Uploader:
     def _combo_carsets_changed(self,e):
         if self._refilling_carsets or self._loading_uploader: return 
 
-        print('_combo_carsets_changed')
+        # print('_combo_carsets_changed')
         self.button_load.click()
         
         self._text_filter_cars_changed()
@@ -2094,7 +2097,7 @@ class Uploader:
         """
         Load the selected carset.
         """
-        print('_button_load_clicked')
+        # print('_button_load_clicked')
 
         # Special case: first element in combo box is new carset
         if self.combo_carsets.get_index() == 0: return
@@ -2122,9 +2125,9 @@ class Uploader:
 
         # Special case: first element in combo box is new carset
         if self.combo_carsets.get_index() == 0:
-            print('opening save dialog')
+            # print('opening save dialog')
             name, ok = egg.pyqtgraph.Qt.QtWidgets.QInputDialog.getText(self.window._widget, 'New Carset', 'Name your carset:')
-            print('got', name)
+            # print('got', name)
             name = name.strip()
             if not ok or name == '': return
             
@@ -2178,7 +2181,7 @@ class Uploader:
         """
         Refresh cars and tracks
         """
-        print('_button_refresh_clicked')
+        # print('_button_refresh_clicked')
         self.log('\nScanning content...')
 
         # Load the carsets, tracks, and cars 
@@ -2411,7 +2414,7 @@ class Uploader:
         Writes the entry_list.ini and server_cfg.ini, and race.json for 
         the vanilla / steam acServer.
         """
-        print('generate_acserver_cfg')
+        # print('generate_acserver_cfg')
         self.log('Generating acServer config')
 
         # Get the selected car directories
@@ -2452,7 +2455,7 @@ class Uploader:
 
         # Get the full string!
         s = '\n\n'.join(entries) + '\n'
-        print('\nENTRIES:\n\n'+s)
+        # print('\nENTRIES:\n\n'+s)
 
         # Save entries
         cfg = os.path.join('uploads', 'cfg')
@@ -2545,7 +2548,7 @@ class Uploader:
         Searches carsets directory and updates combo box.
         """
         #self.log('Updating carsets...')
-        print('update_carsets')
+        # print('update_carsets')
 
         # Prevents signals
         self._refilling_carsets = True
@@ -2570,7 +2573,7 @@ class Uploader:
             extras = set(s['carsets'].keys()) - carsets
             for key in extras: 
                 if key != _unsaved_carset and key in s['carsets']: 
-                    print('  pruning', key)
+                    # print('  pruning', key)
                     s['carsets'].pop(key)
         
             # Update the file. This screws up the rest of the load process.
@@ -2584,7 +2587,7 @@ class Uploader:
         """
         Searches through the current assetto directory for all cars, skins, etc.
         """
-        print('update_cars')
+        # print('update_cars')
         
         # Disconnect the update signal until the end
         self._updating_cars = True
@@ -2668,7 +2671,7 @@ class Uploader:
         # SERVER STUFF
 
         if self.checkbox_upload():
-            if self.connect(): return True
+            if self.connect():                     return True
             if self.upload_content(True):          return True
             if self.unpack_uploaded_content(True): return True
             self.disconnect()
@@ -2685,7 +2688,7 @@ class Uploader:
         """
         Searches through the assetto directory for all the track folders
         """
-        print('update_tracks')
+        # print('update_tracks')
         # Clear existing
         self._refilling_tracks = True
         self.combo_tracks.clear()

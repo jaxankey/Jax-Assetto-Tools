@@ -988,7 +988,7 @@ class Monitor:
         # in the ui_*.json files for the track and cars.
 
         if not os.path.exists(path_ac):
-            raise Exception('ERROR: path_ac does not exists\n  '+path_ac)
+            raise Exception('ERROR: path_ac does not exist\n  '+path_ac)
 
         # Start by looking for the track and layout
         if not self['layout'] is None:
