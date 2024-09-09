@@ -37,6 +37,7 @@ else:                                                   os.chdir(os.path.dirname
 print('WORKING DIRECTORY:')
 print(os.getcwd())
 
+import spinmob as sm
 import spinmob.egg as egg
 
 error_timer = egg.gui.TimerExceptions()
@@ -200,6 +201,78 @@ def rmtree(top):
         for name in dirs:
             os.rmdir(os.path.join(root, name))
     os.rmdir(top)
+
+from PyQt5.QtWidgets import (QApplication, QDialog, QVBoxLayout, 
+                             QListWidget, QListWidgetItem, QDialogButtonBox)
+from PyQt5.QtCore import QTimer, Qt
+
+class DirectorySelectionDialog(QDialog):
+    def __init__(self, base_directory, selected_directories=None, timeout=None, parent=None):
+        super().__init__(parent)
+
+        self.setWindowTitle("Select Directories")
+        
+        # Store the base directory and selected directories
+        self.base_directory = base_directory
+        self.selected_directories = selected_directories or []
+
+        # Make dialog modal (block interaction with parent window)
+        self.setWindowModality(Qt.ApplicationModal)
+
+        # Layout
+        layout = QVBoxLayout(self)
+
+        # ListWidget to display directories
+        self.directory_list = QListWidget(self)
+        self.directory_list.setSelectionMode(QListWidget.MultiSelection)  # Allow multiple selection
+        layout.addWidget(self.directory_list)
+
+        # Populate the list with first-level directories
+        self.populate_directory_list()
+
+        # OK and Cancel buttons
+        button_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        button_box.accepted.connect(self.accept)
+        button_box.rejected.connect(self.reject)
+        layout.addWidget(button_box)
+
+        # Timeout (if provided)
+        if timeout:
+            QTimer.singleShot(timeout, self.timeout_close)
+
+    def populate_directory_list(self):
+        # Populate the QListWidget with directories from the base directory
+        try:
+            directories = [d for d in os.listdir(self.base_directory) 
+                           if os.path.isdir(os.path.join(self.base_directory, d))]
+            for directory in directories:
+                item = QListWidgetItem(directory)
+                self.directory_list.addItem(item)
+                
+                # Pre-select the directories that were passed as selected
+                if directory in self.selected_directories:
+                    item.setSelected(True)
+                    
+        except Exception as e:
+            print(f"Error reading base directory: {e}")
+
+    def get_selected_directories(self):
+        # Return only the selected directory names
+        selected_items = self.directory_list.selectedItems()
+        return [item.text() for item in selected_items]
+
+    def timeout_close(self):
+        # Handle closing the dialog due to timeout
+        print("Dialog timed out!")
+        self.reject()  # Close the dialog without accepting
+
+def select_multiple_directories(base_directory, selected_directories=None, timeout=None):
+    dialog = DirectorySelectionDialog(base_directory, selected_directories, timeout)
+    
+    if dialog.exec_() == QDialog.Accepted:
+        return dialog.get_selected_directories()
+    
+    return []
 
 # GUI class for configuring the server
 class Uploader:
@@ -537,6 +610,9 @@ class Uploader:
         self.grid_filter_cars.add(egg.gui.Label('Filter Cars:'))
         self.text_filter_cars = self.grid_filter_cars.add(egg.gui.TextBox('', 
             signal_changed=self._text_filter_cars_changed), alignment=0)
+        self.button_edit_skins_pack = self.grid_filter_cars.add(egg.gui.Button('Edit Skins Pack',
+            signal_clicked=self._button_edit_skins_pack_clicked)).disable()
+
 
         # Grid for car list
         self.tab_uploader.new_autorow()
@@ -822,10 +898,8 @@ class Uploader:
             # Get the zipfile object
             z = ZipFile(path, 'r')
 
-            # Open / create the json containing custom skins list
-            j = load_json('custom_skins.json')
-            if not j: j = dict()
-            
+            json_custom_skins = self.load_custom_skins_json()
+
             # Loop over every single file path in the zip.
             for x in z.infolist():
 
@@ -880,10 +954,10 @@ class Uploader:
             if skins_found and len(bad_files)==0: 
                 
                 # Add this to the json using the last valid car and skin folder names
-                if car not in j: j[car] = []
-                if skin not in j[car]: j[car].append(skin) 
-                dump_json(j, 'custom_skins.json')
-            
+                if car not in json_custom_skins: json_custom_skins[car] = []
+                if skin not in json_custom_skins[car]: json_custom_skins[car].append(skin) 
+                self.save_custom_skins_json()
+                
             # Otherwise something went wrong, so send a message about it.
             else: 
                 # Assemble the error log for this car
@@ -926,6 +1000,21 @@ class Uploader:
         for path in paths: self.unpack_skin(path)
 
 
+    def load_custom_skins_json(self):
+        """
+        Loads custom_skins json or an empty dictionary.
+        """
+        # Open / create the json containing custom skins list
+        j = load_json('custom_skins.json')
+        if not j: j = dict()
+        return j
+    
+    def save_custom_skins_json(self, j):
+        """
+        Just dumps the supplied dictionary to the file custom_skins.json.
+        """
+        dump_json(j, 'custom_skins.json')
+
     def import_and_package_skins(self):
         """
         Copies all the custom skins associated with the currently selected
@@ -961,8 +1050,8 @@ class Uploader:
 
         # print('Zip:', zip_path)
 
-        # Load the custom skins list
-        j = load_json('custom_skins.json')
+        # Load the custom skins list to figure out which ones to pack
+        j = self.load_custom_skins_json()
         
         # Temporarily switch working directory to the local cars folder.
         cwd = os.getcwd()
@@ -973,6 +1062,7 @@ class Uploader:
         directories_to_zip = [] # list of sub-directories we will transfer to the archive
         if j:
             for car in cars:
+                self.log(' '+car)
                 if car in j:
                     for skin in j[car]:
                         source = os.path.join(car, 'skins', skin)
@@ -982,14 +1072,18 @@ class Uploader:
         # Zip the pack up in the archive
         if len(directories_to_zip):
             self.log('Zipping up skin pack...')
+            for s in directories_to_zip:
+                self.log('  '+os.path.split(s)[-1])
             zip_directories(directories_to_zip, zip_path, zip_excludes, self.update_progress)
             self.progress_bar.setValue(100)
 
         # Get the latest.zip path
-        if latest != '' and os.path.exists(zip_path): 
-            self.log('Copying pack to ../'+latest)
-            copy(zip_path, os.path.join(skins,latest))
-        
+        if latest != '':
+            if os.path.exists(zip_path): 
+                self.log('Copying pack to ../'+latest)
+                copy(zip_path, os.path.join(skins,latest))
+            else: self.log('ERROR: Custom skins directory does not exist!')
+
         # Back to the previous wd
         os.chdir(cwd)
 
@@ -1308,6 +1402,9 @@ class Uploader:
         # Now run the filter
         self._text_filter_cars_changed()
 
+        # Do some clean-up
+        self._after_cars_carnames_changed()
+
         #self.send_cars_to_tree()
 
         # print('_load_server_uploader complete')
@@ -1441,7 +1538,7 @@ class Uploader:
         """
         """
         if self._loading_uploader or self._updating_cars: return
-        # print('_list_carnames_changed')
+        print('_list_carnames_changed')
 
         # If we changed something, unselect the carset since that's not valid any more
         self.combo_carsets(0)
@@ -1455,6 +1552,10 @@ class Uploader:
         # Update the server json
         self.button_save_server.click()
 
+        # Run common tasks after everything has been changed
+        self._after_cars_carnames_changed()
+
+
     def _list_cars_changed(self, e=None):
         """
         Just set the carset combo when anything changes.
@@ -1465,7 +1566,7 @@ class Uploader:
         # If we changed something, unselect the carset since that's not valid any more
         self.combo_carsets(0)
 
-        # Select the corresponding carnames
+        # Select the corresponding carnames, should not trigger an event
         self.send_cars_to_carnames()
 
         # Sends the car information to the tree, which is likely hidden, since ballast etc is kinda not worth setting per car
@@ -1473,7 +1574,61 @@ class Uploader:
 
         # Update the server json
         self.button_save_server.click()
-    
+
+        # Run common tasks after everything has been changed
+        self._after_cars_carnames_changed()
+
+    def _after_cars_carnames_changed(self):
+        """
+        This is called after someone has selected cars or carnames and the other list
+        has been correspondingly updated.
+        """
+        print('_after_cars_carnames_changed')
+
+        cars = self.get_selected_cars()
+        for car in cars:
+            print(car)
+            j = self.load_custom_skins_json()
+            if car in j: skins = j[car]
+            else:        skins = []
+            for skin in skins: print(' ', skin)
+
+        if len(cars) == 1: self.button_edit_skins_pack.enable()
+        else:              self.button_edit_skins_pack.disable()
+
+    def _button_edit_skins_pack_clicked(self, *a):
+        """
+        Brings up the skins pack dialog.
+        """
+        self.choose_custom_skins()
+
+
+    def choose_custom_skins(self):
+        """
+        Opens a multi-select dialog and allows you to choose which skins are considered "custom" (for the packs)
+        """
+        cars = self.get_selected_cars()
+        if len(cars) != 1: return
+
+        # Assemble the skins path
+        path_skins = os.path.join(self.text_local(), 'content', 'cars', cars[0], 'skins')
+        
+        # Get the custom skins for this
+        j = self.load_custom_skins_json()
+        if cars[0] in j: selected_skins = j[cars[0]]
+        else:            selected_skins = []
+        
+        # Let the user choose
+        paths = select_multiple_directories(path_skins, selected_skins)
+        print('\n'+cars[0])
+        for path in paths: print(' ', path)
+        
+        # dump it.
+        j[cars[0]] = paths
+        self.save_custom_skins_json(j)
+
+        #+++
+
     def send_cars_to_carnames(self):
         """
         Transfers the currently selected cars to carnames.
@@ -1482,7 +1637,7 @@ class Uploader:
         carnames = []
         for car in self.get_selected_cars(): carnames.append(self.cars[car])
         self.set_list_selection(carnames, self.list_carnames, self._list_carnames_changed)
-    
+        
     def send_carnames_to_cars(self):
         """
         Transfers the currently selected carnames to cars.
@@ -1490,7 +1645,6 @@ class Uploader:
         # Syncrhonize the selections from this list to the other one
         cars = []
         for car in self.get_selected_carnames(): cars.append(self.srac[car])
-        
         self.set_list_selection(cars, self.list_cars, self._list_cars_changed)
         
     def _combo_mode_changed(self,*e):
@@ -2054,6 +2208,8 @@ class Uploader:
         self.button_load.click()
         
         self._text_filter_cars_changed()
+
+        self._after_cars_carnames_changed()
         #self.send_cars_to_tree()
         #self.button_save_server.click()
 
@@ -2075,7 +2231,7 @@ class Uploader:
 
     def set_list_selection(self, selected, widget, itemSelectionChanged):
         """
-        Selects the specified list of cars.
+        Selects the specified list of cars, without triggering events
         """
         # Disconnect the update signal until the end
         self._updating_cars = True
@@ -2591,8 +2747,8 @@ class Uploader:
         
         # Disconnect the update signal until the end
         self._updating_cars = True
-        # self.list_cars    .itemSelectionChanged.disconnect()
-        # self.list_carnames.itemSelectionChanged.disconnect()
+        self.list_cars    .itemSelectionChanged.disconnect()
+        self.list_carnames.itemSelectionChanged.disconnect()
 
         # Clear out the list 
         self.list_cars.clear()
@@ -2646,6 +2802,7 @@ class Uploader:
     
         self._updating_cars = False
 
+        
     def do_skins_only(self):
         """
         Runs the pre-script (presumably copies latest skins into local assetto),
