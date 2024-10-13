@@ -272,7 +272,7 @@ def select_multiple_directories(base_directory, selected_directories=None, timeo
     if dialog.exec_() == QDialog.Accepted:
         return dialog.get_selected_directories()
     
-    return []
+    return None
 
 # GUI class for configuring the server
 class Uploader:
@@ -774,6 +774,10 @@ class Uploader:
         # If we're automatically uploading skins, do so.
         if len(sys.argv) and sys.argv[-1].split('=')[0].strip() == 'skins':
             # print('\nAUTOMATED SKINS UPLOAD:')
+            # Remember the original server setting
+            og_server = self.combo_server.get_text()  
+            
+            # Loop over the servers to do skins with
             for server in sys.argv[-1].split('=')[1].split(';'):
                 server = server.strip()
 
@@ -782,6 +786,9 @@ class Uploader:
 
                 # print('UPLOADING SKINS')
                 self.do_skins_only()
+            
+            # Set back to the original server
+            self.combo_server.set_text(og_server)
 
         ######################
         # Show the window; no more commands below this.
@@ -952,11 +959,11 @@ class Uploader:
 
             # If it's valid, dump the updated list of skins.
             if skins_found and len(bad_files)==0: 
-                
+                # +++JACK
                 # Add this to the json using the last valid car and skin folder names
                 if car not in json_custom_skins: json_custom_skins[car] = []
                 if skin not in json_custom_skins[car]: json_custom_skins[car].append(skin) 
-                self.save_custom_skins_json()
+                self.save_custom_skins_json(json_custom_skins)
                 
             # Otherwise something went wrong, so send a message about it.
             else: 
@@ -1620,12 +1627,16 @@ class Uploader:
         
         # Let the user choose
         paths = select_multiple_directories(path_skins, selected_skins)
-        print('\n'+cars[0])
-        for path in paths: print(' ', path)
+        if paths is not None:
+            
+            self.log('\n'+cars[0]+' custom skins:')
+            for path in paths: self.log(' ', path)
+            
+            # dump it.
+            j[cars[0]] = paths
+            self.save_custom_skins_json(j)
         
-        # dump it.
-        j[cars[0]] = paths
-        self.save_custom_skins_json(j)
+        else: self.log('\nLeaving '+cars[0]+' skins alone.')
 
         #+++
 
