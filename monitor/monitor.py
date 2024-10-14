@@ -304,6 +304,7 @@ class Monitor:
             race_timestamp=None,  # Timestamp of the race
             number_slots=None,    # Number of slots in race_json if it is a championship
             number_registered=None,  # Number of people registered in race_json if it is a championship
+            registration = dict(), # Dictionary of registered racers and cars, by steamID
             track_name=None,  # Track / layout name
             track=None,  # Directory name of the track
             layout=None,  # Layout name
@@ -321,6 +322,8 @@ class Monitor:
 
             seen_namecars=dict(), # Set of people/cars seen online for this session.
             session_end_time=0,
+
+            
 
             # Flags to prevent running the script many times in the time window
             script_one_hour_done   = False, 
@@ -485,9 +488,30 @@ class Monitor:
 
                     # Have to manually count these since people can cancel registrations
                     nr = 0
+                    reg = dict()
                     if c['Classes'] and len(c['Classes']):
                         for r in c['Classes'][0]['Entrants'].values():
-                            if r['GUID'] != '' or r['Name'] != '': nr += 1
+                            if r['GUID'] != '': 
+                                nr += 1
+                                # JACK: Keep track of registered names and models (car folders)
+                                reg[r['GUID']] = [r['Name'], r['Model']]
+
+                    # Add new registrants to the main list
+                    # And also send a message to the main chat about it. :)
+                    for guid in set(reg.keys()) - set(self['registration'].keys()):
+                        
+                        # Add the new registrant to the main list
+                        # Note this only looks for additions, never removal
+                        # but it's only used here.
+                        self['registration'][guid] = reg[guid]
+                        
+                        # get the nice carname if possible
+                        carname = reg[guid][1]
+                        if carname in self['carnames']: carname = self['carnames'][carname]
+                        
+                        # Send a message about the new registrant
+                        self.send_message(self.webhook_online, 
+                            reg[guid][0] + ' registered in a ' + carname)
 
                     # If it's different, update the state and send messages
                     if tq != self['qual_timestamp']    or tr != self['race_timestamp'] \
