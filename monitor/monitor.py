@@ -509,9 +509,13 @@ class Monitor:
                         carname = reg[guid][1]
                         if carname in self['carnames']: carname = self['carnames'][carname]
                         
+                        # Some grammar :)
+                        a = 'a '
+                        if carname[0].lower() in ['a','e','i','o','u']: a = 'an '
+
                         # Send a message about the new registrant
                         self.send_message(self.webhook_online, 
-                            reg[guid][0] + ' registered in a ' + carname)
+                            body1 = reg[guid][0] + ' registered in ' + a + carname)
 
                     # If it's different, update the state and send messages
                     if tq != self['qual_timestamp']    or tr != self['race_timestamp'] \
