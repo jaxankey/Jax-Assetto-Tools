@@ -83,11 +83,15 @@ def get_all_file_paths(directory, excludes=[]):
 
 def zip_files(paths, zip_path, callback=None):
     # writing files to a zipfile
-    with ZipFile(zip_path,'w',ZIP_DEFLATED) as zip:
-        N = len(paths)
-        for n in range(N):
-            zip.write(paths[n])
-            if callback: callback(n, N, paths[n])
+    try:
+        with ZipFile(zip_path,'w',ZIP_DEFLATED) as zip:
+            N = len(paths)
+            for n in range(N):
+                zip.write(paths[n])
+                if callback: callback(n, N, paths[n])
+    except Exception as e:
+        print('ERROR:', e)
+
 
 def zip_directory(directory, zip_path, excludes, callback=None):
     
@@ -1047,8 +1051,9 @@ class Uploader:
 
         # Get the root directory of the packs
         packs_path = os.path.join(skins,'Livery Packs')
-        if not os.path.exists(packs_path): os.mkdir(packs_path)
-        
+        if not os.path.exists(packs_path): 
+            try: os.mkdir(packs_path)
+            except Exception as e: self.log(e)
         # print('Packs:', packs_path)
 
         # Get the path to the pack for this carset and delete it.
@@ -2874,12 +2879,10 @@ class Uploader:
         # Loop over all the paths
         for trackpath in paths: 
 
+            
             # Track folder name
             track = os.path.split(trackpath)[-1]
-
-            # Get the track fancy name.
-            trackname = track # Default to the folder name
-
+            
             # Simplest case: one layout, with ui_track.json right there
             ui_default = os.path.join(trackpath, 'ui', 'ui_track.json')
             if os.path.exists(ui_default):
@@ -2889,34 +2892,57 @@ class Uploader:
 
             # Complicated case: many layouts, each having the same root name
             else:
-
                 # Collect all possible tracknames from layout folders
                 tracknames = []
-                shortest   = trackname # shortest trackname
+                shortest   = None # shortest trackname
                 N = 0 # Min string length for later
-                for p in glob(os.path.join(trackpath, 'ui', '*')):
+                ps = glob(os.path.join(trackpath, 'ui', '*'))
+                ps.sort()
+                for p in ps:
                     ui_path = os.path.join(p, 'ui_track.json')
                     if os.path.exists(ui_path):
                         tracknames.append(load_json(ui_path)['name'])
                         if N==0 or len(tracknames[-1]) < N: 
                             shortest = tracknames[-1]
                             N = len(shortest)
+                #trackname = shortest.split('-')[0].strip()
+                trackname = tracknames[0].split('-')[0].strip().split('(')[0].strip()
                 
-                # Find the index at which the strings diverge
-                trackname = shortest # Default
-                for n in range(N):
-                    
-                    # Get the next characters to compare
-                    to_compare = []
-                    for i in range(len(tracknames)): to_compare.append(tracknames[i][n])
+                # Get the shortest track name
+                # if shortest: trackname = shortest
+                # else:        trackname = track # default to folder name
 
-                    # If they are not identical, quit
-                    if len(set(to_compare)) > 1: 
-                        trackname = shortest[0:n]
-                        break
+                #print('  shortest', shortest, tracknames)
+
+                # Let's find the longest matching substring they all contain
+                # max_substr = ""
+    
+                # # Try all possible substrings of the shortest string
+                # for i in range(len(shortest)):
+                #     for j in range(i + len(max_substr) + 1, len(shortest) + 1):
+                #         substring = shortest[i:j]
+                #         # Check if this substring exists in all other strings
+                #         if all(substring in s for s in tracknames):
+                #             if len(substring) > len(max_substr):
+                #                 max_substr = substring
+                # trackname = max_substr
+                # print('  trackname', trackname)
+
+                # Find the index at which the strings diverge
+                # for n in range(N):
+                    
+                #     # Get the next characters to compare
+                #     to_compare = []
+                #     for i in range(len(tracknames)): to_compare.append(tracknames[i][n])
+
+                #     print(n, to_compare)
+                #     # If they are not identical, quit
+                #     if len(set(to_compare)) > 1: 
+                #         trackname = shortest[0:n]
+                #         break
 
                 # Clear the '-' and spaces.
-                trackname = trackname.replace('-','').strip()
+                # trackname = trackname.replace('-','').strip()
 
                 # If it's nothing, use track
                 if trackname == '': trackname = track
