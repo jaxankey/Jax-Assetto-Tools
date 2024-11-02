@@ -650,6 +650,9 @@ class Uploader:
             tip='Fixed setup path, applied to all cars. Needs the subfolder and extension as well, e.g. "generic/LoPeN.ini".',
             signal_changed=self._any_server_setting_changed)).set_width(200)
         self.checkbox_setup = self.grid_tyres.add(egg.gui.CheckBox('Use it.'))
+        self.button_open_setup_folder = self.grid_tyres.add(egg.gui.Button('Open Folder',
+            tip='Open the setups folder in documents.',
+            signal_clicked=self._button_open_setup_folder_clicked))
 
         # Server stuff
         self.tab_uploader.new_autorow()
@@ -798,6 +801,15 @@ class Uploader:
         # Show the window; no more commands below this.
         else: 
             if show: self.window.show(blocking)
+
+    def _button_open_setup_folder_clicked(self, *a):
+        """
+        Opens the setup folder.
+        """
+        cars = self.get_selected_cars()
+        if len(cars): path = os.path.join(os.path.expanduser('~'), 'Documents', 'Assetto Corsa', 'setups', cars[0])
+        else:         path = os.path.join(os.path.expanduser('~'), 'Documents', 'Assetto Corsa', 'setups')
+        os.startfile(path)
 
     def _button_test_clicked(self, *a):
         """
