@@ -602,9 +602,9 @@ class Uploader:
         self.grid2b.set_column_stretch(0)
         self.button_load = self.grid2b.add(egg.gui.Button('Load',
             tip='Load the selected carset.', signal_clicked=self._button_load_clicked))
-        self.button_save = self.grid2b.add(egg.gui.Button('Save',
+        self.button_save_carset = self.grid2b.add(egg.gui.Button('Save',
             tip='Save / overwrite the selected carset with the selection below.\nIf [Unsaved Carset] is selected, this pops up a dialog to name the carset.',
-            signal_clicked=self._button_save_clicked))
+            signal_clicked=self._button_save_carset_clicked))
         self.button_delete = self.grid2b.add(egg.gui.Button('Delete',
             tip='Delete the selected carset.',
             signal_clicked=self._button_delete_clicked))
@@ -2302,9 +2302,9 @@ class Uploader:
         
         self.button_save_server.click()
         
-    def _button_save_clicked(self,e):
+    def _button_save_carset_clicked(self,e):
         """
-        Save the carset.
+        Save the carset, and its options.
         """
 
         # Special case: first element in combo box is new carset
@@ -2513,7 +2513,7 @@ class Uploader:
                     "Ballast":    0, # self.tree_cars[car+'/ballast']    if car+'/ballast'    in self.tree_cars.keys() else 0,
                     "Restrictor": 0, # self.tree_cars[car+'/restrictor'] if car+'/restrictor' in self.tree_cars.keys() else 0,
                     "SpectatorMode": 0,
-                    "FixedSetup": self.text_setup().strip() if self.checkbox_setup() else '',
+                    "FixedSetup": entrant_car + '/' + self.text_setup().strip() if self.checkbox_setup() else '',
                     "ConnectAsSpectator": False,
                     "IsPlaceHolder": False}
 
@@ -2577,7 +2577,7 @@ class Uploader:
                     "Ballast":    0, # self.tree_cars[car+'/ballast']    if car+'/ballast'    in self.tree_cars.keys() else 0,
                     "Restrictor": 0, # self.tree_cars[car+'/restrictor'] if car+'/restrictor' in self.tree_cars.keys() else 0,
                     "SpectatorMode": 0,
-                    "FixedSetup": self.text_setup().strip() if self.checkbox_setup() else '',
+                    "FixedSetup": selected_cars[n%len(selected_cars)] + '/' + self.text_setup().strip() if self.checkbox_setup() else '',
                     "ConnectAsSpectator": False,
                     "IsPlaceHolder": False}
 
