@@ -600,14 +600,14 @@ class Uploader:
             signal_changed=self._combo_carsets_changed,
             tip='Select a carset (if you have one saved)!'), alignment=0)
         self.grid2b.set_column_stretch(0)
-        self.button_load = self.grid2b.add(egg.gui.Button('Load',
-            tip='Load the selected carset.', signal_clicked=self._button_load_clicked))
+        self.button_load_carset = self.grid2b.add(egg.gui.Button('Load',
+            tip='Load the selected carset.', signal_clicked=self._button_load_carset_clicked))
         self.button_save_carset = self.grid2b.add(egg.gui.Button('Save',
             tip='Save / overwrite the selected carset with the selection below.\nIf [Unsaved Carset] is selected, this pops up a dialog to name the carset.',
             signal_clicked=self._button_save_carset_clicked))
-        self.button_delete = self.grid2b.add(egg.gui.Button('Delete',
+        self.button_delete_carset = self.grid2b.add(egg.gui.Button('Delete',
             tip='Delete the selected carset.',
-            signal_clicked=self._button_delete_clicked))
+            signal_clicked=self._button_delete_carset_clicked))
         
         self.tab_uploader.new_autorow()
         self.grid_filter_cars = self.tab_uploader.add(egg.gui.GridLayout(False), alignment=0)
@@ -2233,7 +2233,7 @@ class Uploader:
         if self._refilling_carsets or self._loading_uploader: return 
 
         # print('_combo_carsets_changed')
-        self.button_load.click()
+        self.button_load_carset.click()
         
         self._text_filter_cars_changed()
 
@@ -2241,15 +2241,19 @@ class Uploader:
         #self.send_cars_to_tree()
         #self.button_save_server.click()
 
-    def _button_delete_clicked(self,e):
+    def _button_delete_carset_clicked(self,e):
         """
         Deletes the selected carset.
         """
         # Special case: first element in combo box is new carset
         if self.combo_carsets.get_index() == 0: return
 
-        # remove it
-        os.remove(os.path.join('carsets', self.combo_carsets.get_text()))
+        # Assemble path
+        path = os.path.join('carsets', self.combo_carsets.get_text())+'.json'
+        if not os.path.exists(path) or os.path.isdir(path): return
+        
+        # Remove it
+        os.remove(path)
 
         # Select the zeroth
         self.combo_carsets(0)
@@ -2277,29 +2281,35 @@ class Uploader:
         self._updating_cars = False
         #widget.itemSelectionChanged.connect(itemSelectionChanged)
         
-    def _button_load_clicked(self,e):
+    def _button_load_carset_clicked(self,e):
         """
         Load the selected carset.
         """
-        # print('_button_load_clicked')
+        # print('_button_load_carset_clicked')
 
         # Special case: first element in combo box is new carset
         if self.combo_carsets.get_index() == 0: return
 
         # Get the path associated with this
-        path = os.path.join('carsets', self.combo_carsets.get_text())
+        path = os.path.join('carsets', self.combo_carsets.get_text())+'.json'
         if not os.path.exists(path) or os.path.isdir(path): return
         
         # Load it.
-        f = open(path, 'r', encoding="utf8")
-        selected = f.read().splitlines()
-        f.close()
+        j = load_json(path)
+        # f = open(path, 'r', encoding="utf8")
+        # selected = f.read().splitlines()
+        # f.close()
 
         # selected should be a list of car directories
-        self.set_list_selection(selected, self.list_cars, self._list_cars_changed)
+        self.set_list_selection(j['cars'], self.list_cars, self._list_cars_changed)
         self.send_cars_to_carnames()
         #self.send_cars_to_tree()
         
+        # Update the other things associated with this carset
+        self.text_tyres(j['tyres'])
+        self.text_setup(j['setup'])
+        self.checkbox_setup(j['setup_enabled'])
+
         self.button_save_server.click()
         
     def _button_save_carset_clicked(self,e):
@@ -2323,9 +2333,18 @@ class Uploader:
 
         # Write the file
         if not os.path.exists('carsets'): os.makedirs('carsets')
-        f = open(os.path.join('carsets', name), 'w', encoding="utf8")
-        for car in self.get_selected_cars(): f.write(car+'\n')
-        f.close()
+        
+        # Assemble the dictionary for the json file
+        j = dict(
+            cars  = self.get_selected_cars(), 
+            tyres = self.text_tyres(),
+            setup = self.text_setup(),
+            setup_enabled = self.checkbox_setup()
+        )
+        dump_json(j, os.path.join('carsets', name)+'.json')
+        # f = open(os.path.join('carsets', name), 'w', encoding="utf8")
+        # for car in self.get_selected_cars(): f.write(car+'\n')
+        # f.close()
         
         # Make sure it's selected; also updates the list I guess
         self.combo_carsets.set_text(name)
@@ -2742,10 +2761,10 @@ class Uploader:
         self.combo_carsets.add_item(_unsaved_carset)
 
         if not os.path.exists('carsets'): os.makedirs('carsets')
-        paths = glob(os.path.join('carsets','*'))
+        paths = glob(os.path.join('carsets','*.json'))
         carsets = set()
         for path in paths: 
-            carset = os.path.split(path)[-1]
+            carset = os.path.split(os.path.splitext(path)[0])[-1]
             carsets.add(carset)
             self.combo_carsets.add_item(carset)
 

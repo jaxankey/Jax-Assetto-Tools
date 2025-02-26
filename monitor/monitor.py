@@ -1040,7 +1040,7 @@ class Monitor:
         if os.path.exists(path_carsets):
 
             # Looks for and sort the carset paths
-            carset_paths = glob.glob(os.path.join(path_carsets, '*'))
+            carset_paths = glob.glob(os.path.join(path_carsets, '*.json'))
             carset_paths.sort()
 
             # For each carset path, load the contents into a list
@@ -1051,11 +1051,14 @@ class Monitor:
                 log(' ', path)
 
                 # Read the file
-                f = open(path, 'r', encoding="utf8"); s = f.read().strip(); f.close()
-
+                #f = open(path, 'r', encoding="utf8"); s = f.read().strip(); f.close()
+                j = load_json(path)
+                
                 # Get the list of cars
-                name = os.path.split(path)[-1]
-                self['carsets'][name] = s.split('\n')
+                # name = os.path.split(path)[-1]
+                # self['carsets'][name] = s.split('\n')
+                name = os.path.split(os.path.splitext(path)[0])[-1]
+                self['carsets'][name] = list(j['cars'])
 
                 # For each of these cars, append the carset name to the reverse-lookup
                 for car in self['carsets'][name]:
