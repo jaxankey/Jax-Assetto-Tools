@@ -654,6 +654,14 @@ class Uploader:
             tip='Open the setups folder in documents.',
             signal_clicked=self._button_open_setup_folder_clicked))
 
+        # Tyre wear 
+        self.grid_tyres.new_autorow()
+        self.grid_tyres.add(egg.gui.Label('Tyre Wear:'))
+        self.number_tyre_wear = self.grid_tyres.add(egg.gui.NumberBox(100, 1, (0,100),
+            tip='Tyre wear rate percentage. 0 means no wear, 100 means full.',
+            signal_changed=self._any_server_setting_changed)).set_width(50)
+        
+
         # Server stuff
         self.tab_uploader.new_autorow()
         self.tab_uploader.add(egg.gui.Label('\nServer').set_style(self.style_category))
@@ -764,6 +772,7 @@ class Uploader:
             'checkbox_url',
             'checkbox_post',
             'combo_send_to', 
+            'number_tyre_wear',
             'text_filter_cars', # Do this as a last step!!!
         ]
         
@@ -1132,6 +1141,7 @@ class Uploader:
         tyres  = self.text_tyres()
         setup  = self.text_setup()
         setup_enabled = self.checkbox_setup()
+        wear   = self.number_tyre_wear()
 
         try:
             # Now switch to the "send to" server
@@ -1152,6 +1162,9 @@ class Uploader:
             # Setup
             self.text_setup(setup)
             self.checkbox_setup(setup_enabled)
+
+            # Wear
+            self.number_tyre_wear(wear)
 
         except Exception as e: print('ERROR: _button_send_to_clicked', e)
 
@@ -2309,6 +2322,7 @@ class Uploader:
         self.text_tyres(j['tyres'])
         self.text_setup(j['setup'])
         self.checkbox_setup(j['setup_enabled'])
+        self.number_tyre_wear(j['wear'])
 
         self.button_save_server.click()
         
@@ -2339,7 +2353,8 @@ class Uploader:
             cars  = self.get_selected_cars(), 
             tyres = self.text_tyres(),
             setup = self.text_setup(),
-            setup_enabled = self.checkbox_setup()
+            setup_enabled = self.checkbox_setup(),
+            wear = self.number_tyre_wear(),
         )
         dump_json(j, os.path.join('carsets', name)+'.json')
         # f = open(os.path.join('carsets', name), 'w', encoding="utf8")
@@ -2477,7 +2492,8 @@ class Uploader:
             e['RaceSetup']['Track']       = track
             e['RaceSetup']['TrackLayout'] = layout
             e['RaceSetup']['LegalTyres']  = self.text_tyres() 
-            
+            e['RaceSetup']['TyreWearRate'] = self.number_tyre_wear()
+
             # Reset the signup form, classes and events entrants
             c['SignUpForm']['Responses'] = [] # Always start clean now. Simpler
             c['Classes'][0]['Entrants'] = dict()
