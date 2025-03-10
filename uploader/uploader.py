@@ -2319,10 +2319,10 @@ class Uploader:
         #self.send_cars_to_tree()
         
         # Update the other things associated with this carset
-        self.text_tyres(j['tyres'])
-        self.text_setup(j['setup'])
-        self.checkbox_setup(j['setup_enabled'])
-        self.number_tyre_wear(j['wear'])
+        if 'tyres'         in j: self.text_tyres(j['tyres'])
+        if 'setup'         in j: self.text_setup(j['setup'])
+        if 'setup_enabled' in j: self.checkbox_setup(j['setup_enabled'])
+        if 'wear'          in j: self.number_tyre_wear(j['wear'])
 
         self.button_save_server.click()
         
@@ -2492,7 +2492,7 @@ class Uploader:
             e['RaceSetup']['Track']       = track
             e['RaceSetup']['TrackLayout'] = layout
             e['RaceSetup']['LegalTyres']  = self.text_tyres() 
-            e['RaceSetup']['TyreWearRate'] = self.number_tyre_wear()
+            e['RaceSetup']['TyreWearRate'] = int(self.number_tyre_wear())
 
             # Reset the signup form, classes and events entrants
             c['SignUpForm']['Responses'] = [] # Always start clean now. Simpler
