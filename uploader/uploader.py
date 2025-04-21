@@ -438,16 +438,19 @@ class Uploader:
         ####### Settings for server manager premium
         self.tab_settings.new_autorow()
         self.label_stop = self.tab_settings.add(egg.gui.Label('Stop Server Command:'))
-        self.text_stop = self.tab_settings.add(egg.gui.TextBox('/home/username/stop-server',
-            tip='Remote path to a script that stops the server prior to modifying / uploading.',
+        self.text_stop = self.tab_settings.add(egg.gui.TextBox('/home/username/stop-server my-server',
+            tip='Remote command that stops the server prior to modifying / uploading.',
             signal_changed=self._any_server_setting_changed), alignment=0)
+        self.button_stop_server = self.tab_settings.add(egg.gui.Button('Stop Server',
+            signal_clicked=self._button_stop_server_clicked,
+            tip='Run the command using the SSH parameters above.'))
 
         self.tab_settings.new_autorow()
         self.label_start = self.tab_settings.add(egg.gui.Label('Start Server Command:'))
         self.text_start = self.tab_settings.add(egg.gui.TextBox('/home/username/start-servers',
-            tip='Remote path to a script that starts the server.',
+            tip='Remote command that starts the server again.',
             signal_changed=self._any_server_setting_changed), alignment=0)
-        self.button_start_server = self.tab_settings.add(egg.gui.Button('Run Command',
+        self.button_start_server = self.tab_settings.add(egg.gui.Button('Start Server',
             signal_clicked=self._button_start_server_clicked,
             tip='Run the command using the SSH parameters above.'))
 
@@ -470,7 +473,7 @@ class Uploader:
         self.label_remote_live_timings = self.tab_settings.add(egg.gui.Label('Remote Live Timings JSON:'))
         self.text_remote_live_timings = self.tab_settings.add(egg.gui.TextBox('/home/username/server-manager/json/live_timings.json',
             tip='Remote path to the live_timings.json file we will need to delete when uploading a new venue.\n'\
-               +'Requires json mode in\nserver-manager\'s config.yml.',
+               +'Requires json mode in server-manager\'s config.yml.',
             signal_changed=self._any_server_setting_changed), alignment=0)
 
 
@@ -506,16 +509,6 @@ class Uploader:
             tip='Opens a dialog to let you select a script file or something.',
             signal_clicked=self._button_browse_precommand_clicked))
 
-
-
-        self.tab_settings.new_autorow()
-        self.tab_settings.add(egg.gui.Label('Post-Command:'))
-        self.text_postcommand = self.tab_settings.add(egg.gui.TextBox('',
-            tip='Optional command to run after everything is done.',
-            signal_changed=self._any_server_setting_changed), alignment=0)
-        self.button_browse_postcommand = self.tab_settings.add(egg.gui.Button('Browse',
-            tip='Opens a dialog to let you select a script file or something.',
-            signal_clicked=self._button_browse_postcommand_clicked))
 
 
         self.tab_settings.new_autorow()
@@ -696,7 +689,7 @@ class Uploader:
         #     'Reset', signal_changed=self._any_server_setting_changed,
         #     tip='Stop the server, clear out previous live timings (laps), and restart it, using the specified script.'))
         self.checkbox_restart = self.grid2s.add(egg.gui.CheckBox(
-            'Restart Server', signal_changed=self._any_server_setting_changed,
+            'Restart', signal_changed=self._any_server_setting_changed,
             tip='Stop the server before upload and restart after upload.'))
         self.checkbox_monitor = self.grid2s.add(egg.gui.CheckBox(
             'Restart Monitor', signal_changed=self._any_server_setting_changed,
@@ -1245,7 +1238,7 @@ class Uploader:
         self.checkbox_pre.set_hidden(self.text_precommand() == '')
         self.checkbox_post.set_hidden(self.text_postcommand() == '')
         #self.checkbox_reset.set_hidden(self.text_reset() == '')
-        self.checkbox_restart.set_hidden(self.text_stop() == '' or self.text_start() == '')
+        self.checkbox_restart.set_hidden(self.text_stop().strip() == '' or self.text_start().strip() == '')
         self.checkbox_monitor.set_hidden(self.text_monitor() == '')
 
     def _combo_server_changed(self, *a):
@@ -1514,6 +1507,31 @@ class Uploader:
         self.combo_server.remove_item(self.combo_server())
         return
 
+    def start_server(self):
+        """
+        Starts the server
+        """
+        if self.text_start().strip() == '': return
+        self.log('Starting server...')
+        self.ssh_command(self.text_start().strip())
+        return self
+
+    def stop_server(self):
+        """
+        Stops the server
+        """
+        if self.text_stop().strip() == '': return
+        self.log('Stopping server...')
+        self.ssh_command(self.text_stop().strip())
+        return self
+
+    def _button_stop_server_clicked(self, *a):
+        """
+        Called when someone clicks the "Run Command" button.
+        """
+        self.stop_server()
+
+
     def _button_start_server_clicked(self, *a):
         """
         Called when someone clicks the "Run Command" button.
@@ -1709,14 +1727,14 @@ class Uploader:
         #self.checkbox_reset              .hide(premium)
 
         # Things that show up only in vanilla mode
-        self.label_stop         .show(premium)
-        self.label_start        .show(premium)
+        # self.label_stop         .show(premium)
+        # self.label_start        .show(premium)
         self.label_monitor      .show(premium)
-        self.text_stop          .show(premium)
-        self.text_start         .show(premium)
-        self.button_start_server.show(premium)
+        #self.text_stop          .show(premium)
+        #self.text_start         .show(premium)
+        #self.button_start_server.show(premium)
         self.text_monitor       .show(premium)
-        self.checkbox_restart   .show(premium)
+        #self.checkbox_restart   .show(premium)
 
         # Run the stuff because something changed.
         self._any_server_setting_changed()
@@ -1784,12 +1802,22 @@ class Uploader:
         """
         Runs the supplied command on the existing connection.
         """
-        if not self.ssh:
-            self.log('ERROR: Cannot send command with no connection.')
-            return True
+        temporary_connection = False
+        if not self.ssh: 
+            self.connect()
+            temporary_connection = True
         
-        # print('ssh_command', command.strip())
-        self.ssh.exec_command(command.strip())
+        if not self.ssh:
+            self.log('ERROR: Could not connect.')
+            return True
+
+        self.log(' >', command.strip())
+        stdin, stdout, stderr = self.ssh.exec_command(command.strip())
+
+        # Wait until completed
+        exit_status = stdout.channel.recv_exit_status()
+
+        if temporary_connection: self.disconnect()
 
     def sftp_download(self, source, destination):
         """
@@ -1879,17 +1907,14 @@ class Uploader:
             # Compresses and uploads the 7z, and clean remote files
             if self.upload_content(skins_only): return True
 
-            # Stop server, but only if there is a command, we're not doing skins, and we're in vanilla mode
-            if self.checkbox_restart() and self.text_stop().strip() != '' \
-            and not skins_only and self.combo_mode()==SERVER_MODE_VANILLA:
-                self.log('Stopping server...')
-                if self.ssh_command(self.text_stop().strip()): return True
-                
+            # Stop server, but only if there is a command, we're not doing skins
+            if self.checkbox_restart() and self.text_stop().strip() != '' and not skins_only:
+                self.stop_server()
+
                 # Pause to let server shut down, then delete live_timings.json
-                if self.text_live_timings().strip() != '':
-                    sleep(3.0)
+                if self.text_remote_live_timings().strip() != '':
                     self.log('Removing live_timings.json')
-                    if self.ssh_command('rm -f '+self.text_live_timings().strip()): return True
+                    if self.ssh_command('rm -f '+self.text_remote_live_timings().strip()): return True
                 
             # Remote unzip the upload
             if self.unpack_uploaded_content(skins_only): return True
@@ -1901,10 +1926,8 @@ class Uploader:
                 if self.sftp_upload('championship.json', self.text_remote_championship()): return True
                 
             # Start server
-            if self.checkbox_restart() and self.text_start().strip() != '' \
-            and not skins_only and self.combo_mode()==SERVER_MODE_VANILLA:
-                self.log('Starting server...')
-                self.ssh_command(self.text_start().strip())
+            if self.checkbox_restart() and self.text_start().strip() != '' and not skins_only:
+                self.start_server()
 
             # Restart monitor if enabled, there is a script, we're not just doing skins, and we're in vanilla mode
             if self.checkbox_monitor() and self.text_monitor().strip() != '' \
@@ -2049,24 +2072,25 @@ class Uploader:
         """
         Just unzips the remote uploads.zip, and cleans up local files.
         """
+        # JACK: Might be good to shut down the server first, so there isn't a write collision.
+
         # Server info
         remote  = self.text_remote.get_text()
         
-        # Back to the upload process
+        # Remove the carsets folder
+        if not skins_only:
+            self.log('Removing remote carset lists...')
+            if self.ssh_command('rm -f '+remote+'/carsets/*'): return True
+        
+        # Remote extract
+        self.log('Extracting remote uploads.zip...')
+        if self.ssh_command('7z x -aoa '+remote+'/uploads.zip -o'+remote): return True
+
+        # If the local uploads directory exists.
         if os.path.exists('uploads'):
-
-            # Remove the carsets folder
-            if not skins_only:
-                self.log('Removing remote carset lists...')
-                if self.ssh_command('rm -f '+remote+'/carsets/*'): return True
-            
-            # Remote extract
-            self.log('Extracting remote uploads.zip...')
-            if self.ssh_command('7z x -aoa '+remote+'/uploads.zip -o'+remote): return True
-
             self.log('Removing local uploads.')
             rmtree('uploads')
-            if os.path.exists('uploads.zip'): os.remove('uploads.zip')
+        if os.path.exists('uploads.zip'): os.remove('uploads.zip')
 
     # JACK! This is where to check for the DDS validity
     def collect_assetto_files(self, source_folder, skins_only=False):
