@@ -1245,45 +1245,88 @@ class Monitor:
         # If we have none, do nothing
         if N > 0:
 
+            # MEDIANS
+
             # Get the median time string
             tm = self.from_ms(median(all_bests), True)
 
             # Append this to the string
             lines.append('\n**Mid-Pace ('+str(min_lap_count)+'+ laps)**')
         
-            # If N > 1, add a summary
+            # If the number of cars is > 1, add a special summary line for all cars
             if len(car_bests) > 1: lines.append('`' + tm + '` Driver Best ('+str(N)+')')
 
-        # Do the same per car
-        car_medians = dict() # {time_ms: line_string}
+            # Now add a line for each car
+            car_medians = dict() # {time_ms: line_string}
+            for car in car_bests:
+                
+                # Get the median in ms and the string
+                tm_ms = median(car_bests[car])
+                tm = self.from_ms(tm_ms, True)
+                
+                # Store by ms for sorting
+                if car in self['carnames']:
+                    car_medians[tm_ms] = '`'+ tm + '` ' + self['carnames'][car]  + ' ('+str(len(car_bests[car]))+')'
+                else:
+                    log('ERROR: WTF extra car', car, 'not in self["carnames"]')
 
-        for car in car_bests:
-            N = len(car_bests[car])
+            # Sort car_medians by time
+            car_medians = {k: v for k, v in sorted(car_medians.items(), key=lambda item: item[0])}
 
-            # Get the median in ms and the string
-            tm_ms = median(car_bests[car])
-            tm = self.from_ms(tm_ms, True)
+            # Append to lines if there are more than one (to avoid double-information)
+            for tm_ms in car_medians: lines.append(car_medians[tm_ms])
             
-            # Store by ms for sorting
-            if car in self['carnames']:
-                car_medians[tm_ms] = '`'+ tm + '` ' + self['carnames'][car]  + ' ('+str(N)+')'
-            else:
-                log('ERROR: WTF extra car', car, 'not in self["carnames"]')
+            # Make sure we don't have too many characters
+            popped = False
+            while len(lines) > 0 and len('\n'.join(lines)) > chars-4: # -4 for \n... 
+                lines.pop(-1)
+                popped = True
 
-        # Sort car_medians by time
-        car_medians = {k: v for k, v in sorted(car_medians.items(), key=lambda item: item[0])}
+            # If we removed some lines, hint that there are more.
+            if popped: lines.append('...')
 
-        # Append to lines if there are more than one (to avoid double-information)
-        for tm_ms in car_medians: lines.append(car_medians[tm_ms])
+
+            # NERDS
+
+            # Get the fastest time string
+            tm = self.from_ms(min(all_bests), True)
+
+            # Append this to the string
+            lines.append('\n**NERD. ('+str(min_lap_count)+'+ laps)**')
         
-        # Make sure we don't have too many characters
-        popped = False
-        while len(lines) > 0 and len('\n'.join(lines)) > chars-4: # -4 for \n... 
-            lines.pop(-1)
-            popped = True
+            # If the number of cars is > 1, add a special summary line for all cars
+            if len(car_bests) > 1: lines.append('`' + tm + '` Driver Best ('+str(N)+')')
 
-        # If we removed some lines, hint that there are more.
-        if popped: lines.append('...')
+            # Now add a line for each car
+            car_mins = dict() # {time_ms: line_string}
+            for car in car_bests:
+                
+                # Get the mins in ms and the string
+                tm_ms = min(car_bests[car])
+                tm = self.from_ms(tm_ms, True)
+                
+                # Store by ms for sorting
+                if car in self['carnames']:
+                    car_mins[tm_ms] = '`'+ tm + '` ' + self['carnames'][car]  + ' ('+str(len(car_bests[car]))+')'
+                else:
+                    log('ERROR: WTF extra car', car, 'not in self["carnames"]')
+
+            # Sort car_mins by time
+            car_mins = {k: v for k, v in sorted(car_mins.items(), key=lambda item: item[0])}
+
+            # Append to lines if there are more than one (to avoid double-information)
+            for tm_ms in car_mins: lines.append(car_mins[tm_ms])
+            
+            # Make sure we don't have too many characters
+            popped = False
+            while len(lines) > 0 and len('\n'.join(lines)) > chars-4: # -4 for \n... 
+                lines.pop(-1)
+                popped = True
+
+            # If we removed some lines, hint that there are more.
+            if popped: lines.append('...')
+
+
         return '\n'.join(lines)
 
     def get_laps_string(self, chars):
