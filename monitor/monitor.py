@@ -1292,10 +1292,11 @@ class Monitor:
             tm = self.from_ms(min(all_bests), True)
 
             # Append this to the string
-            lines.append('\n**This week\'s tryhard NERD. ('+str(min_lap_count)+'+ laps)**')
-        
-            # If the number of cars is > 1, add a special summary line for all cars
-            if len(car_bests) > 1: lines.append('`' + tm + '` Driver Best ('+str(N)+')')
+            if len(car_bests) == 1: 
+                lines.append('\n**This week\'s tryhard NERD. ('+str(min_lap_count)+'+ laps)**')
+            elif len(car_bests) > 1:
+                lines.append('\n**This week\'s tryhard NERDS. ('+str(min_lap_count)+'+ laps)**')
+                lines.append('`' + tm + '` Driver Best ('+str(N)+')')
 
             # Now add a line for each car
             car_mins = dict() # {time_ms: line_string}
