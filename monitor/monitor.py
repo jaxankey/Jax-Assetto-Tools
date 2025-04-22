@@ -1293,9 +1293,9 @@ class Monitor:
 
             # Append this to the string
             if len(car_bests) == 1: 
-                lines.append('\n**This week\'s asshole ('+str(min_lap_count)+'+ laps)**')
+                lines.append('\n**This Week\'s Asshole ('+str(min_lap_count)+'+ laps)**')
             elif len(car_bests) > 1:
-                lines.append('\n**This week\'s assholes ('+str(min_lap_count)+'+ laps)**')
+                lines.append('\n**This Week\'s Assholes ('+str(min_lap_count)+'+ laps)**')
                 lines.append('`' + tm + '` Driver Best ('+str(N)+')')
 
             # Now add a line for each car
