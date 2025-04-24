@@ -886,18 +886,18 @@ class Uploader:
         """
         Give the path to a dds and it will check it against self.number_dds_max_size
         """
-        if path.split('.')[-1] != 'dds' or self.number_max_dds_size() <= 0: return True
+        if path.split('.')[-1] != 'dds' or self.number_max_dds_size() <= 0: return True, None
 
         # Check the size
         try:
             img = Image.open(path)
-            if img.width > self.number_max_dds_size(): return False
-            return True
+            if img.width > self.number_max_dds_size(): return False, 'Resolution is greater than %d.' % self.number_max_dds_size()
+            return True, None
         
         # Couldn't open the file or something
-        except:
-            self.log('  ERROR: Could not check size of', path.split('assettocorsa')[-1])
-            return False
+        except Exception as e:
+            self.log('  ERROR: Could not check size of', path.split('assettocorsa')[-1], e)
+            return False, str(e)
             
     def unpack_skin(self, path):
         """
@@ -916,8 +916,9 @@ class Uploader:
         
         # Validity conditions
         skins_found = False # Whether we found a skins folder in the archive
-        bad_files   = []    # List of bad (dds) files
-        
+        bad_files   = {}    # List of bad (dds) files: key = filename, value = error message
+        path_out = None
+
         # Try navigating the zip file
         try: 
             # Get the zipfile object
@@ -948,7 +949,7 @@ class Uploader:
                 car = us[i_skins-1]
                 skin = us[i_skins+1]
 
-                # Get the output path
+                # Get the output path (everything after the skins folder)
                 path_out = os.path.join(cars, *us[i_skins-1:])
                 
                 # Make sure it doesn't exist
@@ -961,13 +962,13 @@ class Uploader:
                 # at least 3 deep
                 if x.filename not in ['desktop.ini'] and len(us)-i_skins == 3:
 
-                    # Extract
+                    # Extract this file
                     dir_path_out = os.path.dirname(path_out)
                     z.extract(x, dir_path_out)
                     
                     # If this is a bad file
-                    if not self.valid_dds_file(os.path.join(dir_path_out, x.filename)):
-                        bad_files.append(x.filename)   
+                    good, error = self.valid_dds_file(os.path.join(dir_path_out, x.filename))
+                    if not good: bad_files[x.filename] = error   
 
             # End of loop over files in zip
 
@@ -983,15 +984,19 @@ class Uploader:
                 if skin not in json_custom_skins[car]: json_custom_skins[car].append(skin) 
                 self.save_custom_skins_json(json_custom_skins)
                 
-            # Otherwise something went wrong, so send a message about it.
+            # Otherwise something went wrong, so delete it and send a message about it.
             else: 
+
+                # Delete the extracted folder
+                if path_out and os.path.exists(path_out): os.unlink(path_out)
+
                 # Assemble the error log for this car
                 zip_filename = os.path.split(path)[-1]
                 message = '   ' + zip_filename + ' is invalid:'
 
                 # Add custom issues.
                 if not skins_found   : message = message + '\n* skins folder not found'
-                for file in bad_files: message = message + '\n* '+file+' resolution greater than %d.' % self.number_max_dds_size()
+                for file in bad_files: message = message + '\n* '+file+': ' + bad_files[file]
 
                 # Log
                 self.log(message)

@@ -47,6 +47,7 @@ color_onlines       = 10181046 # Post color when people are online
 color_server_up     = 5763719  # Post color when server is up but empty
 
 # Persistent post for venue information
+bot_name            = None
 url_webhook_info    = None
 url_event_info      = ''
 venue_header        = ''
@@ -361,7 +362,7 @@ class Monitor:
             # Send a warning message to discord
             if not no_down_warning and not self['down_message_id']:
                 self['down_message_id'] = self.send_message(self.webhook_info, 
-                    '', 'Server is down. I need an adult! :(', '', '')
+                    '', 'Server is down. I need an adult! :(', '', '', username=bot_name)
                 self.save_and_archive_state()
 
             # If self['server_is_up'] is True, then that means it used to be up and has recently gone down.
@@ -513,8 +514,8 @@ class Monitor:
                         a = 'a '
                         if carname[0].lower() in ['a','e','i','o','u']: a = 'an '
 
-                        # Send a message about the new registrant
-                        self.send_message(self.webhook_online, reg[guid][0] + ' registered in ' + a + carname)
+                        # Send a message about the new registrant +++
+                        self.send_message(self.webhook_online, reg[guid][0] + ' registered in ' + a + carname, username=bot_name)
 
                     # If it's different, update the state and send messages
                     if tq != self['qual_timestamp']    or tr != self['race_timestamp'] \
@@ -585,7 +586,9 @@ class Monitor:
 
                 # If we're giving one hour messages, send it ONCE.
                 if one_hour_message and not self['one_hour_message_id']:
-                    self['one_hour_message_id'] = self.send_message(self.webhook_info, one_hour_message, message_id=self['one_hour_message_id'])
+                    self['one_hour_message_id'] = self.send_message(self.webhook_info, one_hour_message, 
+                                                                    message_id=self['one_hour_message_id'], 
+                                                                    username=bot_name)
 
                 # If we're running a one hour script, do so ONCE.
                 if script_one_hour and not self['script_one_hour_done']:
@@ -610,7 +613,10 @@ class Monitor:
             
                 # If we're doing the quali message, send it ONCE
                 if qualifying_message and not self['qualifying_message_id']:
-                    self['qualifying_message_id'] = self.send_message(self.webhook_info, qualifying_message, message_id=self['qualifying_message_id'])
+                    self['qualifying_message_id'] = self.send_message(self.webhook_info, 
+                                                                      qualifying_message, 
+                                                                      message_id=self['qualifying_message_id'], 
+                                                                      username=bot_name)
 
                 # If we're running a quali script, do so ONCE
                 if script_qualifying and not self['script_qualifying_done']:
@@ -710,7 +716,7 @@ class Monitor:
                             laps_or_onlines_changed = True
 
 
-        # Finally, if ANYTHING changed, we need to update the messages
+        # Finally, if ANYTHING changed (or we just started the monitor), we need to update the messages
         if self.first_run \
         or laps_or_onlines_changed \
         or track_changed \
@@ -1609,7 +1615,9 @@ class Monitor:
         if laps and len(laps): body1 = body1 + '\n' + laps + '\n' # JACK
 
         # Send the main info message. Body 1 is the laps list, body 2 includes previous onlines
-        self['laps_message_id'] = self.send_message(self.webhook_info, '', body1, body2, footer, self['laps_message_id'], color=color)
+        self['laps_message_id'] = self.send_message(self.webhook_info, '', body1, body2, footer, 
+                                                    self['laps_message_id'], color=color, 
+                                                    username=bot_name)
         if self['laps_message_id'] is None: log('DID NOT EDIT OR SEND LAPS MESSAGE')
 
 
@@ -1628,7 +1636,8 @@ class Monitor:
 
             # Send the message
             # JACK
-            self['online_message_id'] = self.send_message(self.webhook_online, '', body1, '', online_footer+join_link, self['online_message_id'])
+            self['online_message_id'] = self.send_message(self.webhook_online, '', body1, '', 
+                                                          online_footer+join_link, self['online_message_id'], username=bot_name)
             if self['online_message_id'] is None: log('DID NOT EDIT OR SEND ONLINES')
 
         # No one is currently online. 
@@ -1658,7 +1667,7 @@ class Monitor:
             # is an online_message_id, except on startup or new venue.
             if len(errbody):
                 body1 = session_complete_header+'\n\nParticipants:\n'+'\n'.join(errbody) + '\n' # JACK
-                self['online_message_id'] = self.send_message(self.webhook_online, '', body1, '', '\n'+online_footer+self.get_join_link(), self['online_message_id'], 0)
+                self['online_message_id'] = self.send_message(self.webhook_online, '', body1, '', '\n'+online_footer+self.get_join_link(), self['online_message_id'], 0, username=bot_name)
                 
                 # Remember the time this message was "closed". If a new session
                 # starts within a little time of this, use the same message id
@@ -1685,7 +1694,7 @@ class Monitor:
             try: webhook.delete_message(message_id)
             except: pass
 
-    def send_message(self, webhook, message='', body1='', body2='', footer='', message_id=None, color=15548997):
+    def send_message(self, webhook, message='', body1='', body2='', footer='', message_id=None, color=15548997, username=None):
         """
         Sends a message (message, 2000 character limit) and an embed
         (body1, body2, footer, 4096 characters total). Returns the message id
@@ -1753,8 +1762,10 @@ class Monitor:
                     try: 
                         log('  Trying to send a new message...')
                         
-                        if len(e.description): message_id = webhook.send(message, embeds=[e], wait=True).id
-                        else:                  message_id = webhook.send(message, embeds=[],  wait=True).id
+                        if len(e.description): message_id = webhook.send(message, embeds=[e], 
+                                                                         username=username, wait=True).id
+                        else:                  message_id = webhook.send(message, embeds=[],  
+                                                                         username=username, wait=True).id
                         
                         log('  Sent id', message_id)
                     
@@ -1766,15 +1777,17 @@ class Monitor:
                 # Otherwise try again
                 else:
                     time.sleep(3)
-                    message_id = self.send_message(webhook, message, body1, body2, footer, message_id, color)
+                    message_id = self.send_message(webhook, message, body1, body2, 
+                                                   footer, message_id, color, 
+                                                   username=username)
         
         # If we don't have a message_id, just try to send a new one.
         else:
             
             # Try to send it
             try: 
-                if len(e.description): message_id = webhook.send(message, embeds=[e], wait=True).id
-                else:                  message_id = webhook.send(message, embeds=[ ], wait=True).id
+                if len(e.description): message_id = webhook.send(message, embeds=[e], username=username, wait=True).id
+                else:                  message_id = webhook.send(message, embeds=[ ], username=username, wait=True).id
             except Exception as x:
                 log('WHOOPS could not send message', message_id, e, x)
                 message_id = None
