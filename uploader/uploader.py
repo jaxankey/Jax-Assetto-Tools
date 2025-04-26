@@ -503,7 +503,7 @@ class Uploader:
         self.tab_settings.new_autorow()
         self.tab_settings.add(egg.gui.Label('Pre-Command:'))
         self.text_precommand = self.tab_settings.add(egg.gui.TextBox('',
-            tip='Optional command to run before everything begins.',
+            tip='Optional local command to run before everything begins.',
             signal_changed=self._any_server_setting_changed), alignment=0)
         self.button_browse_precommand = self.tab_settings.add(egg.gui.Button('Browse',
             tip='Opens a dialog to let you select a script file or something.',
@@ -514,7 +514,7 @@ class Uploader:
         self.tab_settings.new_autorow()
         self.tab_settings.add(egg.gui.Label('Post-Command:'))
         self.text_postcommand = self.tab_settings.add(egg.gui.TextBox('',
-            tip='Optional command to run after everything is done.',
+            tip='Optional local command to run after everything is done.',
             signal_changed=self._any_server_setting_changed), alignment=0)
         self.button_browse_postcommand = self.tab_settings.add(egg.gui.Button('Browse',
             tip='Opens a dialog to let you select a script file or something.',
