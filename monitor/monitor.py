@@ -1296,6 +1296,7 @@ class Monitor:
 
             # Get the fastest time string
             log('JACK1: ', all_bests, min(all_bests))
+            log('JACK2: ', self.sort_best_laps_by_name_and_car())
             tm = self.from_ms(min(all_bests), True)
 
             # Append this to the string
