@@ -1254,7 +1254,7 @@ class Monitor:
             # MEDIANS
 
             # Get the median time string
-            tm = self.from_ms(median(all_bests), True)
+            tm = self.from_ms(median(all_bests), 1)
 
             # Append this to the string
             lines.append('\n**Mid-Pace ('+str(min_lap_count)+'+ laps)**')
@@ -1268,7 +1268,7 @@ class Monitor:
                 
                 # Get the median in ms and the string
                 tm_ms = median(car_bests[car])
-                tm = self.from_ms(tm_ms, True)
+                tm = self.from_ms(tm_ms, 1)
                 
                 # Store by ms for sorting
                 if car in self['carnames']:
@@ -1298,7 +1298,7 @@ class Monitor:
             all_bests, car_bests, min_lap_count = self.sort_best_laps_by_name_and_car(0)
 
             # Get the fastest time string
-            tm = self.from_ms(min(all_bests), True)
+            tm = self.from_ms(min(all_bests), 3)
 
             # Append this to the string
             if len(car_bests) == 1: 
@@ -1313,7 +1313,7 @@ class Monitor:
                 
                 # Get the mins in ms and the string
                 tm_ms = min(car_bests[car])
-                tm = self.from_ms(tm_ms, True)
+                tm = self.from_ms(tm_ms, 3)
                 
                 # Store by ms for sorting
                 if car in self['carnames']:
