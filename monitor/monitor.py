@@ -1295,6 +1295,7 @@ class Monitor:
             # NERDS
 
             # Get the fastest time string
+            log('JACK1: ', all_bests, min(all_bests))
             tm = self.from_ms(min(all_bests), True)
 
             # Append this to the string
