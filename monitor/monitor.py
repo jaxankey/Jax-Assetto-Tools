@@ -1297,7 +1297,6 @@ class Monitor:
             # Sort but without the minimum number of laps
             all_bests, car_bests, min_lap_count = self.sort_best_laps_by_name_and_car(0)
 
-
             # Get the fastest time string
             tm = self.from_ms(min(all_bests), True)
 
@@ -1306,8 +1305,8 @@ class Monitor:
                 lines.append('\n**This Week\'s Asshole**')
             elif len(car_bests) > 1:
                 lines.append('\n**This Week\'s Assholes**')
-                lines.append('`' + tm + '` Driver Best ('+str(N)+')')
-
+                lines.append('`' + tm + '` Driver Best')
+                
             # Now add a line for each car
             car_mins = dict() # {time_ms: line_string}
             for car in car_bests:
@@ -1318,7 +1317,7 @@ class Monitor:
                 
                 # Store by ms for sorting
                 if car in self['carnames']:
-                    car_mins[tm_ms] = '`'+ tm + '` ' + self['carnames'][car]  + ' ('+str(len(car_bests[car]))+')'
+                    car_mins[tm_ms] = '`'+ tm + '` ' + self['carnames'][car]
                 else:
                     log('ERROR: WTF extra car', car, 'not in self["carnames"]')
 
