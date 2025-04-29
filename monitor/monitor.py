@@ -1170,7 +1170,7 @@ class Monitor:
 
         return laps_sorted
 
-    def sort_best_laps_by_name_and_car(self):
+    def sort_best_laps_by_name_and_car(self, min_laps=10):
         """
         Returns a dictionary with car keys and an ordered list of driver laps, e.g.:
 
@@ -1188,8 +1188,8 @@ class Monitor:
         # First get the min laps cutoff
         for name in self['laps']:
             for car in self['laps'][name]:
-                # Use the highest count that isn't over 10
-                min_count = max(min_count, min(self['laps'][name][car]['count'], 10))
+                # Use the highest count that isn't over min_laps
+                min_count = max(min_count, min(self['laps'][name][car]['count'], min_laps))
         
         for name in self['laps']:
 
@@ -1240,7 +1240,7 @@ class Monitor:
         if not self['laps'] or len(self['laps'].keys()) == 0: return None
 
         # Get the sorted laps by name and car
-        all_bests, car_bests, min_lap_count = self.sort_best_laps_by_name_and_car()
+        all_bests, car_bests, min_lap_count = self.sort_best_laps_by_name_and_car(10)
 
         # Loop over all the carsets
         lines = []
@@ -1292,18 +1292,20 @@ class Monitor:
             if popped: lines.append('...')
 
 
-            # NERDS
+            # NERDS+++
+
+            # Sort but without the minimum number of laps
+            all_bests, car_bests, min_lap_count = self.sort_best_laps_by_name_and_car(0)
+
 
             # Get the fastest time string
-            log('JACK1: ', all_bests, min(all_bests))
-            log('JACK2: ', self.sort_best_laps_by_name_and_car())
             tm = self.from_ms(min(all_bests), True)
 
             # Append this to the string
             if len(car_bests) == 1: 
-                lines.append('\n**This Week\'s Asshole ('+str(min_lap_count)+'+ laps)**')
+                lines.append('\n**This Week\'s Asshole**')
             elif len(car_bests) > 1:
-                lines.append('\n**This Week\'s Assholes ('+str(min_lap_count)+'+ laps)**')
+                lines.append('\n**This Week\'s Assholes**')
                 lines.append('`' + tm + '` Driver Best ('+str(N)+')')
 
             # Now add a line for each car
@@ -1322,8 +1324,6 @@ class Monitor:
 
             # Sort car_mins by time
             car_mins = {k: v for k, v in sorted(car_mins.items(), key=lambda item: item[0])}
-
-            log('JACK: ', car_mins)
 
             # Append to lines if there are more than one (to avoid double-information)
             for tm_ms in car_mins: lines.append(car_mins[tm_ms])
