@@ -1321,6 +1321,8 @@ class Monitor:
             # Sort car_mins by time
             car_mins = {k: v for k, v in sorted(car_mins.items(), key=lambda item: item[0])}
 
+            log('JACK: ', car_mins)
+
             # Append to lines if there are more than one (to avoid double-information)
             for tm_ms in car_mins: lines.append(car_mins[tm_ms])
             

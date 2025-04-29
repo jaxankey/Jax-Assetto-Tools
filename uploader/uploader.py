@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-import os, sys, random
+import os, sys, random, codecs
 import discord
 from PIL import Image # Cannot seem to save dds as DXT3 yet.
 from importlib import util
@@ -539,9 +539,28 @@ class Uploader:
                 'carset even without this specified. This just makes a copy for easy download.',
             signal_changed=self._any_server_setting_changed), alignment=0)
         
+        self.tab_settings.new_autorow()
+        self.tab_settings.add(egg.gui.Label('Announcement Discord Webhook:'))
+        self.text_webhook_announcement = self.tab_settings.add(egg.gui.TextBox('',
+            tip='Optional discord webhook for sending the venue announcement.',
+            signal_changed=self._any_server_setting_changed), alignment=0)
+        self.button_send_discord_announcement = self.tab_settings.add(egg.gui.Button('Send',
+            tip='Manually sends the discord announcement message.',
+            signal_clicked=self._button_send_discord_announcement_clicked))
+        self.tab_settings.new_autorow()
+        self.tab_settings.add(egg.gui.Label('Announcement Header:'))
+        self.text_announcement_pre = self.tab_settings.add(egg.gui.TextBox('This week\'s venue: ',
+            tip='Text before the venue string.',
+            signal_changed=self._any_server_setting_changed), alignment=0)
+        self.tab_settings.new_autorow()
+        self.tab_settings.add(egg.gui.Label('Announcement Footer:'))
+        self.text_announcement_post = self.tab_settings.add(egg.gui.TextBox('\n\nSee above for information and race times.',
+            tip='Text after the venue string.',
+            signal_changed=self._any_server_setting_changed), alignment=0)
+        
 
         self.tab_settings.new_autorow()
-        self.tab_settings.add(egg.gui.Label('Discord Webhook for Errors:'))
+        self.tab_settings.add(egg.gui.Label('Errors Discord Webhook:'))
         self.text_webhook_errors = self.tab_settings.add(egg.gui.TextBox('',
             tip='Optional discord webhook for sending error messages. Currently only for issues with liveries.',
             signal_changed=self._any_server_setting_changed), alignment=0)
@@ -697,6 +716,9 @@ class Uploader:
         self.checkbox_url = self.grid2s.add(egg.gui.CheckBox(
             'URL(s)', signal_changed=self._any_server_setting_changed,
             tip='Open the specified URL in your browser.'))
+        self.checkbox_announce = self.grid2s.add(egg.gui.CheckBox(
+            'Announce', signal_changed=self._any_server_setting_changed,
+            tip='Sends the discord announcement if there is a webhook specified.'))
         self.checkbox_post  = self.grid2s.add(egg.gui.CheckBox(
             'Post', signal_changed=self._any_server_setting_changed,
             tip='Run the post-command after everything is done.'))
@@ -748,6 +770,9 @@ class Uploader:
             'text_skins',
             'text_latest_skins',
             'text_webhook_errors',
+            'text_webhook_announcement',
+            'text_announcement_pre',
+            'text_announcement_post',
             'number_max_dds_size',
             'text_tyres',
             'text_setup',
@@ -763,6 +788,7 @@ class Uploader:
             'checkbox_restart',
             'checkbox_monitor',
             'checkbox_url',
+            'checkbox_announce',
             'checkbox_post',
             'combo_send_to', 
             'number_tyre_wear',
@@ -880,7 +906,51 @@ class Uploader:
         # Return the id just in case.
         return message_id
     
+    def _button_send_discord_announcement_clicked(self, *a):
+        """
+        Just sends the discord announcement message.
+        """
+        self.send_discord_announcement()
 
+    def send_discord_announcement(self):
+        """
+        Sends a message (message, 2000 character limit) and an embed
+        (body1, body2, footer, 4096 characters total). Returns the message id
+        """
+        if not self.checkbox_announce(): return
+
+        self.log('Sending discord venue announcement.')
+
+        # Get the webhook
+        webhook_url = self.text_webhook_announcement.get_text().strip()
+        if not len(webhook_url): return
+        
+        # Make the webhook
+        try: webhook = discord.SyncWebhook.from_url(webhook_url)
+        except Exception as x:
+            self.log('ERROR: Could not create webhook.\n', x)
+            return
+        
+        # Assemble the message
+        message = self.text_announcement_pre() \
+                + self.combo_carsets.get_text()+' at '+self.track['name'] \
+                + self.text_announcement_post()
+
+        # Unescape it
+        message = codecs.decode(message, 'unicode_escape')
+
+        # Keep the total character limit below 2000
+        if len(message) > 2000: message = message[0:1995] + '\n...'
+
+        # Try to send it
+        try: 
+            message_id = webhook.send(message, wait=True).id
+        except Exception as x:
+            self.log('ERROR: Could not send discord message.', message_id, x)
+            message_id = None
+
+        # Return the id just in case.
+        return message_id
 
     def valid_dds_file(self, path):
         """
@@ -978,7 +1048,6 @@ class Uploader:
 
             # If it's valid, dump the updated list of skins.
             if skins_found and len(bad_files)==0: 
-                # +++JACK
                 # Add this to the json using the last valid car and skin folder names
                 if car not in json_custom_skins: json_custom_skins[car] = []
                 if skin not in json_custom_skins[car]: json_custom_skins[car].append(skin) 
@@ -1149,7 +1218,7 @@ class Uploader:
             self.combo_tracks.set_text(trackname)
             if len(self.combo_layouts.get_all_items()) > 0: self.combo_layouts.set_text(layoutname)
 
-            # JACK: Some problem here if we overwrite a carset, sometimes
+            # Some problem here if we overwrite a carset, sometimes
             # If we have an unsaved carset, use the list, otherwise just choose the carset
             if carset == _unsaved_carset: self.set_list_selection(cars, self.list_cars, self._list_cars_changed)
             self.combo_carsets.set_text(carset)
@@ -1691,8 +1760,6 @@ class Uploader:
         
         else: self.log('\nLeaving '+cars[0]+' skins alone.')
 
-        #+++
-
     def send_cars_to_carnames(self):
         """
         Transfers the currently selected cars to carnames.
@@ -1951,9 +2018,12 @@ class Uploader:
             self.log('List copied to clipboard')
             
         # Forward to the supplied URL
-        if self.checkbox_url():
+        if not skins_only and self.checkbox_url():
             self.button_go_url.click()
             self.button_go_url2.click()
+
+        # Send the discord announcement
+        if not skins_only: self.send_discord_announcement()
 
         # Post-command
         if self.checkbox_post() and self.text_postcommand().strip() != '':
@@ -2077,8 +2147,6 @@ class Uploader:
         """
         Just unzips the remote uploads.zip, and cleans up local files.
         """
-        # JACK: Might be good to shut down the server first, so there isn't a write collision.
-
         # Server info
         remote  = self.text_remote.get_text()
         
