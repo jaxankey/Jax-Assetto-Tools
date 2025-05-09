@@ -872,7 +872,7 @@ class Uploader:
         # Save the setting in case we ever decide to load on boot. 
         if not self._loading_server: self.button_save_server.click()
 
-    def send_discord_error_message(self, message='', body='', color=15548997):
+    def send_discord_message(self, message='', body='', color=15548997):
         """
         Sends a message (message, 2000 character limit) and an embed
         (body1, body2, footer, 4096 characters total). Returns the message id
@@ -1052,7 +1052,12 @@ class Uploader:
                 if car not in json_custom_skins: json_custom_skins[car] = []
                 if skin not in json_custom_skins[car]: json_custom_skins[car].append(skin) 
                 self.save_custom_skins_json(json_custom_skins)
-                
+
+                # Send a happy message
+                zip_filename = os.path.split(path)[-1]
+                message = 'Livery file '+zip_filename+' unpacked and validated. :slightsmile:\nIt should be available for registration in a few minutes...'
+                self.send_discord_message('', message)
+
             # Otherwise something went wrong, so delete it and send a message about it.
             else: 
 
@@ -1069,7 +1074,7 @@ class Uploader:
 
                 # Log
                 self.log(message)
-                self.send_discord_error_message('', message)
+                self.send_discord_message('', message)
                 
                 
 

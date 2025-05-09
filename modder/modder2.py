@@ -71,6 +71,8 @@ def nearest_fraction(x, nmin=7, nmax=40):
     return num[n,m], den[n,m]
 
 
+
+
 # noinspection PyProtectedMember
 class Modder:
     """
@@ -419,17 +421,17 @@ class Modder:
         x['name'] = mod_name
         x['torqueCurve'] = []
         x['powerCurve']  = []
-        hp = d[0]*d[2]*0.00014
+        hp = d[0]*d[2]*0.0001408
         for n in range(len(d[0])):
             if not isnan(d[2][n]):
-                x['torqueCurve'].append(['%.1f' % d[0][n], '%.1f' % d[2][n]])
-                x['powerCurve'] .append(['%.1f' % d[0][n], '%.1f' % hp[n]  ])
+                x['torqueCurve'].append(['%.0f' % d[0][n], '%.0f' % d[2][n]])
+                x['powerCurve'] .append(['%.0f' % d[0][n], '%.0f' % hp[n]  ])
         x['specs']['bhp']      = '%.0f bhp' % max(hp)
         x['specs']['torque']   = '%.0f Nm'  % max(d[2])
         x['specs']['weight']   = '%s kg'  % self.tree['CAR.INI/BASIC/TOTALMASS']
         x['specs']['pwratio']  = '%.2f kg/bhp' % (float(self.tree['CAR.INI/BASIC/TOTALMASS'])/max(hp))
         x['specs']['topspeed'] = 'buh?'
-        x['minimodder'] = self.tree.get_dictionary()[1]
+        #x['minimodder'] = self.tree.get_dictionary()[1]
         json.dump(x, open(mod_ui, 'w'), indent=2)
 
         # RATIOS AND FINAL RTO
