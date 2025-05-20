@@ -961,9 +961,10 @@ class Uploader:
         # Check the size
         try:
             img = Image.open(path)
-            if img.width > self.number_max_dds_size(): return False, 'Resolution is greater than %d.' % self.number_max_dds_size()
-            return True, None
-        
+            if img.width <= self.number_max_dds_size() or img.height <= self.number_max_dds_size():
+                return True, None
+            else: return False, 'Resolution is greater than %d.' % self.number_max_dds_size()
+            
         # Couldn't open the file or something
         except Exception as e:
             self.log('  ERROR: Could not check size of', path.split('assettocorsa')[-1], e)
@@ -1055,8 +1056,8 @@ class Uploader:
 
                 # Send a happy message
                 zip_filename = os.path.split(path)[-1]
-                message = 'Livery file '+zip_filename+' unpacked and validated. :slightsmile:\nIt should be available for registration in a few minutes...'
-                self.send_discord_message('', message)
+                message = 'SUCCESS! Livery file '+zip_filename+' passed checks and is uploading... :)'
+                self.send_discord_message(message)
 
             # Otherwise something went wrong, so delete it and send a message about it.
             else: 
@@ -1066,7 +1067,7 @@ class Uploader:
 
                 # Assemble the error log for this car
                 zip_filename = os.path.split(path)[-1]
-                message = '   ' + zip_filename + ' is invalid:'
+                message = 'ERROR: ' + zip_filename + ' is invalid:'
 
                 # Add custom issues.
                 if not skins_found   : message = message + '\n* skins folder not found'
@@ -1165,29 +1166,34 @@ class Uploader:
         # Loop over the selected cars and copy them from a custom skins folder into the 
         # main local assetto folder. Also assemble the list of files to zip
         directories_to_zip = [] # list of sub-directories we will transfer to the archive
-        if j:
+        if j: # we loaded the json
             for car in cars:
                 self.log(' '+car)
                 if car in j:
                     for skin in j[car]:
                         source = os.path.join(car, 'skins', skin)
                         if os.path.exists(source): directories_to_zip.append(source)
-        else: self.log('No custom skins to package.')
+            
+            # Zip the pack up in the archive
+            if len(directories_to_zip):
+                self.log('Zipping up skin pack...')
+                for s in directories_to_zip:
+                    self.log('  '+os.path.split(s)[-1])
+                zip_directories(directories_to_zip, zip_path, zip_excludes, self.update_progress)
+                self.progress_bar.setValue(100)
 
-        # Zip the pack up in the archive
-        if len(directories_to_zip):
-            self.log('Zipping up skin pack...')
-            for s in directories_to_zip:
-                self.log('  '+os.path.split(s)[-1])
-            zip_directories(directories_to_zip, zip_path, zip_excludes, self.update_progress)
-            self.progress_bar.setValue(100)
+                # Get the latest.zip path
+                if latest != '':
+                    # zip_path is the path to the Livery Pack/carset.zip file. Should
+                    # have been created above...
+                    if os.path.exists(zip_path): 
+                        self.log('Copying pack to ../'+latest)
+                        copy(zip_path, os.path.join(skins,latest))
+                    else: self.log('ERROR: Custom skins directory does not exist!')
+            
+            else: self.log('No custom skins defined for this carset.')
 
-        # Get the latest.zip path
-        if latest != '':
-            if os.path.exists(zip_path): 
-                self.log('Copying pack to ../'+latest)
-                copy(zip_path, os.path.join(skins,latest))
-            else: self.log('ERROR: Custom skins directory does not exist!')
+        else: self.log('No custom skins json.')
 
         # Back to the previous wd
         os.chdir(cwd)

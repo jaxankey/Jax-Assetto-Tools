@@ -55,6 +55,8 @@ venue_subheader     = ''
 venue_recycle_message = True
 laps_footer         = ''
 leaderboard_mode    = 0
+hotlap_title  = 'Apex-Nerd'
+hotlap_titles = 'Apex-Nerd(s)'
 
 # Timed messages about the event
 one_hour_message    = None # String if enabled
@@ -81,9 +83,11 @@ uncategorized       = 'Uncategorized'
 
 
 # Get the user values from the ini file
-if os.path.exists('monitor.ini.private'): p = 'monitor.ini.private'
-else                                    : p = 'monitor.ini'
-exec(open(p, 'r', encoding="utf8").read())
+exec(open('monitor.ini', 'r', encoding="utf8").read()) # Baseline values
+
+# Get user values from the private ini file that will not be shared by git repository
+if os.path.exists('monitor.ini.private'): 
+    exec(open('monitor.ini.private', 'r', encoding="utf8").read()) # User values
 
 # If we have a http port, get the url for details
 if http_port: url_api_details = 'http://localhost:'+str(http_port)+'/api/details'
@@ -1302,9 +1306,9 @@ class Monitor:
 
             # Append this to the string
             if len(car_bests) == 1: 
-                lines.append('\n**This Week\'s Asshole**')
+                lines.append('\n**'+hotlap_title+'**')
             elif len(car_bests) > 1:
-                lines.append('\n**This Week\'s Assholes**')
+                lines.append('\n**'+hotlap_titles+'**')
                 lines.append('`' + tm + '` Driver Best')
                 
             # Now add a line for each car
