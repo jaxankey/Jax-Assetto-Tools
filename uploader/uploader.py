@@ -661,7 +661,9 @@ class Uploader:
         self.text_setup = self.grid_tyres.add(egg.gui.TextBox('',
             tip='Fixed setup path, applied to all cars. Needs the subfolder and extension as well, e.g. "generic/LoPeN.ini".',
             signal_changed=self._any_server_setting_changed)).set_width(200)
-        self.checkbox_setup = self.grid_tyres.add(egg.gui.CheckBox('Use it.'))
+        self.checkbox_setup = self.grid_tyres.add(egg.gui.CheckBox('Use it.',
+            tip='If checked, the fixed setup will be applied to all cars.',
+            signal_changed=self._any_server_setting_changed))
         self.button_open_setup_folder = self.grid_tyres.add(egg.gui.Button('Open Folder',
             tip='Open the setups folder in documents.',
             signal_clicked=self._button_open_setup_folder_clicked))
@@ -1462,8 +1464,25 @@ class Uploader:
                 dead_keys.append(key)
         for key in dead_keys: self.server['settings'].pop(key)
             ## print(' ', key, '->', j['settings'][key])
+        
         self._loading_server = False
         
+
+        
+        
+    def validate_checkbox_setup(self):
+        """
+        Unchecks the checkbox_setup if the setup file does not exist.
+        """
+        # Check if the fixed setup exists. # JACK THIS SHOULD BE A FUNCTION THAT IS 
+        # ALSO CHECKED WHEN CHANGING ANY CARS.
+        # Loop over the selected cars and check if the setup exists for each
+        if self.checkbox_setup():
+            for car in self.get_selected_cars():
+                setup_path = os.path.join(os.path.expanduser('~'), 'Documents', 'Assetto Corsa', 'setups', car, self.text_setup().strip())
+                if not os.path.exists(setup_path):
+                    self.log('WARNING: Fixed setup for %s does not exist. Disabling.' % setup_path)
+                    self.checkbox_setup.set_value(False)
 
     def _load_server_uploader(self):
         """
@@ -2584,7 +2603,7 @@ class Uploader:
             c['ID'] = os.path.splitext(os.path.split(remote_championship)[-1])[0]
 
             # Name
-            c['Name'] = self.combo_carsets.get_text()+' at '+self.track['name']+' ('+self.combo_server.get_text()+')'
+            c['Name'] = self.combo_carsets.get_text()+' @ '+self.track['name']+' ('+self.combo_server.get_text()+')'
             
             # The championship should have one car class for simplicity. We edit it.
             c['Classes'][0]['Name'] = self.combo_carsets.get_text()
@@ -2594,8 +2613,9 @@ class Uploader:
             
             # One event for simplicity
             e = c['Events'][0]
-            
+
             # Other race setup
+            e['Name'] = self.combo_carsets.get_text()+' @ '+self.track['name']
             e['RaceSetup']['Cars']  = ';'.join(selected_cars)
             e['RaceSetup']['Track']       = track
             e['RaceSetup']['TrackLayout'] = layout

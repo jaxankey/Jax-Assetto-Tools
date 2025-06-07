@@ -64,7 +64,7 @@ qualifying_message  = None # String if enabled
 
 # Auto week for timestamps and messages
 timestamp_qual_start   = None # If a unix timestamp, enables auto-week timestamps 
-timestamp_qual_minutes = 60   # Duration of qual
+qual_minutes = 60   # Duration of qual; Will be overwritten by race json.
 
 # Join link construction
 join_link_finish = None
@@ -118,7 +118,7 @@ def auto_week(t0):
     now = time.time()
 
     # How much time past qual we should wait before flipping to the next week
-    dt = (timestamp_qual_minutes+30)*60 
+    dt = (qual_minutes+30)*60 
 
     # If the transition time (ideally after the race has started) is ahead of us, 
     # don't increment the week
@@ -461,12 +461,7 @@ class Monitor:
             self['online'] = dict()
             for item in new: self['online'][item[0]] = dict(car=item[1])
 
-        # If we do not have timestamps but DO have timestamp_qual_start set it
-        if not self['qual_timestamp'] and timestamp_qual_start:
-            self['qual_timestamp'] = timestamp_qual_start
-            self['race_timestamp'] = timestamp_qual_start + timestamp_qual_minutes*60
-
-        # Now load the race json data
+        # LOAD RACE JSON
         try:
             # c comes back None if path_race_json is None
             race_json = c = load_json(path_race_json)
@@ -481,14 +476,17 @@ class Monitor:
                 # which have a sign-up form in the top level.
                 if 'SignUpForm' in c:
 
-                    # Parse the scheduled timestamp and add the qualifying time, and registered
+                    # Get the timestamp for the start of the qualifying session
                     tq = dateutil.parser.parse(c['Events'][0]['Scheduled']).timestamp()
                     
-                    # Special case: if tq < 0, it means the race already started and it is meaningless
+                    # Special case: if tq < 0, it means the RACE already started and it is meaningless
                     if tq < 0 and self['qual_timestamp']: tq = self['qual_timestamp']
                     
-                    # Get the race time from the duration of qualifying
-                    tr = tq + c['Events'][0]['RaceSetup']['Sessions']['QUALIFY']['Time'] * 60
+                    # Update the duration of qualifying and get the race timestamp
+                    qual_minutes = c['Events'][0]['RaceSetup']['Sessions']['QUALIFY']['Time']
+                    tr = tq + qual_minutes * 60
+                    
+                    # Get the current entry list
                     ns = len(c['Events'][0]['EntryList'])
 
                     # Have to manually count these since people can cancel registrations
@@ -571,6 +569,11 @@ class Monitor:
         except Exception as e:
             log('ERROR with race_json.json(s):', e)
 
+        # If we do not have timestamps but DO have timestamp_qual_start set it
+        if not self['qual_timestamp'] and timestamp_qual_start:
+            self['qual_timestamp'] = timestamp_qual_start
+            self['race_timestamp'] = timestamp_qual_start + qual_minutes*60
+
         # If, after all that nonsense, we have a qual_timestamp and race_timestamp, 
         # then get the current time and send the messages warning about the event if we're within windows
         if self['qual_timestamp'] and self['race_timestamp']:
@@ -578,7 +581,7 @@ class Monitor:
             # If we're in auto-week mode, find the next qual start time for this week
             if timestamp_qual_start:
                 self['qual_timestamp'] = auto_week(self['qual_timestamp'])
-                self['race_timestamp'] = self['qual_timestamp'] + 60*timestamp_qual_minutes
+                self['race_timestamp'] = self['qual_timestamp'] + 60*qual_minutes
 
             # Get the times for comparison
             t = time.time()
