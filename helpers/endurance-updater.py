@@ -54,8 +54,9 @@ for n in range(len(data[ckey('Team Car')])-1,-1,-1):
             driver_name = driver_name.strip()[0:8]
 
             # No id
-            if type(data[ckey('Driver '+str(m)+' Steam ID')][n]) != str:
-                driver_name = driver_name+' (NO ID!)'
+            ID = data[ckey('Driver '+str(m)+' Steam ID')][n]
+            if type(ID) != str or ID.find('E') >= 0:
+                driver_name = driver_name+' (FIX ID!)'
                 print(driver_name)
 
             # Append it to the list
