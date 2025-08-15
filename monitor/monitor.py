@@ -1367,7 +1367,7 @@ class Monitor:
             # END REPLACEMENT
 
             # Append to lines if there are more than one (to avoid double-information)
-            for tm_ms in car_mins: lines.append(car_mins[tm_ms])
+            for tm_ms, line_string in car_mins: lines.append(line_string)
             
             # Make sure we don't have too many characters
             popped = False
