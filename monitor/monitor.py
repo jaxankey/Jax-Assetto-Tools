@@ -1287,24 +1287,45 @@ class Monitor:
             if len(car_bests) > 1: lines.append('`' + tm + '` Driver Best ('+str(N)+')')
 
             # Now add a line for each car
-            car_medians = dict() # {time_ms: line_string}
+            # car_medians = dict() # {time_ms: line_string}
+            # for car in car_bests:
+                
+            #     # Get the median in ms and the string
+            #     tm_ms = median(car_bests[car])
+            #     tm = self.from_ms(tm_ms, 1)
+                
+            #     # Store by ms for sorting
+            #     if car in self['carnames']:
+            #         car_medians[tm_ms] = '`'+ tm + '` ' + self['carnames'][car]  + ' ('+str(len(car_bests[car]))+')'
+            #     else:
+            #         log('ERROR: WTF extra car', car, 'not in self["carnames"]')
+
+            # # Sort car_medians by time
+            # car_medians = {k: v for k, v in sorted(car_medians.items(), key=lambda item: item[0])}
+
+            # # Append to lines if there are more than one (to avoid double-information)
+            # for tm_ms in car_medians: lines.append(car_medians[tm_ms])
+            # Now add a line for each car
+            # REPLACEMENT
+            car_medians = [] # List of tuples: (time_ms, line_string)
             for car in car_bests:
                 
                 # Get the median in ms and the string
                 tm_ms = median(car_bests[car])
                 tm = self.from_ms(tm_ms, 1)
                 
-                # Store by ms for sorting
+                # Store as tuple for sorting
                 if car in self['carnames']:
-                    car_medians[tm_ms] = '`'+ tm + '` ' + self['carnames'][car]  + ' ('+str(len(car_bests[car]))+')'
+                    car_medians.append((tm_ms, '`'+ tm + '` ' + self['carnames'][car]  + ' ('+str(len(car_bests[car]))+')'))
                 else:
                     log('ERROR: WTF extra car', car, 'not in self["carnames"]')
 
             # Sort car_medians by time
-            car_medians = {k: v for k, v in sorted(car_medians.items(), key=lambda item: item[0])}
+            car_medians.sort(key=lambda x: x[0])
 
             # Append to lines if there are more than one (to avoid double-information)
-            for tm_ms in car_medians: lines.append(car_medians[tm_ms])
+            for tm_ms, line_string in car_medians: lines.append(line_string)
+            # END REPLACE
             
             # Make sure we don't have too many characters
             popped = False
