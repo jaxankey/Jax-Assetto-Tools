@@ -1254,6 +1254,12 @@ class Monitor:
             laps_by_car[car] = {k: v for k, v in sorted(laps_by_car[car].items(), key=lambda item: item[1]['time_ms'])}
             car_bests[car].sort()
 
+        # ADD THIS DEBUG LINE HERE:
+        log('DEBUG car_bests keys:', list(car_bests.keys()))
+        log('DEBUG car_bests BMW exists?', 'bmw_z4_gt3' in car_bests)
+        if 'bmw_z4_gt3' in car_bests:
+            log('DEBUG BMW times:', car_bests['bmw_z4_gt3'])
+
         return all_bests, car_bests, min_count
 
     def get_stats_string(self, chars):
