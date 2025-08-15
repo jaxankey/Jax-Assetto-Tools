@@ -1254,12 +1254,6 @@ class Monitor:
             laps_by_car[car] = {k: v for k, v in sorted(laps_by_car[car].items(), key=lambda item: item[1]['time_ms'])}
             car_bests[car].sort()
 
-        # ADD THIS DEBUG LINE HERE:
-        log('DEBUG car_bests keys:', list(car_bests.keys()))
-        log('DEBUG car_bests BMW exists?', 'bmw_z4_gt3' in car_bests)
-        if 'bmw_z4_gt3' in car_bests:
-            log('DEBUG BMW times:', car_bests['bmw_z4_gt3'])
-
         return all_bests, car_bests, min_count
 
     def get_stats_string(self, chars):
@@ -1337,22 +1331,40 @@ class Monitor:
                 lines.append('\n**'+hotlap_titles+'**')
                 lines.append('`' + tm + '` Driver Best')
                 
+            # # Now add a line for each car
+            # car_mins = dict() # {time_ms: line_string}
+            # for car in car_bests:
+                
+            #     # Get the mins in ms and the string
+            #     tm_ms = min(car_bests[car])
+            #     tm = self.from_ms(tm_ms, 3)
+                
+            #     # Store by ms for sorting
+            #     if car in self['carnames']:
+            #         car_mins[tm_ms] = '`'+ tm + '` ' + self['carnames'][car]
+            #     else:
+            #         log('ERROR: WTF extra car', car, 'not in self["carnames"]')
+
+            # # Sort car_mins by time
+            # car_mins = {k: v for k, v in sorted(car_mins.items(), key=lambda item: item[0])}
+            # REPLACEMENT
             # Now add a line for each car
-            car_mins = dict() # {time_ms: line_string}
+            car_mins = [] # List of tuples: (time_ms, line_string)
             for car in car_bests:
                 
                 # Get the mins in ms and the string
                 tm_ms = min(car_bests[car])
                 tm = self.from_ms(tm_ms, 3)
                 
-                # Store by ms for sorting
+                # Store as tuple for sorting
                 if car in self['carnames']:
-                    car_mins[tm_ms] = '`'+ tm + '` ' + self['carnames'][car]
+                    car_mins.append((tm_ms, '`'+ tm + '` ' + self['carnames'][car]))
                 else:
                     log('ERROR: WTF extra car', car, 'not in self["carnames"]')
 
             # Sort car_mins by time
-            car_mins = {k: v for k, v in sorted(car_mins.items(), key=lambda item: item[0])}
+            car_mins.sort(key=lambda x: x[0])
+            # END REPLACEMENT
 
             # Append to lines if there are more than one (to avoid double-information)
             for tm_ms in car_mins: lines.append(car_mins[tm_ms])
