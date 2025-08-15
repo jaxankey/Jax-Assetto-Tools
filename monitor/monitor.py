@@ -491,7 +491,7 @@ class Monitor:
 
                     # Have to manually count these since people can cancel registrations
                     nr = 0
-                    reg = dict()
+                    reg = dict() # temporary
                     if c['Classes'] and len(c['Classes']):
                         for r in c['Classes'][0]['Entrants'].values():
                             if r['GUID'] != '': 
@@ -673,66 +673,82 @@ class Monitor:
                     #raise Exception('INVALID live_timing.json: ' + str(path_live_timings) + '\n' + repr(self.live_timings))
                 
         
-        # If we found and loaded live_timings, and the track / layout matches (i.e., it's not old!)
-        if self.live_timings and self.live_timings['Track'] == self['track'] and self.live_timings['TrackLayout'] == self['layout']:
+        # # If we found and loaded live_timings, and the track / layout matches (i.e., it's not old!)
+        # if self.live_timings and self.live_timings['Track'] == self['track'] and self.live_timings['TrackLayout'] == self['layout']:
+        
+        # NEW SUGGESTED LOGIC
+        # If we found and loaded live_timings
+        if self.live_timings:
             
-            # guid = 123456767889
-            for guid in self.live_timings['Drivers']:
-                name = self.live_timings['Drivers'][guid]['CarInfo']['DriverName']
+            # If we have no laps but have live timings, try to bootstrap from them
+            if (not self['laps'] or len(self['laps']) == 0) and self.live_timings['Track'] and self.live_timings['TrackLayout']:
+                # Force venue initialization from live_timings if we don't have track info yet
+                if not self['track'] or not self['layout']:
+                    log('Bootstrapping venue from live_timings.json')
+                    self['track'] = self.live_timings['Track']
+                    self['layout'] = self.live_timings['TrackLayout']
+                    # Note: We can't get cars from live_timings, but at least we can process laps
+            
+            # Now check if the track / layout matches (original check)
+            if self.live_timings['Track'] == self['track'] and self.live_timings['TrackLayout'] == self['layout']:
+# END OF NEW
+                # guid = 123456767889
+                for guid in self.live_timings['Drivers']:
+                    name = self.live_timings['Drivers'][guid]['CarInfo']['DriverName']
 
-                # car = ac_legends_corvette_blah
-                for car in self.live_timings['Drivers'][guid]['Cars']:
+                    # car = ac_legends_corvette_blah
+                    for car in self.live_timings['Drivers'][guid]['Cars']:
 
-                    # If the car isn't in the venue, skip
-                    if car not in self['cars']: continue
+                        # If the car isn't in the venue, skip
+                        if car not in self['cars']: continue
 
-                    # Get the current best in ms (it was nanoseconds LULZ)
-                    best  = self.live_timings['Drivers'][guid]['Cars'][car]['BestLap']*1e-6
-                    count = self.live_timings['Drivers'][guid]['Cars'][car]['NumLaps'] 
+                        # Get the current best in ms (it was nanoseconds LULZ)
+                        best  = self.live_timings['Drivers'][guid]['Cars'][car]['BestLap']*1e-6
+                        count = self.live_timings['Drivers'][guid]['Cars'][car]['NumLaps'] 
 
-                    # self['laps'][name][car] = {'time': '12:32:032', 'time_ms':12345, 'cuts': 3, 'laps': 23}
-                    # If best exists and either 
-                    #   the car doesn't exist in state,
-                    #   this is better than what's in state, 
-                    #   There is no 'count' key, or
-                    #   the lap count is different
-                    # update the laps for this car and driver.
-                    if best and best > 100: # 100 ms minimum time to catch glitches.
-                        if name not in self['laps']: self['laps'][name] = dict()
+                        # self['laps'][name][car] = {'time': '12:32:032', 'time_ms':12345, 'cuts': 3, 'laps': 23}
+                        # If best exists and either 
+                        #   the car doesn't exist in state,
+                        #   this is better than what's in state, 
+                        #   There is no 'count' key, or
+                        #   the lap count is different
+                        # update the laps for this car and driver.
+                        if best and best > 100: # 100 ms minimum time to catch glitches.
+                            if name not in self['laps']: self['laps'][name] = dict()
 
-                        if car not in self['laps'][name]   \
-                        or best < self['laps'][name][car]['time_ms'] \
-                        or 'count' not in self['laps'][name][car]    \
-                        or self['laps'][name][car]['count'] != count:
+                            if car not in self['laps'][name]   \
+                            or best < self['laps'][name][car]['time_ms'] \
+                            or 'count' not in self['laps'][name][car]    \
+                            or self['laps'][name][car]['count'] != count:
 
-                            # Get the string time
-                            ts = self.from_ms(best)
+                                # Get the string time
+                                ts = self.from_ms(best)
 
-                            self['laps'][name][car] = dict(
-                                time    = ts,
-                                time_ms = best,
-                                cuts    = 0,
-                                count   = count,
-                                track   = self['track'],
-                                layout  = self['layout']
-                            )
+                                self['laps'][name][car] = dict(
+                                    time    = ts,
+                                    time_ms = best,
+                                    cuts    = 0,
+                                    count   = count,
+                                    track   = self['track'],
+                                    layout  = self['layout']
+                                )
 
-                            log('Lap:', name, car, self['laps'][name][car])
+                                log('Lap:', name, car, self['laps'][name][car])
 
-                            # Remember to update the messages
-                            laps_or_onlines_changed = True
+                                # Remember to update the messages
+                                laps_or_onlines_changed = True
 
 
-        # Finally, if ANYTHING changed (or we just started the monitor), we need to update the messages
-        if self.first_run \
-        or laps_or_onlines_changed \
-        or track_changed \
-        or carset_fully_changed \
-        or event_time_slots_changed \
-        or session_changed \
-        or server_state_changed:
-            self.send_state_messages()
-            self.first_run = False
+            # Finally, if ANYTHING changed (or we just started the monitor), we need to update the messages
+            if self.first_run \
+            or laps_or_onlines_changed \
+            or track_changed \
+            or carset_fully_changed \
+            or event_time_slots_changed \
+            or session_changed \
+            or server_state_changed:
+                self.send_state_messages()
+                self.first_run = False
 
 
 
