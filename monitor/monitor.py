@@ -657,7 +657,7 @@ class Monitor:
             
             # Move this so we don't accidentally think it's ok when the carset is totally changed
             # (live_timings.json does not include the available cars)
-            if path_live_timings and os.path.exists(path_live_timings): os.remove(path_live_timings)
+            if not self.first_run and path_live_timings and os.path.exists(path_live_timings): os.remove(path_live_timings)
             self.live_timings = None
 
         # Try to grab the live_timings data; load_json returns None if the file was moved.
