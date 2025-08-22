@@ -1015,6 +1015,18 @@ class Monitor:
         f.write('\n'.join(paths))
         f.close()
 
+    # def from_ms(self, t, decimals=3):
+    #     """
+    #     Converts milliseconds to a nice string.
+    #     """
+        
+    #     # Round to the appropriate decimals first
+    #     t = round(t*0.1**(3-decimals)) * 10**(3-decimals)
+    #     m = int(t/60000)
+    #     s = (t-m*60000)*0.001
+    #     return '%d:%02d.%d' % (m,int(s),s%1*10**decimals)
+    
+    # CLAUDE 2025-08.22
     def from_ms(self, t, decimals=3):
         """
         Converts milliseconds to a nice string.
@@ -1024,7 +1036,13 @@ class Monitor:
         t = round(t*0.1**(3-decimals)) * 10**(3-decimals)
         m = int(t/60000)
         s = (t-m*60000)*0.001
-        return '%d:%02d.%d' % (m,int(s),s%1*10**decimals)
+        
+        # Split seconds into integer and fractional parts
+        s_int = int(s)
+        s_frac = round((s % 1) * 10**decimals)
+        
+        # Use the appropriate format string with zero-padding
+        return '%d:%02d.%0*d' % (m, s_int, decimals, s_frac)
 
     def to_ms(self, s):
         """
