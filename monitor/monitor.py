@@ -1193,6 +1193,70 @@ class Monitor:
 
         return laps_sorted
 
+    # def sort_best_laps_by_name_and_car(self, min_laps=10):
+    #     """
+    #     Returns a dictionary with car keys and an ordered list of driver laps, e.g.:
+
+    #     {car:[(time_ms,(time,name,count)), (time_ms,(time,name,count))...]}
+    #     """   
+
+    #     # Scan through the state and collect the driver best laps
+    #     # for each group
+    #     laps_by_car   = dict() # car -indexed list of best laps
+    #     laps_by_name  = dict() # name-indexed list of best laps
+    #     car_bests     = dict() # car-indexed lists of all best lap times
+    #     all_bests     = []     # everyone's bests in one list (any car)
+    #     min_count     = 0      # minimum number of laps required to include
+        
+    #     # First get the min laps cutoff
+    #     for name in self['laps']:
+    #         for car in self['laps'][name]:
+    #             # Use the highest count that isn't over min_laps
+    #             min_count = max(min_count, min(self['laps'][name][car]['count'], min_laps))
+        
+    #     for name in self['laps']:
+
+    #         # For each person, we have to loop through all their car bests,
+    #         # then add these to the carset bests
+    #         for car in self['laps'][name]: # Each is a dictionary of {time, time_ms, cuts}
+
+    #             # Get the laps info, e.g.
+    #             # "time": "2:04.461",
+    #             # "time_ms": 124461.0,
+    #             # "cuts": 0,
+    #             # "count": 9
+    #             # "car": porsche_whatever      # added
+    #             c = deepcopy(self['laps'][name][car])
+    #             c['car']  = car
+
+    #             # Only consider this lap if the driver has turned enough laps
+    #             if c['count'] >= min_count: 
+
+    #                 # Make sure the car exists in laps as a dictionary by name
+    #                 if car not in laps_by_car : laps_by_car[car] = dict()
+    #                 if car not in car_bests   : car_bests[car]   = []
+
+    #                 # Car-specific bests
+    #                 if name not in laps_by_car[car] or c['time_ms'] < laps_by_car[car][name]['time_ms']: 
+    #                     laps_by_car[car][name] = c
+    #                     car_bests[car].append(c['time_ms'])
+                    
+    #                 # Any car bests
+    #                 if name not in laps_by_name     or c['time_ms'] < laps_by_name    [name]['time_ms']: 
+    #                     laps_by_name[name] = c
+    #                     all_bests.append(c['time_ms'])
+        
+
+    #     # Sort laps JACK: Do we need to remove those not meeting min_laps here?
+    #     laps_by_name = {k: v for k, v in sorted(laps_by_name.items(), key=lambda item: item[1]['time_ms'])}    
+    #     all_bests.sort()
+    #     for car in laps_by_car: 
+    #         laps_by_car[car] = {k: v for k, v in sorted(laps_by_car[car].items(), key=lambda item: item[1]['time_ms'])}
+    #         car_bests[car].sort()
+
+    #     return all_bests, car_bests, min_count
+
+    # CLAUDE 2025-08-22
     def sort_best_laps_by_name_and_car(self, min_laps=10):
         """
         Returns a dictionary with car keys and an ordered list of driver laps, e.g.:
@@ -1202,10 +1266,8 @@ class Monitor:
 
         # Scan through the state and collect the driver best laps
         # for each group
-        laps_by_car   = dict() # car -indexed list of best laps
-        laps_by_name  = dict() # name-indexed list of best laps
-        car_bests     = dict() # car-indexed lists of all best lap times
-        all_bests     = []     # everyone's bests in one list (any car)
+        laps_by_car   = dict() # car-indexed dict of dicts: {car: {name: lap_info}}
+        laps_by_name  = dict() # name-indexed dict of best lap info (across all cars)
         min_count     = 0      # minimum number of laps required to include
         
         # First get the min laps cutoff
@@ -1214,8 +1276,8 @@ class Monitor:
                 # Use the highest count that isn't over min_laps
                 min_count = max(min_count, min(self['laps'][name][car]['count'], min_laps))
         
+        # First pass: collect best laps per driver per car
         for name in self['laps']:
-
             # For each person, we have to loop through all their car bests,
             # then add these to the carset bests
             for car in self['laps'][name]: # Each is a dictionary of {time, time_ms, cuts}
@@ -1232,22 +1294,32 @@ class Monitor:
                 # Only consider this lap if the driver has turned enough laps
                 if c['count'] >= min_count: 
 
-                    # Make sure the car exists in laps as a dictionary by name
-                    if car not in laps_by_car : laps_by_car[car] = dict()
-                    if car not in car_bests   : car_bests[car]   = []
+                    # Make sure the car exists in laps_by_car as a dictionary by name
+                    if car not in laps_by_car:
+                        laps_by_car[car] = dict()
 
-                    # Car-specific bests
+                    # Car-specific bests - store in dictionary by driver name
                     if name not in laps_by_car[car] or c['time_ms'] < laps_by_car[car][name]['time_ms']: 
                         laps_by_car[car][name] = c
-                        car_bests[car].append(c['time_ms'])
                     
-                    # Any car bests
-                    if name not in laps_by_name     or c['time_ms'] < laps_by_name    [name]['time_ms']: 
+                    # Any car bests - track the absolute best lap for this driver across all cars
+                    if name not in laps_by_name or c['time_ms'] < laps_by_name[name]['time_ms']: 
                         laps_by_name[name] = c
-                        all_bests.append(c['time_ms'])
         
+        # Now build the final lists from the dictionaries
+        # Build all_bests from the final laps_by_name (one entry per driver)
+        all_bests = []
+        for name in laps_by_name:
+            all_bests.append(laps_by_name[name]['time_ms'])
+        
+        # Build car_bests from the final laps_by_car (one entry per driver per car)
+        car_bests = dict()
+        for car in laps_by_car:
+            car_bests[car] = []
+            for name in laps_by_car[car]:
+                car_bests[car].append(laps_by_car[car][name]['time_ms'])
 
-        # Sort laps JACK: Do we need to remove those not meeting min_laps here?
+        # Sort everything
         laps_by_name = {k: v for k, v in sorted(laps_by_name.items(), key=lambda item: item[1]['time_ms'])}    
         all_bests.sort()
         for car in laps_by_car: 
