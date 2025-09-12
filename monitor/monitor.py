@@ -77,7 +77,6 @@ script_server_down = None # Path to script to run when server goes down
 script_server_up   = None # Path to script to run when server comes back up
 
 # Other
-web_archive_history = 0
 debug               = False
 uncategorized       = 'Uncategorized'
 
@@ -281,7 +280,7 @@ class Monitor:
 
             # Send and save
             self.send_state_messages()
-            self.save_and_archive_state()
+            self.save_state()
 
             # Monitor the file, but don't bother if we're just debugging.
             if not debug:
@@ -316,7 +315,6 @@ class Monitor:
             laps_message_id=None,  # id of the discord message about laps to edit
             down_message_id=None,  # id of the discord message about whether the server is down
 
-            archive_path=None,  # Path to the archive of state.json
             laps=dict(),  # Dictionary by name of valid laps for this track / layout
             naughties=dict(),  # Dictionary by name of cut laps
             carset=None,  # carset if possible to determine
@@ -367,7 +365,7 @@ class Monitor:
             if not no_down_warning and not self['down_message_id']:
                 self['down_message_id'] = self.send_message(self.webhook_info, 
                     '', 'Server is down. I need an adult! :(', '', '', username=bot_name)
-                self.save_and_archive_state()
+                self.save_state()
 
             # If self['server_is_up'] is True, then that means it used to be up and has recently gone down.
             if self['server_is_up']: 
@@ -424,7 +422,7 @@ class Monitor:
             if self['down_message_id']:
                 self.delete_message(self.webhook_info, self['down_message_id'])
                 self['down_message_id'] = None
-                self.save_and_archive_state()
+                self.save_state()
 
             # Try to load the details from the server port
             # JACK: FOR THE EARLY AND LATE RACES DURING THE RACE, THIS SHOWS EVERYONE WHO IS REGISTERED, NOT ONLINE!
@@ -842,7 +840,7 @@ class Monitor:
 
                             self[laps][n][c] = dict(time=t, time_ms=t_ms, cuts=cuts)
                             if not init: 
-                                self.save_and_archive_state()
+                                self.save_state()
                                 self.send_state_messages()
 
                         # No need to keep looping through the history.
@@ -881,8 +879,8 @@ class Monitor:
                     
                     # If this isn't the initial parse, save, delete, and send.
                     if not init:
-                        # Archive it
-                        self.save_and_archive_state()
+                        # Save the state
+                        self.save_state()
                 
                         # Send the venue inform message
                         self.send_state_messages()
@@ -898,7 +896,7 @@ class Monitor:
                 self['online'] = dict()
                 if not init:
                     self.send_state_messages()
-                    self.save_and_archive_state()
+                    self.save_state()
 
     def vanilla_driver_connects(self, name, car, init):
         """
@@ -912,7 +910,7 @@ class Monitor:
         # Send the message & save
         if not init: 
             self.send_state_messages()
-            self.save_and_archive_state()
+            self.save_state()
 
     def vanilla_driver_disconnects(self, name, init):
         """
@@ -928,22 +926,21 @@ class Monitor:
         # Send the message & save
         if not init:
             self.send_state_messages()
-            self.save_and_archive_state()
+            self.save_state()
 
     def new_venue(self, track, layout, cars):
         """
         track (direcotry), layout (directory), cars (list of directories)
 
         If the track or entire carset has changed (as triggered by a log file entry)
-         1. archive the old state.json using the existing timestamp
          2. clear out self.state, set defaults, update with track, layout, cars
          3. reset the timestamp for this venue
          4. incorporate any ui json data
         """
         log('\nnew_venue()')
 
-        # Dump the existing state and copy to the archive before we update the timestamp
-        self.save_and_archive_state()
+        # Dump the existing state before we update the timestamp
+        self.save_state()
 
         # End any session message that is currently active.
         self.end_session()
@@ -971,50 +968,26 @@ class Monitor:
         # Timestamp changes only for new track; use the most recently seen timestamp
         self['timestamp'] = time.strftime('%Y-%m-%d_%H.%M.%S', time.localtime())
         
-        # Save and archive the state for good measure?
+        # Save the state for good measure?
         log(self['laps'])
-        self.save_and_archive_state()
+        self.save_state()
 
-    def save_and_archive_state(self, skip=False):
+    def save_state(self, skip=False):
         """
-        Writes the state to state.json and copies it to the archive.
+        Writes the state to state.json.
         """
         if skip: return
 
-        log('save_and_archive_state()', not skip)
+        log('save_state()', not skip)
 
         # Make sure we have the appropriate directories
         if not os.path.exists('web'): os.mkdir('web')
-        path_archive = os.path.join('web', 'archive')
-        if not os.path.exists(path_archive): os.mkdir(path_archive)
-
-        # Store the archive path for this particular state.json
-        if self['track'] and self['timestamp']:
-            self['archive_path'] = os.path.join(path_archive, self['timestamp'] +'.'+ self['track']+'.json')
-        else:
-            self['archive_path'] = None
-
-        log('  archive_path:', self['archive_path'])
-
+        
         # Dump the state
         p = os.path.join('web', 'state.json')
         with open(p, 'w', encoding="utf8") as f: json.dump(self.state, f, indent=2)
 
-        # Copy to the archive based on track name if it exists.
-        if self['archive_path']: shutil.copy(p, self['archive_path'])
-
-        # Provide the website with a list of archives
-        paths = glob.glob(os.path.join(path_archive, '*'))
-        paths.sort(reverse=True)
-
-        # If we're not keeping the full history, trim it
-        if web_archive_history: paths = paths[0:web_archive_history]
-
-        log('  ARCHIVES:\n   ', '\n    '.join(paths))
-        f = open(path_archive+'.txt', 'w', encoding="utf8")
-        f.write('\n'.join(paths))
-        f.close()
-
+        
     # def from_ms(self, t, decimals=3):
     #     """
     #     Converts milliseconds to a nice string.
@@ -1132,7 +1105,7 @@ class Monitor:
                     log(' ', car, '(error)')
 
         # Dump modifications
-        self.save_and_archive_state()
+        self.save_state()
 
     def get_carname(self, car):
         """
@@ -1800,7 +1773,7 @@ class Monitor:
         else: self.end_session() 
 
         # Save the state.
-        self.save_and_archive_state()
+        self.save_state()
 
     def end_session(self):
         """
