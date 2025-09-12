@@ -555,14 +555,15 @@ class Monitor:
                 track  = rs['Track'].split('/')[-1] # In case CSP added some /../.../track to it
                 layout = rs['TrackLayout']
 
-            # See if the carset fully changed
+            # See if the carset fully changed and then remember the new carset.
             carset_fully_changed = len(set(cars).intersection(self['cars'])) == 0
             self['cars'] = cars
 
-            # See if the track or layout changed
+            # See if the track or layout changed, and then remember the new venue
             track_changed = (track != self['track'] or layout != self['layout'])
             self['track']  = track
             self['layout'] = layout
+            print('JACK:', self['track'], self['layout'])
 
         except Exception as e:
             log('ERROR with race_json.json(s):', e)
@@ -651,7 +652,7 @@ class Monitor:
             if carset_fully_changed: log('premium_get_latest_data: carset fully changed')
 
             # Resets state, sets track, layout, carset
-            self.new_venue(track, layout, cars)
+            self.new_venue(self['track'], self['layout'], self['cars'])
             
             # Move this so we don't accidentally think it's ok when the carset is totally changed
             # (live_timings.json does not include the available cars)
