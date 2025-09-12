@@ -556,7 +556,7 @@ class Monitor:
                 layout = rs['TrackLayout']
 
             # If CSP/ACSM added weird path to the track
-            if '/' in track: track = track.split['/'][-1]
+            if '/' in track: track = track.split('/')[-1]
 
             # See if the carset fully changed and then remember the new carset.
             carset_fully_changed = len(set(cars).intersection(self['cars'])) == 0
