@@ -651,7 +651,7 @@ class Monitor:
             if carset_fully_changed: log('premium_get_latest_data: carset fully changed')
 
             # Resets state, sets track, layout, carset
-            self.new_venue(self['track'], self['layout'], self['cars'])
+            self.new_venue(track, layout, cars)
             
             # Move this so we don't accidentally think it's ok when the carset is totally changed
             # (live_timings.json does not include the available cars)
