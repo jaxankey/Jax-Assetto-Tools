@@ -552,8 +552,11 @@ class Monitor:
                 
                 # Get the race info
                 cars   = rs['Cars'].split(';') if rs['Cars'] else []
-                track  = rs['Track'].split('/')[-1] # In case CSP added some /../.../track to it
+                track  = rs['Track']
                 layout = rs['TrackLayout']
+
+            # If CSP/ACSM added weird path to the track
+            if '/' in track: track = track.split['/'][-1]
 
             # See if the carset fully changed and then remember the new carset.
             carset_fully_changed = len(set(cars).intersection(self['cars'])) == 0
@@ -563,8 +566,7 @@ class Monitor:
             track_changed = (track != self['track'] or layout != self['layout'])
             self['track']  = track
             self['layout'] = layout
-            print('JACK:', self['track'], self['layout'])
-
+            
         except Exception as e:
             log('ERROR with race_json.json(s):', e)
 
