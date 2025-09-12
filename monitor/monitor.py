@@ -552,7 +552,7 @@ class Monitor:
                 
                 # Get the race info
                 cars   = rs['Cars'].split(';') if rs['Cars'] else []
-                track  = rs['Track']
+                track  = rs['Track'].split('/')[-1] # In case CSP added some /../.../track to it
                 layout = rs['TrackLayout']
 
             # See if the carset fully changed
