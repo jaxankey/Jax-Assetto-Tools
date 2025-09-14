@@ -297,6 +297,9 @@ class Monitor:
         """
         Resets to state defaults (empty).
         """
+        # First, end any active session gracefully using the existing state.
+        self.end_session()
+
         self.state = dict(
             online=dict(),  # Dictionary of online user info, indexed by name = {car:'car_dir'}
             online_message_id=None,  # Message id for the "who is online" messages
@@ -373,6 +376,10 @@ class Monitor:
                 # Flag to remember to send a message at the end.
                 log('SERVER IS NOW DOWN!')
                 server_state_changed = True
+
+                # The server has just gone down. End the session gracefully
+                # to post the final participant list BEFORE clearing the memory.
+                self.end_session()
 
                 # Run the server down->up script ONCE
                 log('RUNNING SERVER DOWN SCRIPT\n  ', script_server_down)
@@ -947,7 +954,7 @@ class Monitor:
         self.save_state()
 
         # End any session message that is currently active.
-        self.end_session()
+        #self.end_session() # now handled by reset_state()
 
         # Reset everything; new venue happens when the server resets, which boots people (hopefully)
         # When the venue changes, the server may be down, and we want to remember the down message id.
