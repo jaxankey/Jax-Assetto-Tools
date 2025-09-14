@@ -445,7 +445,8 @@ class Monitor:
         new = set()
         if details:
             for car in details['players']['Cars']:
-                if car['IsConnected']: new.add((car['DriverName'], car['Model']))
+                if car['IsConnected'] and not car['DriverName'].startswith('[Not Connected]'): 
+                    new.add((car['DriverName'], car['Model']))
         # Otherwise, we know nothing, so assume no one is online.
 
         # If the sets are not equal, update
