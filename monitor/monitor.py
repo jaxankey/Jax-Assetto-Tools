@@ -299,7 +299,7 @@ class Monitor:
         """
         # First, end any active session gracefully using the existing state.
         self.end_session()
-
+        
         self.state = dict(
             online=dict(),  # Dictionary of online user info, indexed by name = {car:'car_dir'}
             online_message_id=None,  # Message id for the "who is online" messages
@@ -1791,7 +1791,8 @@ class Monitor:
         If we have an active online message and no one is online,
         "close" the session message.
         """
-
+        if not hasattr(self, 'state'): return
+            
         # If we have a message id, make sure it's
         # an "end session" message.
         log('end_session()', self['seen_namecars'].keys(), self['online_message_id'])
