@@ -1547,11 +1547,12 @@ class Monitor:
         for namecar in self['seen_namecars'].keys():
             
             # Trim out those that are too old (10 minutes)
-            if time.time() - self['seen_namecars'][namecar] > 10*60:
-                old_namecars.append(namecar)
+            # if time.time() - self['seen_namecars'][namecar] > 10*60:
+            #     old_namecars.append(namecar)
+            #elif not namecar in online_namecars:
             
-            # Otherwise, add it to the list of recents
-            elif not namecar in online_namecars:
+            # Add to the list
+            if not namecar in online_namecars:
                 recents.append(str(n)+'. '+self.fix_naughty_characters(namecar))
                 n += 1
         
@@ -1560,7 +1561,7 @@ class Monitor:
 
         # Return the string
         s = '**'+'\n'.join(onlines)+'**'
-        if len(recents): s = s + '\nRecently Online:\n' + '\n'.join(recents)
+        if len(recents): s = s + '\nPreviously Online:\n' + '\n'.join(recents)
         return s.strip()
     
     def get_namecar_string(self, name, car):
