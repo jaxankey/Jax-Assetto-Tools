@@ -381,6 +381,11 @@ class Monitor:
                 # to post the final participant list BEFORE clearing the memory.
                 self.end_session()
 
+                # And since this is a major change, forget the session ID so 
+                # we make a new post in the future (don't want to revive this one
+                # within the timeout!)
+                self['online_message_id'] = None
+
                 # Run the server down->up script ONCE
                 log('RUNNING SERVER DOWN SCRIPT\n  ', script_server_down)
                 try: os.system(script_server_down)
