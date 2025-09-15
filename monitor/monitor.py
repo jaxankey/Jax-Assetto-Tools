@@ -489,16 +489,32 @@ class Monitor:
             # If it's NOT None, we process timestamp and registration information.
             if c is not None and 'SignUpForm' in c:
 
-                # --- START: CORRECTED SYNCHRONIZATION LOGIC ---
-
                 # 1. Read the current list of registrants from race.json
                 current_registrants = dict()
-                if c['Classes'] and len(c['Classes']):
-                    for r in c['Classes'][0]['Entrants'].values():
-                        if r['GUID'] != '':
-                            current_registrants[r['GUID']] = [r['Name'], r['Model']]
 
-                nr_new = len(current_registrants)  # <-- NEW: Get count of incoming registrants
+                # Debug: Let's see what we're working with
+                log(f"DEBUG: SignUpForm exists: {'SignUpForm' in c}")
+                log(f"DEBUG: SignUpForm enabled: {c.get('SignUpForm', {}).get('Enabled', False)}")
+                log(f"DEBUG: Number of responses: {len(c.get('SignUpForm', {}).get('Responses', []))}")
+                log(f"DEBUG: Number of Class Entrants: {len(c['Classes'][0]['Entrants']) if c.get('Classes') else 0}")
+
+                # Check if we should use SignUpForm responses (the actual registrations)
+                if 'SignUpForm' in c and c['SignUpForm'].get('Enabled', False) and 'Responses' in c['SignUpForm']:
+                    # Use the actual sign-up responses
+                    for r in c['SignUpForm']['Responses']:
+                        if r.get('Status') == 'Accepted' and r.get('GUID', '') != '':
+                            current_registrants[r['GUID']] = [r['Name'], r.get('Car', r.get('Model', 'unknown'))]
+                            log(f"DEBUG: Found registrant from SignUpForm: {r['Name']} in {r.get('Car', 'unknown')}")
+                else:
+                    # Fall back to Classes[0]['Entrants'] for non-signup events
+                    if c.get('Classes') and len(c['Classes']):
+                        for key, r in c['Classes'][0]['Entrants'].items():
+                            if r.get('GUID', '') != '':
+                                current_registrants[r['GUID']] = [r['Name'], r['Model']]
+                                log(f"DEBUG: Found registrant from Entrants: {r['Name']} in {r['Model']}")
+
+                log(f"DEBUG: Total registrants found: {len(current_registrants)}")
+                log(f"DEBUG: Old registration count in memory: {self['number_registered']}")
 
                 # 2. Announce anyone who is in the current list but not in our OLD memory
                 for guid in set(current_registrants.keys()) - set(self['registration'].keys()):
@@ -514,34 +530,32 @@ class Monitor:
 
                 # 4. Get latest event parameters
                 tq = dateutil.parser.parse(c['Events'][0]['Scheduled']).timestamp()
-                # This line is buggy when events are in the past, so we remove its effect for this check.
-                # if tq < 0 and self['qual_timestamp']: tq = self['qual_timestamp']
-                
                 qual_minutes = c['Events'][0]['RaceSetup']['Sessions']['QUALIFY']['Time']
                 tr = tq + qual_minutes * 60
-                nr = len(self['registration'])
+                nr = len(current_registrants)  # This should now be 2, not 21+
                 ns = len(c['Events'][0]['EntryList'])
 
-                # 5. *** THE FIX ***
-                # Explicitly check if the number of registrants has changed. If so, ALWAYS flag for an update.
+                log(f"DEBUG: Checking if update needed: {nr} != {self['number_registered']} ?")
+
+                # 5. Check if the number of registrants has changed
                 if nr != self['number_registered']:
                     log(f"Registrant count changed from {self['number_registered']} to {nr}. Flagging for update.")
                     event_time_slots_changed = True
-                
+
                 # Also check if event parameters changed.
                 if tq != self['qual_timestamp'] or tr != self['race_timestamp'] or ns != self['number_slots']:
+                    log(f"DEBUG: Other parameters changed - flagging for update")
                     event_time_slots_changed = True
 
                 # If the flag was set for ANY reason, we must update the state for the next cycle.
                 if event_time_slots_changed:
-                    log(f"DEBUG: event_time_slots_changed is True, will call send_state_messages()")
+                    log(f"DEBUG: event_time_slots_changed is True, updating state")
                     self['qual_timestamp']    = tq
                     self['race_timestamp']    = tr
-                    self['number_registered'] = nr_new
+                    self['number_registered'] = nr
                     self['number_slots']      = ns
 
-                # --- END: CORRECTED SYNCHRONIZATION LOGIC ---
-            
+                
             # Get the track, layout, and cars from the website if there is no race_json
             track  = 'Unknown Track'
             layout = ''
