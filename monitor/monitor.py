@@ -1802,7 +1802,7 @@ class Monitor:
         # If we have a message id, make sure it's
         # an "end session" message.
         log('end_session()', self['seen_namecars'].keys(), self['online_message_id'])
-        if self['online_message_id']: 
+        if self['online_message_id'] and self['session_end_time'] == 0: 
 
             # Get a list of the seen namecars from this session
             errbody = []; n=1
