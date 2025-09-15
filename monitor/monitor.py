@@ -764,6 +764,7 @@ class Monitor:
             or event_time_slots_changed \
             or session_changed \
             or server_state_changed:
+                log("DEBUG: Conditions met, calling send_state_messages()")
                 self.send_state_messages()
                 self.first_run = False
 
