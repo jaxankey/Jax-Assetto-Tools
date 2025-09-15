@@ -263,6 +263,12 @@ class Monitor:
         if server_manager_premium_mode: 
             log('Monitoring for updates...')
 
+            # Force one initial check immediately on startup to sync with the server.
+            # This corrects any stale data loaded from state.json right away.
+            log('Performing initial data sync...')
+            self.premium_get_latest_data()
+            log('Initial sync complete. Starting main loop.')
+
             # Get all the latest data from the server
             while True:
                 self.premium_get_latest_data()
@@ -492,6 +498,8 @@ class Monitor:
                         if r['GUID'] != '':
                             current_registrants[r['GUID']] = [r['Name'], r['Model']]
 
+                nr_new = len(current_registrants)  # <-- NEW: Get count of incoming registrants
+
                 # 2. Announce anyone who is in the current list but not in our OLD memory
                 for guid in set(current_registrants.keys()) - set(self['registration'].keys()):
                     new_driver = current_registrants[guid]
@@ -528,7 +536,7 @@ class Monitor:
                 if event_time_slots_changed:
                     self['qual_timestamp']    = tq
                     self['race_timestamp']    = tr
-                    self['number_registered'] = nr
+                    self['number_registered'] = nr_new
                     self['number_slots']      = ns
 
                 # --- END: CORRECTED SYNCHRONIZATION LOGIC ---
