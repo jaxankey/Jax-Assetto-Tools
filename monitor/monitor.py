@@ -480,64 +480,52 @@ class Monitor:
             if path_race_json and not c:
                 log('WARNING: path_race_json bad\n  ', path_race_json)
             
-            # If it's NOT None, we get timestamp information.
-            if c is not None:
+            # If it's NOT None, we process timestamp and registration information.
+            if c is not None and 'SignUpForm' in c:
 
-                # We only get timestamps and registration warnings etc for championships,
-                # which have a sign-up form in the top level.
-                if 'SignUpForm' in c:
+                # --- START: PURE SYNCHRONIZATION LOGIC ---
 
-                    # Get the timestamp for the start of the qualifying session
-                    tq = dateutil.parser.parse(c['Events'][0]['Scheduled']).timestamp()
+                # 1. Read the current list of registrants from race.json (the "source of truth")
+                current_registrants = dict()
+                if c['Classes'] and len(c['Classes']):
+                    for r in c['Classes'][0]['Entrants'].values():
+                        if r['GUID'] != '':
+                            current_registrants[r['GUID']] = [r['Name'], r['Model']]
+
+                # 2. Announce anyone who is in the current list but not in our OLD memory
+                for guid in set(current_registrants.keys()) - set(self['registration'].keys()):
+                    new_driver = current_registrants[guid]
                     
-                    # Special case: if tq < 0, it means the RACE already started and it is meaningless
-                    if tq < 0 and self['qual_timestamp']: tq = self['qual_timestamp']
+                    carname = new_driver[1]
+                    if carname in self['carnames']: carname = self['carnames'][carname]
                     
-                    # Update the duration of qualifying and get the race timestamp
-                    qual_minutes = c['Events'][0]['RaceSetup']['Sessions']['QUALIFY']['Time']
-                    tr = tq + qual_minutes * 60
-                    
-                    # Get the current entry list
-                    ns = len(c['Events'][0]['EntryList'])
+                    a = 'a '
+                    if carname and carname[0].lower() in ['a','e','i','o','u']: a = 'an '
 
-                    # Have to manually count these since people can cancel registrations
-                    nr = 0
-                    reg = dict() # temporary
-                    if c['Classes'] and len(c['Classes']):
-                        for r in c['Classes'][0]['Entrants'].values():
-                            if r['GUID'] != '': 
-                                nr += 1
-                                # JACK: Keep track of registered names and models (car folders)
-                                reg[r['GUID']] = [r['Name'], r['Model']]
+                    self.send_message(self.webhook_online, new_driver[0] + ' registered in ' + a + carname, username=bot_name)
 
-                    # Add new registrants to the main list
-                    # And also send a message to the main chat about it. :)
-                    for guid in set(reg.keys()) - set(self['registration'].keys()):
-                        
-                        # Add the new registrant to the main list
-                        # Note this only looks for additions, never removal
-                        # but it's only used here.
-                        self['registration'][guid] = reg[guid]
-                        
-                        # get the nice carname if possible
-                        carname = reg[guid][1]
-                        if carname in self['carnames']: carname = self['carnames'][carname]
-                        
-                        # Some grammar :)
-                        a = 'a '
-                        if carname[0].lower() in ['a','e','i','o','u']: a = 'an '
+                # 3. Sync the bot's memory to exactly match the source of truth.
+                # This handles both additions and removals (like when a race ends and registrations are cleared).
+                self['registration'] = current_registrants
 
-                        # Send a message about the new registrant +++
-                        self.send_message(self.webhook_online, reg[guid][0] + ' registered in ' + a + carname, username=bot_name)
+                # 4. Now, check if the total counts or times changed to trigger a main post update
+                tq = dateutil.parser.parse(c['Events'][0]['Scheduled']).timestamp()
+                if tq < 0 and self['qual_timestamp']: tq = self['qual_timestamp'] # Handle race-in-progress state
+                
+                qual_minutes = c['Events'][0]['RaceSetup']['Sessions']['QUALIFY']['Time']
+                tr = tq + qual_minutes * 60
+                nr = len(self['registration']) # The count is now always correct
+                ns = len(c['Events'][0]['EntryList'])
 
-                    # If it's different, update the state and send messages
-                    if tq != self['qual_timestamp']    or tr != self['race_timestamp'] \
-                    or nr != self['number_registered'] or ns != self['number_slots']:
-                        event_time_slots_changed = True
-                        self['qual_timestamp']    = tq
-                        self['race_timestamp']    = tr
-                        self['number_registered'] = nr
-                        self['number_slots']      = ns
+                if tq != self['qual_timestamp'] or tr != self['race_timestamp'] \
+                or nr != self['number_registered'] or ns != self['number_slots']:
+                    event_time_slots_changed = True
+                    self['qual_timestamp']    = tq
+                    self['race_timestamp']    = tr
+                    self['number_registered'] = nr
+                    self['number_slots']      = ns
+
+                # --- END: PURE SYNCHRONIZATION LOGIC ---
             
             # Get the track, layout, and cars from the website if there is no race_json
             track  = 'Unknown Track'
