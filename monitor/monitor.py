@@ -263,12 +263,6 @@ class Monitor:
         if server_manager_premium_mode: 
             log('Monitoring for updates...')
 
-            # Force one initial check immediately on startup to sync with the server.
-            # This corrects any stale data loaded from state.json right away.
-            log('Performing initial data sync...')
-            self.premium_get_latest_data()
-            log('Initial sync complete. Starting main loop.')
-
             # Get all the latest data from the server
             while True:
                 self.premium_get_latest_data()
