@@ -483,9 +483,9 @@ class Monitor:
             # If it's NOT None, we process timestamp and registration information.
             if c is not None and 'SignUpForm' in c:
 
-                # --- START: PURE SYNCHRONIZATION LOGIC ---
+                # --- START: CORRECTED SYNCHRONIZATION LOGIC ---
 
-                # 1. Read the current list of registrants from race.json (the "source of truth")
+                # 1. Read the current list of registrants from race.json
                 current_registrants = dict()
                 if c['Classes'] and len(c['Classes']):
                     for r in c['Classes'][0]['Entrants'].values():
@@ -495,37 +495,43 @@ class Monitor:
                 # 2. Announce anyone who is in the current list but not in our OLD memory
                 for guid in set(current_registrants.keys()) - set(self['registration'].keys()):
                     new_driver = current_registrants[guid]
-                    
                     carname = new_driver[1]
                     if carname in self['carnames']: carname = self['carnames'][carname]
-                    
                     a = 'a '
                     if carname and carname[0].lower() in ['a','e','i','o','u']: a = 'an '
-
                     self.send_message(self.webhook_online, new_driver[0] + ' registered in ' + a + carname, username=bot_name)
 
-                # 3. Sync the bot's memory to exactly match the source of truth.
-                # This handles both additions and removals (like when a race ends and registrations are cleared).
+                # 3. Sync the bot's registration list to exactly match the source of truth.
                 self['registration'] = current_registrants
 
-                # 4. Now, check if the total counts or times changed to trigger a main post update
+                # 4. Get latest event parameters
                 tq = dateutil.parser.parse(c['Events'][0]['Scheduled']).timestamp()
-                if tq < 0 and self['qual_timestamp']: tq = self['qual_timestamp'] # Handle race-in-progress state
+                # This line is buggy when events are in the past, so we remove its effect for this check.
+                # if tq < 0 and self['qual_timestamp']: tq = self['qual_timestamp']
                 
                 qual_minutes = c['Events'][0]['RaceSetup']['Sessions']['QUALIFY']['Time']
                 tr = tq + qual_minutes * 60
-                nr = len(self['registration']) # The count is now always correct
+                nr = len(self['registration'])
                 ns = len(c['Events'][0]['EntryList'])
 
-                if tq != self['qual_timestamp'] or tr != self['race_timestamp'] \
-                or nr != self['number_registered'] or ns != self['number_slots']:
+                # 5. *** THE FIX ***
+                # Explicitly check if the number of registrants has changed. If so, ALWAYS flag for an update.
+                if nr != self['number_registered']:
+                    log(f"Registrant count changed from {self['number_registered']} to {nr}. Flagging for update.")
                     event_time_slots_changed = True
+                
+                # Also check if event parameters changed.
+                if tq != self['qual_timestamp'] or tr != self['race_timestamp'] or ns != self['number_slots']:
+                    event_time_slots_changed = True
+
+                # If the flag was set for ANY reason, we must update the state for the next cycle.
+                if event_time_slots_changed:
                     self['qual_timestamp']    = tq
                     self['race_timestamp']    = tr
                     self['number_registered'] = nr
                     self['number_slots']      = ns
 
-                # --- END: PURE SYNCHRONIZATION LOGIC ---
+                # --- END: CORRECTED SYNCHRONIZATION LOGIC ---
             
             # Get the track, layout, and cars from the website if there is no race_json
             track  = 'Unknown Track'
