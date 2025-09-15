@@ -534,6 +534,7 @@ class Monitor:
 
                 # If the flag was set for ANY reason, we must update the state for the next cycle.
                 if event_time_slots_changed:
+                    log(f"DEBUG: event_time_slots_changed is True, will call send_state_messages()")
                     self['qual_timestamp']    = tq
                     self['race_timestamp']    = tr
                     self['number_registered'] = nr_new
@@ -1715,6 +1716,7 @@ class Monitor:
                 nametime1 = '**[Register (' + str(self['number_registered']) + '/' + str(self['number_slots']) + ')](' + url_registration + ')**'
                 #nametime1 = '[Pants1](https://google.com)'
                 reg_string1 = nametime1  # Bottom registration stylized
+                log(f"DEBUG: Building registration string: {self['number_registered']}/{self['number_slots']}")
 
         # Get the laps info footer now for later computing the length
         # JACK
