@@ -494,29 +494,18 @@ class Monitor:
                 # 1. Read the current list of registrants from race.json
                 current_registrants = dict()
 
-                # Debug: Let's see what we're working with
-                log(f"DEBUG: SignUpForm exists: {'SignUpForm' in c}")
-                log(f"DEBUG: SignUpForm enabled: {c.get('SignUpForm', {}).get('Enabled', False)}")
-                log(f"DEBUG: Number of responses: {len(c.get('SignUpForm', {}).get('Responses', []))}")
-                log(f"DEBUG: Number of Class Entrants: {len(c['Classes'][0]['Entrants']) if c.get('Classes') else 0}")
-
                 # Check if we should use SignUpForm responses (the actual registrations)
                 if 'SignUpForm' in c and c['SignUpForm'].get('Enabled', False) and 'Responses' in c['SignUpForm']:
                     # Use the actual sign-up responses
                     for r in c['SignUpForm']['Responses']:
                         if r.get('Status') == 'Accepted' and r.get('GUID', '') != '':
                             current_registrants[r['GUID']] = [r['Name'], r.get('Car', r.get('Model', 'unknown'))]
-                            log(f"DEBUG: Found registrant from SignUpForm: {r['Name']} in {r.get('Car', 'unknown')}")
                 else:
                     # Fall back to Classes[0]['Entrants'] for non-signup events
                     if c.get('Classes') and len(c['Classes']):
                         for key, r in c['Classes'][0]['Entrants'].items():
                             if r.get('GUID', '') != '':
                                 current_registrants[r['GUID']] = [r['Name'], r['Model']]
-                                log(f"DEBUG: Found registrant from Entrants: {r['Name']} in {r['Model']}")
-
-                log(f"DEBUG: Total registrants found: {len(current_registrants)}")
-                log(f"DEBUG: Old registration count in memory: {self['number_registered']}")
 
                 # 2. Announce anyone who is in the current list but not in our OLD memory
                 for guid in set(current_registrants.keys()) - set(self['registration'].keys()):
@@ -537,8 +526,6 @@ class Monitor:
                 nr = len(current_registrants)  # This should now be 2, not 21+
                 ns = len(c['Events'][0]['EntryList'])
 
-                log(f"DEBUG: Checking if update needed: {nr} != {self['number_registered']} ?")
-
                 # 5. Check if the number of registrants has changed
                 if nr != self['number_registered']:
                     log(f"Registrant count changed from {self['number_registered']} to {nr}. Flagging for update.")
@@ -546,12 +533,10 @@ class Monitor:
 
                 # Also check if event parameters changed.
                 if tq != self['qual_timestamp'] or tr != self['race_timestamp'] or ns != self['number_slots']:
-                    log(f"DEBUG: Other parameters changed - flagging for update")
                     event_time_slots_changed = True
 
                 # If the flag was set for ANY reason, we must update the state for the next cycle.
                 if event_time_slots_changed:
-                    log(f"DEBUG: event_time_slots_changed is True, updating state")
                     self['qual_timestamp']    = tq
                     self['race_timestamp']    = tr
                     self['number_registered'] = nr
@@ -771,10 +756,6 @@ class Monitor:
                                 # Remember to update the messages
                                 laps_or_onlines_changed = True
 
-            # Add this right before the condition check at line 888
-            log(f"DEBUG: About to check send conditions - first_run={self.first_run}, event_time_slots_changed={event_time_slots_changed}, server_state_changed={server_state_changed}")
-
-
             # Finally, if ANYTHING changed (or we just started the monitor), we need to update the messages
             if self.first_run \
             or laps_or_onlines_changed \
@@ -783,7 +764,6 @@ class Monitor:
             or event_time_slots_changed \
             or session_changed \
             or server_state_changed:
-                log("DEBUG: Conditions met, calling send_state_messages()")
                 self.send_state_messages()
                 self.first_run = False
 
@@ -1736,8 +1716,7 @@ class Monitor:
                 nametime1 = '**[Register (' + str(self['number_registered']) + '/' + str(self['number_slots']) + ')](' + url_registration + ')**'
                 #nametime1 = '[Pants1](https://google.com)'
                 reg_string1 = nametime1  # Bottom registration stylized
-                log(f"DEBUG: Building registration string: {self['number_registered']}/{self['number_slots']}")
-
+                
         # Get the laps info footer now for later computing the length
         # JACK
         footer = '\n'+reg_string1+laps_footer+join_link
