@@ -769,6 +769,9 @@ class Monitor:
                                 # Remember to update the messages
                                 laps_or_onlines_changed = True
 
+            # Add this right before the condition check at line 888
+            log(f"DEBUG: About to check send conditions - first_run={self.first_run}, event_time_slots_changed={event_time_slots_changed}, server_state_changed={server_state_changed}")
+
 
             # Finally, if ANYTHING changed (or we just started the monitor), we need to update the messages
             if self.first_run \
