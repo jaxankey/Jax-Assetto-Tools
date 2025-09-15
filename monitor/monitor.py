@@ -261,7 +261,15 @@ class Monitor:
 
         # Premium mode
         if server_manager_premium_mode: 
-            log('Monitoring for updates...')
+            # Force one initial check immediately on startup to sync with the server.
+            log('Performing initial data sync...')
+            self.premium_get_latest_data()
+            # Force send the state messages after initial sync if needed
+            if self['number_registered'] is not None:
+                log('Forcing initial state message update...')
+                self.send_state_messages()
+                self.first_run = False
+            log('Initial sync complete. Starting main loop.')
 
             # Get all the latest data from the server
             while True:
