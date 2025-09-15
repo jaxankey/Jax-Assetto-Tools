@@ -512,9 +512,13 @@ class Monitor:
 
                     # Add new registrants to the main list
                     # And also send a message to the main chat about it. :)
-                    # Identify new registrants to send a welcome message.
-                    new_guids = set(reg.keys()) - set(self['registration'].keys())
-                    for guid in new_guids:
+                    for guid in set(reg.keys()) - set(self['registration'].keys()):
+                        
+                        # Add the new registrant to the main list
+                        # Note this only looks for additions, never removal
+                        # but it's only used here.
+                        self['registration'][guid] = reg[guid]
+                        
                         # get the nice carname if possible
                         carname = reg[guid][1]
                         if carname in self['carnames']: carname = self['carnames'][carname]
@@ -523,12 +527,8 @@ class Monitor:
                         a = 'a '
                         if carname[0].lower() in ['a','e','i','o','u']: a = 'an '
 
-                        # Send a message about the new registrant
+                        # Send a message about the new registrant +++
                         self.send_message(self.webhook_online, reg[guid][0] + ' registered in ' + a + carname, username=bot_name)
-
-                    # The registration list from the JSON is the source of truth.
-                    # Replace the old list completely to handle removals.
-                    self['registration'] = reg
 
                     # If it's different, update the state and send messages
                     if tq != self['qual_timestamp']    or tr != self['race_timestamp'] \
