@@ -325,8 +325,6 @@ class LapProcessor:
         
         return {carset: laps[carset] for carset in carsets_sorted if carset in laps}
     
-    def get_sorted_laps(self, min_laps: int = 10) -> Tuple[List[float], Dict[str, List[float]], int]:
-    
     def get_sorted_laps_by_carset(self) -> dict:
         """Get laps sorted by carset for leaderboard display"""
         laps = {}
