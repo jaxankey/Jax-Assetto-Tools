@@ -250,7 +250,10 @@ class Monitor:
                 self.state.update(load_json(p))
                 log('\nFOUND state.json, loaded')
                 pprint.pprint(self.state)
-
+                
+                # Save the old registration list to avoid re-announcing on startup
+                self.old_registration = self.state.get('registration', {}).copy()
+       
                 # May as well update once at the beginning, in case something changed
                 # Note we cannot do this without state having track.
                 self.load_ui_data()
@@ -258,6 +261,7 @@ class Monitor:
         except Exception as e:
             log('\n\n-------------\nError: corrupt state.json; deleting', e)
             os.remove(p)
+            self.old_registration = dict()
 
         # Premium mode
         if server_manager_premium_mode: 
@@ -508,14 +512,26 @@ class Monitor:
                                 current_registrants[r['GUID']] = [r['Name'], r['Model']]
 
                 # 2. Announce anyone who is in the current list but not in our OLD memory
-                for guid in set(current_registrants.keys()) - set(self['registration'].keys()):
+                # If we have self.old_registration, it means this is the first run and self['registration'] is not populated yet
+                old_reg = self.old_registration if hasattr(self, 'old_registration') else self['registration']
+                
+                # Use the difference set
+                for guid in set(current_registrants.keys()) - set(old_reg.keys()):
                     new_driver = current_registrants[guid]
                     carname = new_driver[1]
                     if carname in self['carnames']: carname = self['carnames'][carname]
+                    
+                    # Just an little grammar :)
                     a = 'a '
                     if carname and carname[0].lower() in ['a','e','i','o','u']: a = 'an '
+                    
+                    # Send the registration
                     self.send_message(self.webhook_online, new_driver[0] + ' registered in ' + a + carname, username=bot_name)
 
+                # Clear the old_registration after first use so future changes relative to self['registration']
+                # are counted
+                if hasattr(self, 'old_registration'): del self.old_registration
+                    
                 # 3. Sync the bot's registration list to exactly match the source of truth.
                 self['registration'] = current_registrants
 
