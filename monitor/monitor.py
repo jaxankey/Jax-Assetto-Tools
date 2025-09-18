@@ -414,13 +414,13 @@ class Monitor:
             tr = tq + CONFIG['qual_minutes'] * 60
 
             # DEBUG: Log what's happening with timestamps
-            log('DEBUG: Schedule check:')
-            log('  Current qual_timestamp:', self['qual_timestamp'])
-            log('  Current race_timestamp:', self['race_timestamp']) 
-            log('  New tq from race.json:', tq)
-            log('  New tr calculated:', tr)
-            log('  tq != self["qual_timestamp"]:', tq != self['qual_timestamp'])
-            log('  tr != self["race_timestamp"]:', tr != self['race_timestamp'])
+            # log('DEBUG: Schedule check:')
+            # log('  Current qual_timestamp:', self['qual_timestamp'])
+            # log('  Current race_timestamp:', self['race_timestamp']) 
+            # log('  New tq from race.json:', tq)
+            # log('  New tr calculated:', tr)
+            # log('  tq != self["qual_timestamp"]:', tq != self['qual_timestamp'])
+            # log('  tr != self["race_timestamp"]:', tr != self['race_timestamp'])
             
             if (tq != self['qual_timestamp'] or 
                 tr != self['race_timestamp']):
@@ -515,11 +515,11 @@ class Monitor:
                 self['script_qualifying_done'] = False
 
         # Handle venue changes (only for actual changes)
-        log('DEBUG: Venue change check:')
-        log('  track_changed:', track_changed)
-        log('  carset_fully_changed:', carset_fully_changed)
-        log('  schedule_changed:', schedule_changed)
-        log('  Combined condition:', (track_changed or carset_fully_changed or schedule_changed))
+        # log('DEBUG: Venue change check:')
+        # log('  track_changed:', track_changed)
+        # log('  carset_fully_changed:', carset_fully_changed)
+        # log('  schedule_changed:', schedule_changed)
+        # log('  Combined condition:', (track_changed or carset_fully_changed or schedule_changed))
 
         if (track_changed or carset_fully_changed or schedule_changed) and \
         track is not None and layout is not None and len(cars) != 0:
