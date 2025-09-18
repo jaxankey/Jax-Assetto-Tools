@@ -129,7 +129,7 @@ def get_unix_timestamp(y, M, d, h, m):
 
 def get_discord_timestamp(unix_timestamp):
     """Returns a string with auto-converting time stamp for discord."""
-    return '<t:' + str(unix_timestamp) + ':t>' + ' (<t:' + str(unix_timestamp) + ':R>)'
+    return '<t:' + str(int(unix_timestamp)) + ':t>' + ' (<t:' + str(int(unix_timestamp)) + ':R>)'
 
 def auto_week(t0: float) -> float:
     """Auto-increment week for recurring events"""
@@ -519,7 +519,7 @@ class Monitor:
                 log('premium_get_latest_data: schedule changed')
                 self.send_message(
                         self.webhook_online, 
-                        body1='Event Rescheduled: '+ \
+                        'Event Rescheduled: '+ \
                                '\n`Qual:` ' + get_discord_timestamp(self['qual_timestamp']) + \
                                '\n`Race:` ' + get_discord_timestamp(self['race_timestamp']), 
                         username=CONFIG['bot_name']
@@ -1095,10 +1095,10 @@ class Monitor:
         
         if self['qual_timestamp'] is not None and self['race_timestamp'] is not None:
             if self['qual_timestamp'] not in [0, None] and self['qual_timestamp'] > 0:
-                tq = str(int(self['qual_timestamp']))
-                tr = str(int(self['race_timestamp']))
+                tq = self['qual_timestamp']
+                tr = self['race_timestamp']
                 
-                nametime1 = '<t:' + tq + ':D>'
+                nametime1 = '<t:' + str(int(tq)) + ':D>'
                 if CONFIG['registration_name']:
                     nametime1 = CONFIG['registration_name'] + ' ' + nametime1
                 
