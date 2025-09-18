@@ -127,6 +127,10 @@ def get_unix_timestamp(y, M, d, h, m):
     dt = datetime.datetime(y, M, d, h, m)
     return time.mktime(dt.timetuple())
 
+def get_discord_timestamp(unix_timestamp):
+    """Returns a string with auto-converting time stamp for discord."""
+    return '<t:' + unix_timestamp + ':t>' + ' (<t:' + unix_timestamp + ':R>)'
+
 def auto_week(t0: float) -> float:
     """Auto-increment week for recurring events"""
     global CONFIG
@@ -413,15 +417,6 @@ class Monitor:
             CONFIG['qual_minutes'] = race_json['Events'][0]['RaceSetup']['Sessions']['QUALIFY']['Time']
             tr = tq + CONFIG['qual_minutes'] * 60
 
-            # DEBUG: Log what's happening with timestamps
-            # log('DEBUG: Schedule check:')
-            # log('  Current qual_timestamp:', self['qual_timestamp'])
-            # log('  Current race_timestamp:', self['race_timestamp']) 
-            # log('  New tq from race.json:', tq)
-            # log('  New tr calculated:', tr)
-            # log('  tq != self["qual_timestamp"]:', tq != self['qual_timestamp'])
-            # log('  tr != self["race_timestamp"]:', tr != self['race_timestamp'])
-            
             if (tq != self['qual_timestamp'] or 
                 tr != self['race_timestamp']):
                 server_state_changed = True
@@ -514,23 +509,23 @@ class Monitor:
                 
                 self['script_qualifying_done'] = False
 
-        # Handle venue changes (only for actual changes)
-        # log('DEBUG: Venue change check:')
-        # log('  track_changed:', track_changed)
-        # log('  carset_fully_changed:', carset_fully_changed)
-        # log('  schedule_changed:', schedule_changed)
-        # log('  Combined condition:', (track_changed or carset_fully_changed or schedule_changed))
-
         if (track_changed or carset_fully_changed or schedule_changed) and \
         track is not None and layout is not None and len(cars) != 0:
             
-            if track_changed:
-                log('premium_get_latest_data: track changed from', old_track, 'to', track)
-            if carset_fully_changed:
-                log('premium_get_latest_data: carset fully changed')
-            if schedule_changed:
+            # Log why we're changing
+            if track_changed:        log('premium_get_latest_data: track changed from', old_track, 'to', track)
+            if carset_fully_changed: log('premium_get_latest_data: carset fully changed')
+            if schedule_changed:     
                 log('premium_get_latest_data: schedule changed')
+                self.send_message(
+                        self.webhook_online, 
+                        'Event Rescheduled: '+ \
+                               '\n`Qual:` ' + get_discord_timestamp(self['qual_timestamp']) + \
+                               '\n`Race:` ' + get_discord_timestamp(self['race_timestamp']), 
+                        username=CONFIG['bot_name']
+                    )
             
+            # Reset the state and venue (preserves some of self['state'])
             self.new_venue(track, layout, cars)
             
             if not self.first_run and CONFIG['path_live_timings'] and os.path.exists(CONFIG['path_live_timings']):
@@ -1108,8 +1103,8 @@ class Monitor:
                     nametime1 = CONFIG['registration_name'] + ' ' + nametime1
                 
                 top_timestamp = '\n' + nametime1 + \
-                               '\n`Qual:` ' + ' <t:' + tq + ':t>' + ' (<t:' + tq + ':R>)' + \
-                               '\n`Race:` ' + ' <t:' + tr + ':t>' + ' (<t:' + tr + ':R>)' + \
+                               '\n`Qual:` ' + get_discord_timestamp(tq) + \
+                               '\n`Race:` ' + get_discord_timestamp(tr) + \
                                '\n'
             
             if type(CONFIG['url_registration']) is str and self['number_slots']:
