@@ -414,13 +414,13 @@ class Monitor:
             tr = tq + CONFIG['qual_minutes'] * 60
 
             # DEBUG: Log what's happening with timestamps
-            # log('DEBUG: Schedule check:')
-            # log('  Current qual_timestamp:', self['qual_timestamp'])
-            # log('  Current race_timestamp:', self['race_timestamp']) 
-            # log('  New tq from race.json:', tq)
-            # log('  New tr calculated:', tr)
-            # log('  tq != self["qual_timestamp"]:', tq != self['qual_timestamp'])
-            # log('  tr != self["race_timestamp"]:', tr != self['race_timestamp'])
+            log('DEBUG: Schedule check:')
+            log('  Current qual_timestamp:', self['qual_timestamp'])
+            log('  Current race_timestamp:', self['race_timestamp']) 
+            log('  New tq from race.json:', tq)
+            log('  New tr calculated:', tr)
+            log('  tq != self["qual_timestamp"]:', tq != self['qual_timestamp'])
+            log('  tr != self["race_timestamp"]:', tr != self['race_timestamp'])
             
             if (tq != self['qual_timestamp'] or 
                 tr != self['race_timestamp']):
