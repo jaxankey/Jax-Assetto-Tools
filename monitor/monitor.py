@@ -270,10 +270,9 @@ class Monitor:
             log('\n_premium_get_latest_data')
         
         # Track what changed
-        server_state_changed = False
-        server_state_changed = False
         track_changed = False
         carset_fully_changed = False
+        schedule_changed = False
         server_state_changed = False
         
         # Check server status
