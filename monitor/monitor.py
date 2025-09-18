@@ -380,13 +380,12 @@ class Monitor:
 
         # Load race.json
         race_json = load_json(CONFIG['path_race_json'])
-        
-        
+
         # Get track and cars info
         track = 'Unknown Track'
         layout = ''
         cars = []
-        
+
         # Without race_json we don't get much info.
         if race_json is None:
             if details:
@@ -397,7 +396,7 @@ class Monitor:
                     layout = ''
                 track = '-'.join(track_layout)
                 cars = details['cars']
-        
+
         # More detailed info from race.json
         else:
             if 'Events' in race_json:
@@ -420,23 +419,34 @@ class Monitor:
                 schedule_changed = True
                 self['qual_timestamp'] = tq
                 self['race_timestamp'] = tr
-        
+
         # Handle CSP/ACSM paths
         if '/' in track: track = track.split('/')[-1]
-        
-        # Check for venue changes
-        carset_fully_changed = len(set(cars).intersection(self['cars'])) == 0
+
+        # Store old values for comparison
+        old_track = self['track']
+        old_layout = self['layout']
+        old_cars = self['cars']
+
+        # Check for venue changes - only if we have old values to compare
+        if old_track is not None and old_layout is not None and len(old_cars) > 0:
+            track_changed = (track != old_track or layout != old_layout)
+            carset_fully_changed = len(set(cars).intersection(old_cars)) == 0
+        else:
+            # First time initialization or after reset, not a change
+            track_changed = False
+            carset_fully_changed = False
+
+        # Update current values
         self['cars'] = cars
-        
-        track_changed = (track != self['track'] or layout != self['layout'])
         self['track'] = track
         self['layout'] = layout
-        
+
         # Set timestamps from config if needed
         if not self['qual_timestamp'] and CONFIG['timestamp_qual_start']:
             self['qual_timestamp'] = CONFIG['timestamp_qual_start']
             self['race_timestamp'] = CONFIG['timestamp_qual_start'] + CONFIG['qual_minutes'] * 60
-        
+
         # Handle scheduled messages
         if self['qual_timestamp'] and self['race_timestamp']:
             
@@ -494,19 +504,19 @@ class Monitor:
                     self['qualifying_message_id'] = None
                 
                 self['script_qualifying_done'] = False
-        
-        # Handle venue changes
+
+        # Handle venue changes (only for actual changes)
         if (track_changed or carset_fully_changed or schedule_changed) and \
-           self['track'] is not None and \
-           self['layout'] is not None and \
-           len(self['cars']) != 0:
+        track is not None and layout is not None and len(cars) != 0:
             
             if track_changed:
-                log('premium_get_latest_data: track changed')
+                log('premium_get_latest_data: track changed from', old_track, 'to', track)
             if carset_fully_changed:
                 log('premium_get_latest_data: carset fully changed')
+            if schedule_changed:
+                log('premium_get_latest_data: schedule changed')
             
-            self.new_venue(self['track'], self['layout'], self['cars'])
+            self.new_venue(track, layout, cars)
             
             if not self.first_run and CONFIG['path_live_timings'] and os.path.exists(CONFIG['path_live_timings']):
                 os.remove(CONFIG['path_live_timings'])
