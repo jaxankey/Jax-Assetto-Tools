@@ -278,7 +278,7 @@ class Monitor:
         
         # Check server status
         self['tcp_data_port_open'] = port_is_open('localhost', CONFIG['tcp_data_port'])
-        
+
         # Server is down
         if not self['tcp_data_port_open']:
             
@@ -317,7 +317,7 @@ class Monitor:
                 if server_state_changed:
                     self.send_state_messages()
                 return
-        
+
         # Server is up
         else:
             # Server just came up
@@ -351,12 +351,10 @@ class Monitor:
                         strict=False
                     )
                 except Exception as e:
-                    log('\n\nERROR: Could not open', url_api_details, e)
+                    log('WARNING: Could not open', url_api_details, e)
                     details = None
-                    if self['server_is_up']:
-                        print('\n\nWEIRD: SERVER IS UP BUT API DETAILS DOWN')
-                        server_state_changed = True
-                    self['server_is_up'] = False
+                    # Don't change server_is_up state here - TCP port is still open
+                    # This just means we don't have detailed info
         
         # Process online players
         old = set()
