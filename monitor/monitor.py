@@ -129,7 +129,7 @@ def get_unix_timestamp(y, M, d, h, m):
 
 def get_discord_timestamp(unix_timestamp):
     """Returns a string with auto-converting time stamp for discord."""
-    return '<t:' + unix_timestamp + ':t>' + ' (<t:' + unix_timestamp + ':R>)'
+    return '<t:' + str(unix_timestamp) + ':t>' + ' (<t:' + str(unix_timestamp) + ':R>)'
 
 def auto_week(t0: float) -> float:
     """Auto-increment week for recurring events"""
