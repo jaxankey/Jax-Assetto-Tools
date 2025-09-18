@@ -616,23 +616,24 @@ class Monitor:
                         ]
             
             # Announce new registrations
-            for guid in set(new_registrants.keys()) - set(self['registration']):
-                new_driver = new_registrants[guid]
-                carname = new_driver[1]
-                if carname in self['carnames']:
-                    carname = self['carnames'][carname]
+            if not self.first_run:
+                for guid in set(new_registrants.keys()) - set(self['registration']):
+                    new_driver = new_registrants[guid]
+                    carname = new_driver[1]
+                    if carname in self['carnames']:
+                        carname = self['carnames'][carname]
+                    
+                    a = 'a '
+                    if carname and carname[0].lower() in ['a','e','i','o','u']:
+                        a = 'an '
                 
-                a = 'a '
-                if carname and carname[0].lower() in ['a','e','i','o','u']:
-                    a = 'an '
-            
-                print('REGISTER ANNOUNCEMENT:', new_driver, carname)
-                self.send_message(
-                    self.webhook_online, 
-                    new_driver[0] + ' registered in ' + a + carname,
-                    username=CONFIG['bot_name']
-                )
-            
+                    print('REGISTER ANNOUNCEMENT:', new_driver, carname)
+                    self.send_message(
+                        self.webhook_online, 
+                        new_driver[0] + ' registered in ' + a + carname,
+                        username=CONFIG['bot_name']
+                    )
+                
             self['registration'] = new_registrants
             
             # Update event parameters
