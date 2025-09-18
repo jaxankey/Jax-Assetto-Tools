@@ -412,6 +412,15 @@ class Monitor:
             tq = dateutil.parser.parse(race_json['Events'][0]['Scheduled']).timestamp()
             CONFIG['qual_minutes'] = race_json['Events'][0]['RaceSetup']['Sessions']['QUALIFY']['Time']
             tr = tq + CONFIG['qual_minutes'] * 60
+
+            # DEBUG: Log what's happening with timestamps
+            log('DEBUG: Schedule check:')
+            log('  Current qual_timestamp:', self['qual_timestamp'])
+            log('  Current race_timestamp:', self['race_timestamp']) 
+            log('  New tq from race.json:', tq)
+            log('  New tr calculated:', tr)
+            log('  tq != self["qual_timestamp"]:', tq != self['qual_timestamp'])
+            log('  tr != self["race_timestamp"]:', tr != self['race_timestamp'])
             
             if (tq != self['qual_timestamp'] or 
                 tr != self['race_timestamp']):
@@ -506,6 +515,12 @@ class Monitor:
                 self['script_qualifying_done'] = False
 
         # Handle venue changes (only for actual changes)
+        log('DEBUG: Venue change check:')
+        log('  track_changed:', track_changed)
+        log('  carset_fully_changed:', carset_fully_changed)
+        log('  schedule_changed:', schedule_changed)
+        log('  Combined condition:', (track_changed or carset_fully_changed or schedule_changed))
+
         if (track_changed or carset_fully_changed or schedule_changed) and \
         track is not None and layout is not None and len(cars) != 0:
             
@@ -643,7 +658,7 @@ class Monitor:
     
     def new_venue(self, track, layout, cars):
         """Initialize new venue"""
-        log('\nnew_venue()')
+        log('new_venue()')
         
         self.save_state()
         
@@ -651,7 +666,9 @@ class Monitor:
         down_message_id = self['down_message_id']
         laps_message_id = self['laps_message_id']
         server_is_up = self['server_is_up']
-
+        qual_timestamp = self['qual_timestamp']  # Add this
+        race_timestamp = self['race_timestamp']  # Add this
+            
         self.reset_state()
 
         # Things we don't want to lose
@@ -659,6 +676,9 @@ class Monitor:
         if CONFIG['venue_recycle_message']:
             self['laps_message_id'] = laps_message_id
         self['server_is_up'] = server_is_up
+        self['qual_timestamp'] = qual_timestamp  # Add this
+        self['race_timestamp'] = race_timestamp  # Add this
+    
 
         log('new_venue (continued)...')
         log('  track ', self['track'], '->', track)
