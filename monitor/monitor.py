@@ -638,13 +638,19 @@ class Monitor:
         
         self.save_state()
         
+        # Things we don't want to lose
         down_message_id = self['down_message_id']
         laps_message_id = self['laps_message_id']
+        server_is_up = self['server_is_up']
+
         self.reset_state()
+
+        # Things we don't want to lose
         self['down_message_id'] = down_message_id
         if CONFIG['venue_recycle_message']:
             self['laps_message_id'] = laps_message_id
-        
+        self['server_is_up'] = server_is_up
+
         log('new_venue (continued)...')
         log('  track ', self['track'], '->', track)
         log('  layout', self['layout'], '->', layout)
@@ -653,7 +659,7 @@ class Monitor:
         self['track'] = track
         self['layout'] = layout
         self['cars'] = cars
-        
+
         self.load_ui_data()
         
         self['timestamp'] = time.strftime('%Y-%m-%d_%H.%M.%S', time.localtime())
