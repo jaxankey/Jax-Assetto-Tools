@@ -1098,6 +1098,9 @@ class Monitor:
         reg_string1 = ''
         top_timestamp = ''
         
+        log('  tq:', self['qual_timestamp'])
+        log('  tr:', self['race_timestamp'])
+
         if self['qual_timestamp'] is not None and self['race_timestamp'] is not None:
             if self['qual_timestamp'] not in [0, None] and self['qual_timestamp'] > 0:
                 tq = str(int(self['qual_timestamp']))
@@ -1238,7 +1241,7 @@ class Monitor:
     def send_message(self, webhook, message='', body1='', body2='', footer='', 
                     message_id=None, color=15548997, username=None):
         """Send or edit Discord message with truncation logic"""
-        log('\nsend_message()')
+        log('send_message()')
         
         if not webhook:
             return
