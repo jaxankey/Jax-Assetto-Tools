@@ -519,7 +519,7 @@ class Monitor:
                 log('premium_get_latest_data: schedule changed')
                 self.send_message(
                         self.webhook_online, 
-                        body='Event Rescheduled: '+ \
+                        body1='Event Rescheduled: '+ \
                                '\n`Qual:` ' + get_discord_timestamp(self['qual_timestamp']) + \
                                '\n`Race:` ' + get_discord_timestamp(self['race_timestamp']), 
                         username=CONFIG['bot_name']
