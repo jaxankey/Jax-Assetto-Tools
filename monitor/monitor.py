@@ -578,20 +578,20 @@ class Monitor:
             # Get current registrants
             new_registrants = dict()
             
-            if 'Responses' in race_json['SignUpForm']:
+            # Better place to look
+            if race_json.get('Classes') and len(race_json['Classes']):
+                for key, r in race_json['Classes'][0]['Entrants'].items():
+                    if r.get('GUID', '') != '' and r.get('Name', '') != '':
+                        new_registrants[r['GUID']] = [r['Name'], r['Model']]
+            
+            # Fallback bullshit
+            elif 'Responses' in race_json['SignUpForm']:
                 for r in race_json['SignUpForm']['Responses']:
                     if r.get('Status') == 'Accepted' and r.get('GUID', '') != '':
                         new_registrants[r['GUID']] = [
                             r['Name'], 
                             r.get('Car', r.get('Model', 'unknown'))
                         ]
-
-            # Another format
-            else:
-                if race_json.get('Classes') and len(race_json['Classes']):
-                    for key, r in race_json['Classes'][0]['Entrants'].items():
-                        if r.get('GUID', '') != '':
-                            new_registrants[r['GUID']] = [r['Name'], r['Model']]
             
             # Announce new registrations
             for guid in set(new_registrants.keys()) - set(self['registration']):
