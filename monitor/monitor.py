@@ -627,11 +627,11 @@ class Monitor:
                     a = 'an '
             
                 print('REGISTER ANNOUNCEMENT:', new_driver, carname)
-                # self.send_message(
-                #     self.webhook_online, 
-                #     new_driver[0] + ' registered in ' + a + carname,
-                #     username=CONFIG['bot_name']
-                # )
+                self.send_message(
+                    self.webhook_online, 
+                    new_driver[0] + ' registered in ' + a + carname,
+                    username=CONFIG['bot_name']
+                )
             
             self['registration'] = new_registrants
             
