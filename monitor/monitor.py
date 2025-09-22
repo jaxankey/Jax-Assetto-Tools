@@ -652,6 +652,9 @@ class Monitor:
                 return '<t:' + str(int(self['qual_timestamp'])) + ':D>' + \
                         '\n`Qual:` ' + get_discord_timestamp(self['qual_timestamp']) + \
                         '\n`Race:` ' + get_discord_timestamp(self['race_timestamp'])
+            else:
+                return '<t:' + str(int(self['race_timestamp'])) + ':D>' + \
+                        '\n`Race:` ' + get_discord_timestamp(self['race_timestamp'])
         else: return ''
 
 
