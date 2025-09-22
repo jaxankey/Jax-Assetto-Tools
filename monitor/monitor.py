@@ -1148,7 +1148,7 @@ class Monitor:
             log('LAPS\n' + laps)
         
         if laps and len(laps):
-            body1 = body1 + '\n' + laps + '\n'
+            body1 = body1 + laps + '\n'
         
         # Send info message
         self['laps_message_id'] = self.send_message(
