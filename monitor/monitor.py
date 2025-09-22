@@ -647,14 +647,11 @@ class Monitor:
     
     def get_schedule_string(self): 
         """Returns the date, qual, and race timestamps."""
-        if self['qual_timestamp'] is not None and self['race_timestamp'] is not None:
-            if self['qual_timestamp'] not in [0, None] and self['qual_timestamp'] > 0:
-                return '<t:' + str(int(self['qual_timestamp'])) + ':D>' + \
-                        '\n`Qual:` ' + get_discord_timestamp(self['qual_timestamp']) + \
-                        '\n`Race:` ' + get_discord_timestamp(self['race_timestamp'])
-            else:
-                return '<t:' + str(int(self['race_timestamp'])) + ':D>' + \
-                        '\n`Race:` ' + get_discord_timestamp(self['race_timestamp'])
+        if self['qual_timestamp'] not in [0,None] and self['race_timestamp'] not in [0, None] \
+        and self['qual_timestamp'] > 0 and self['race_timestamp'] > 0:
+            return '<t:' + str(int(self['qual_timestamp'])) + ':D>' + \
+                    '\n`Qual:` ' + get_discord_timestamp(self['qual_timestamp']) + \
+                    '\n`Race:` ' + get_discord_timestamp(self['race_timestamp'])
         else: return ''
 
 
