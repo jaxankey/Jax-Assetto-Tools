@@ -519,9 +519,7 @@ class Monitor:
                 log('premium_get_latest_data: schedule changed')
                 self.send_message(
                         self.webhook_online, 
-                        '**Event Rescheduled:** '+ \
-                               '\n`Qual:` ' + get_discord_timestamp(self['qual_timestamp']) + \
-                               '\n`Race:` ' + get_discord_timestamp(self['race_timestamp']), 
+                        '**Event Rescheduled:** '+ '\n' + self.get_schedule_string(), 
                         username=CONFIG['bot_name']
                     )
             
@@ -652,6 +650,13 @@ class Monitor:
             self.send_state_messages()
             self.first_run = False
     
+    def get_schedule_string(self): 
+        """Returns the date, qual, and race timestamps."""
+        return '<t:' + str(int(self['qual_timestamp'])) + ':D>' + \
+                '\n`Qual:` ' + get_discord_timestamp(self['qual_timestamp']) + \
+                '\n`Race:` ' + get_discord_timestamp(self['race_timestamp'])
+
+
     def new_venue(self, track, layout, cars):
         """Initialize new venue"""
         log('new_venue()')
@@ -1095,17 +1100,19 @@ class Monitor:
         
         if self['qual_timestamp'] is not None and self['race_timestamp'] is not None:
             if self['qual_timestamp'] not in [0, None] and self['qual_timestamp'] > 0:
-                tq = self['qual_timestamp']
-                tr = self['race_timestamp']
+                top_timestamp = '\n'+self.get_schedule_string()
                 
-                nametime1 = '<t:' + str(int(tq)) + ':D>'
-                if CONFIG['registration_name']:
-                    nametime1 = CONFIG['registration_name'] + ' ' + nametime1
+                # tq = self['qual_timestamp']
+                # tr = self['race_timestamp']
                 
-                top_timestamp = '\n' + nametime1 + \
-                               '\n`Qual:` ' + get_discord_timestamp(tq) + \
-                               '\n`Race:` ' + get_discord_timestamp(tr) + \
-                               '\n'
+                # nametime1 = '<t:' + str(int(tq)) + ':D>'
+                # if CONFIG['registration_name']:
+                #     nametime1 = CONFIG['registration_name'] + ' ' + nametime1
+                
+                # top_timestamp = '\n' + nametime1 + \
+                #                '\n`Qual:` ' + get_discord_timestamp(tq) + \
+                #                '\n`Race:` ' + get_discord_timestamp(tr) + \
+                #                '\n'
             
             if type(CONFIG['url_registration']) is str and self['number_slots']:
                 nametime1 = '**[Register (' + str(self['number_registered']) + '/' + str(self['number_slots']) + ')](' + CONFIG['url_registration'] + ')**'
