@@ -519,7 +519,7 @@ class Monitor:
                 log('premium_get_latest_data: schedule changed')
                 self.send_message(
                         self.webhook_online, 
-                        '**Event Rescheduled:** '+ '\n' + self.get_schedule_string(), 
+                        '**Schedule Update:** '+ '\n' + self.get_schedule_string(), 
                         username=CONFIG['bot_name']
                     )
             
@@ -640,11 +640,6 @@ class Monitor:
                 server_state_changed = True
                 self['number_registered'] = nr
             
-            
-                
-                
-
-
         # Send messages if anything changed
         if self.first_run or track_changed or carset_fully_changed or server_state_changed:
             self.send_state_messages()
