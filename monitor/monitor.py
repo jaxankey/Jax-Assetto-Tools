@@ -652,9 +652,12 @@ class Monitor:
     
     def get_schedule_string(self): 
         """Returns the date, qual, and race timestamps."""
-        return '<t:' + str(int(self['qual_timestamp'])) + ':D>' + \
-                '\n`Qual:` ' + get_discord_timestamp(self['qual_timestamp']) + \
-                '\n`Race:` ' + get_discord_timestamp(self['race_timestamp'])
+        if self['qual_timestamp'] is not None and self['race_timestamp'] is not None:
+            if self['qual_timestamp'] not in [0, None] and self['qual_timestamp'] > 0:
+                return '<t:' + str(int(self['qual_timestamp'])) + ':D>' + \
+                        '\n`Qual:` ' + get_discord_timestamp(self['qual_timestamp']) + \
+                        '\n`Race:` ' + get_discord_timestamp(self['race_timestamp'])
+        else: return ''
 
 
     def new_venue(self, track, layout, cars):
@@ -1094,29 +1097,14 @@ class Monitor:
         
         onlines = self.get_onlines_string()
         
-        # Build info message
-        reg_string1 = ''
-        top_timestamp = ''
-        
-        if self['qual_timestamp'] is not None and self['race_timestamp'] is not None:
-            if self['qual_timestamp'] not in [0, None] and self['qual_timestamp'] > 0:
-                top_timestamp = '\n'+self.get_schedule_string()
-                
-                # tq = self['qual_timestamp']
-                # tr = self['race_timestamp']
-                
-                # nametime1 = '<t:' + str(int(tq)) + ':D>'
-                # if CONFIG['registration_name']:
-                #     nametime1 = CONFIG['registration_name'] + ' ' + nametime1
-                
-                # top_timestamp = '\n' + nametime1 + \
-                #                '\n`Qual:` ' + get_discord_timestamp(tq) + \
-                #                '\n`Race:` ' + get_discord_timestamp(tr) + \
-                #                '\n'
+        # Get the top timestamp schedule block
+        top_timestamp = '\n'+self.get_schedule_string()
             
-            if type(CONFIG['url_registration']) is str and self['number_slots']:
-                nametime1 = '**[Register (' + str(self['number_registered']) + '/' + str(self['number_slots']) + ')](' + CONFIG['url_registration'] + ')**'
-                reg_string1 = nametime1
+        # Get the registration string (if we should)
+        reg_string1 = ''
+        if type(CONFIG['url_registration']) is str and self['number_slots']:
+            nametime1 = '**[Register (' + str(self['number_registered']) + '/' + str(self['number_slots']) + ')](' + CONFIG['url_registration'] + ')**'
+            reg_string1 = nametime1
         
         footer = '\n' + reg_string1 + CONFIG['laps_footer'] + join_link
         
