@@ -651,7 +651,7 @@ class Monitor:
         and self['qual_timestamp'] > 0 and self['race_timestamp'] > 0:
             return '<t:' + str(int(self['qual_timestamp'])) + ':D>' + \
                     '\n`Qual:` ' + get_discord_timestamp(self['qual_timestamp']) + \
-                    '\n`Race:` ' + get_discord_timestamp(self['race_timestamp'])
+                    '\n`Race:` ' + get_discord_timestamp(self['race_timestamp']) + '\n'
         else: return ''
 
 
@@ -1128,7 +1128,7 @@ class Monitor:
         
         body2 = ''
         if onlines:
-            body2 = '\n**' + CONFIG['online_header'] + '**\n' + onlines
+            body2 = '**' + CONFIG['online_header'] + '**\n' + onlines
             color = CONFIG['color_onlines']
         elif self['server_is_up']:
             color = CONFIG['color_server_up']
