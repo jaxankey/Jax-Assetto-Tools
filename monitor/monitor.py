@@ -1147,7 +1147,7 @@ class Monitor:
         
         body2 = ''
         if onlines:
-            body2 = '\n**' + CONFIG['online_header'] + '**\n' + onlines
+            body2 = '\n**' + CONFIG['online_header'] + '**\n' + onlines + '\n'
             color = CONFIG['color_onlines']
         elif self['server_is_up']:
             color = CONFIG['color_server_up']
@@ -1183,7 +1183,7 @@ class Monitor:
         if onlines:
             self['session_end_time'] = 0
             
-            body1 = '\n**' + CONFIG['online_header'] + '**\n' + onlines + '\n'
+            body1 = '\n**' + CONFIG['online_header'] + '**\n' + onlines + '\n\n'
             
             self['online_message_id'] = self.send_message(
                 self.webhook_online, '', body1, '',
