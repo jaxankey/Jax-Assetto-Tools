@@ -207,7 +207,7 @@ class Monitor:
             
         # Start premium mode monitoring
         log('Performing initial data sync...')
-        self.get_latest_data()
+        self.get_and_handle_latest_data()
         
         if self['number_registered'] is not None:
             log('Forcing initial state message update...')
@@ -219,7 +219,7 @@ class Monitor:
         # Main monitoring loop
         if not CONFIG['debug']:
             while True:
-                self.get_latest_data()
+                self.get_and_handle_latest_data()
                 time.sleep(3)
         else:
             log('DEBUG MODE: Not starting main loop')
@@ -266,7 +266,7 @@ class Monitor:
             session_type=None,
         )
     
-    def get_latest_data(self):
+    def get_and_handle_latest_data(self):
         """Get latest data from server and process changes"""
         global CONFIG, server_ip
         
@@ -419,11 +419,17 @@ class Monitor:
 
             if (tq != self['qual_timestamp'] or 
                 tr != self['race_timestamp']):
-                server_state_changed = True
-                schedule_changed = True
+                
+                # Remember the new values
                 self['qual_timestamp'] = tq
                 self['race_timestamp'] = tr
 
+                # At least send the state messages since things changed
+                server_state_changed = True
+
+                # If the new values are an actual timestamp, trigger sending the extra info messages and calling new_venue
+                if tq and tq > 0 or tr and tr > 0: schedule_changed = True
+                
         # Handle CSP/ACSM paths
         if '/' in track: track = track.split('/')[-1]
 
@@ -463,6 +469,7 @@ class Monitor:
             tq = self['qual_timestamp']
             tr = self['race_timestamp']
             
+            print(t, tq, tr)
             # One hour window
             if tq - 3600 < t < tq:
                 if CONFIG['one_hour_message'] and not self['one_hour_message_id']:
@@ -513,10 +520,10 @@ class Monitor:
         track is not None and layout is not None and len(cars) != 0:
             
             # Log why we're changing
-            if track_changed:        log('premium_get_latest_data: track changed from', old_track, 'to', track)
-            if carset_fully_changed: log('premium_get_latest_data: carset fully changed')
+            if track_changed:        log('get_and_handle_latest_data: track changed from', old_track, 'to', track)
+            if carset_fully_changed: log('get_and_handle_latest_data: carset fully changed')
             if schedule_changed:     
-                log('premium_get_latest_data: schedule changed')
+                log('get_and_handle_latest_data: schedule changed')
                 self.send_message(
                         self.webhook_online, 
                         '**Schedule Update:** '+ '\n' + self.get_schedule_string(), 
