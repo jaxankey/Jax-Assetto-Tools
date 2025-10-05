@@ -1742,7 +1742,7 @@ class Uploader:
         This is called after someone has selected cars or carnames and the other list
         has been correspondingly updated.
         """
-        print('_after_cars_carnames_changed')
+        #print('_after_cars_carnames_changed')
 
         cars = self.get_selected_cars()
         for car in cars:
@@ -2080,26 +2080,22 @@ class Uploader:
             self.log('No cars selected?')
             return
 
-        # # Add the missing directories to make skin uploading easier
-        # if self.text_skins() != '':
-        #     for car in cars:
-        #         d = os.path.join(self.text_skins().strip(), 'Cars', car, 'skins')
-        #         if not os.path.exists(d): 
-        #             self.log('Creating skins folder for', car)
-        #             os.makedirs(d, exist_ok=True)
-
         # Make sure we have a track
         if track == '' and not skins_only:
             self.log('No track selected?')
             return
 
         # COPY EVERYTHING TO TEMP DIRECTORY
+        self.log('Collecting venue skins for upload:' if skins_only \
+             else'Collecting venue cars for upload:')
+        
         # Cars: we just need data dir and data.acd (if present)
-        if skins_only: self.log('Collecting venue skins for upload:')
-        else:          self.log('Collecting venue cars for upload:')
         for car in cars:
             self.log('  '+ self.cars[car])
             self.collect_assetto_files(os.path.join('cars',car), skins_only)
+
+        # Other things we do that are not skins
+        if not skins_only:
 
             # Fixed setup
             setup = ''
@@ -2125,16 +2121,13 @@ class Uploader:
                     
                     # Setup nonexistent
                     else:
-                        self.log('SETUP DOES NOT EXIST:', source)
+                        self.log('\nSETUP DOES NOT EXIST:')
+                        self.log(source,'\n')
 
+            # Copy over the carsets folder too.
+            copytree('carsets', os.path.join('uploads','carsets'))
 
-
-
-        # Copy over the carsets folder too.
-        if not skins_only: copytree('carsets', os.path.join('uploads','carsets'))
-
-        # Track
-        if not skins_only: 
+            # Track
             self.log('Collecting track')
             self.log('  '+track)
             self.collect_assetto_files(os.path.join('tracks', track))
