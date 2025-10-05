@@ -469,9 +469,14 @@ class Monitor:
             tq = self['qual_timestamp']
             tr = self['race_timestamp']
             
-            print(t, tq, tr)
             # One hour window
             if tq - 3600 < t < tq:
+
+                print('\nJACK: ONE HOUR WINDOW', (t-tq)/60)
+                print(CONFIG['one_hour_message'], self['one_hour_message_id'])
+                print()
+                
+                # Send an announcement
                 if CONFIG['one_hour_message'] and not self['one_hour_message_id']:
                     self['one_hour_message_id'] = self.send_message(
                         self.webhook_info, CONFIG['one_hour_message'],
@@ -479,6 +484,7 @@ class Monitor:
                         username=CONFIG['bot_name']
                     )
                 
+                # Execute a special user script
                 if CONFIG['script_one_hour'] and not self['script_one_hour_done']:
                     print('RUNNING ONE HOUR SCRIPT\n  ' + CONFIG['script_one_hour'])
                     try:
@@ -486,11 +492,17 @@ class Monitor:
                     except Exception as e:
                         print('OOPS!', e)
                     self['script_one_hour_done'] = True
+            
+            # We're not in the one hour window
             else:
+
+                # Nullify / delete any one-hour temporary message
                 if self['one_hour_message_id']:
                     self.delete_message(self.webhook_info, self['one_hour_message_id'])
                     self['one_hour_message_id'] = None
                 
+                # Outside the hour, reset this variable so we know to execute the script
+                # when we enter this window again.
                 self['script_one_hour_done'] = False
             
             # Qualifying window
