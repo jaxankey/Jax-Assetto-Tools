@@ -220,7 +220,7 @@ class Monitor:
         if not CONFIG['debug']:
             while True:
                 self.get_and_handle_latest_data()
-                time.sleep(3)
+                time.sleep(10)
         else:
             log('DEBUG MODE: Not starting main loop')
     
@@ -506,7 +506,9 @@ class Monitor:
                 self['script_one_hour_done'] = False
             
             # Qualifying window
+            print('JACK: tq,t,tr',tq,t,tr)
             if tq < t < tr:
+                print('     ', tr-t)
                 if CONFIG['qualifying_message'] and not self['qualifying_message_id']:
                     self['qualifying_message_id'] = self.send_message(
                         self.webhook_info, CONFIG['qualifying_message'],
