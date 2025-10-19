@@ -496,15 +496,15 @@ class Monitor:
                 if self['one_hour_message_id']:
                     self.delete_message(self.webhook_info, self['one_hour_message_id'])
                     self['one_hour_message_id'] = None
+                    print('JACK: tq,t,tr',tq,t,tr)
                 
                 # Outside the hour, reset this variable so we know to execute the script
                 # when we enter this window again.
                 self['script_one_hour_done'] = False
             
             # Qualifying window
-            print('JACK: tq,t,tr',tq,t,tr)
             if tq < t < tr:
-                print('     ', tr-t)
+                print('JACK: tr-t', tr-t)
                 if CONFIG['qualifying_message'] and not self['qualifying_message_id']:
                     self['qualifying_message_id'] = self.send_message(
                         self.webhook_info, CONFIG['qualifying_message'],
