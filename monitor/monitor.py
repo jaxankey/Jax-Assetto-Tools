@@ -472,10 +472,6 @@ class Monitor:
             # One hour window
             if tq - 3600 < t < tq:
 
-                # print('\nJACK: ONE HOUR WINDOW', (t-tq)/60)
-                # print(CONFIG['one_hour_message'], self['one_hour_message_id'])
-                # print()
-                
                 # Send an announcement
                 if CONFIG['one_hour_message'] and not self['one_hour_message_id']:
                     self['one_hour_message_id'] = self.send_message(
