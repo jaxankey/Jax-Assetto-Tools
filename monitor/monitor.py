@@ -58,7 +58,7 @@ def load_config():
         'hotlap_titles': 'Apex-Nerd(s)',
         'one_hour_message': None,
         'qualifying_message': None,
-        'timestamp_qual_start': None,
+        #'timestamp_qual_start': None,
         'qual_minutes': 60,
         'join_link_finish': None,
         'server_ip': None,
@@ -131,36 +131,36 @@ def get_discord_timestamp(unix_timestamp):
     """Returns a string with auto-converting time stamp for discord."""
     return '<t:' + str(int(unix_timestamp)) + ':t>' + ' (<t:' + str(int(unix_timestamp)) + ':R>)'
 
-def auto_week(t0: float) -> float:
-    """Auto-increment week for recurring events"""
-    global CONFIG
+# def auto_week(t0: float) -> float:
+#     """Auto-increment week for recurring events"""
+#     global CONFIG
     
-    now = time.time()
-    dt = (CONFIG['qual_minutes'] + 30) * 60
+#     now = time.time()
+#     dt = (CONFIG['qual_minutes'] + 30) * 60
     
-    if t0 + dt > now:
-        return t0
+#     if t0 + dt > now:
+#         return t0
     
-    tc = datetime.datetime.fromtimestamp(t0)
-    original_hour = tc.hour
+#     tc = datetime.datetime.fromtimestamp(t0)
+#     original_hour = tc.hour
     
-    week = datetime.timedelta(days=7)
-    while tc.timestamp() + dt > now:
-        tc -= week
-    while tc.timestamp() + dt < now:
-        tc += week
+#     week = datetime.timedelta(days=7)
+#     while tc.timestamp() + dt > now:
+#         tc -= week
+#     while tc.timestamp() + dt < now:
+#         tc += week
     
-    # Handle daylight savings
-    hour = datetime.timedelta(hours=1)
-    tp = tc + hour
-    tm = tc - hour
-    ts = [tc, tp, tm]
+#     # Handle daylight savings
+#     hour = datetime.timedelta(hours=1)
+#     tp = tc + hour
+#     tm = tc - hour
+#     ts = [tc, tp, tm]
     
-    for t in ts:
-        if t.hour == original_hour:
-            return t.timestamp()
+#     for t in ts:
+#         if t.hour == original_hour:
+#             return t.timestamp()
     
-    return tc.timestamp()
+#     return tc.timestamp()
 
 class Monitor:
     """Main monitor class for AC server"""
@@ -417,15 +417,16 @@ class Monitor:
             CONFIG['qual_minutes'] = race_json['Events'][0]['RaceSetup']['Sessions']['QUALIFY']['Time']
             tr = tq + CONFIG['qual_minutes'] * 60
 
+            # If tq or tr does not match what we remember
             if (tq != self['qual_timestamp'] or 
                 tr != self['race_timestamp']):
-                
-                # Remember the new values
-                self['qual_timestamp'] = tq
-                self['race_timestamp'] = tr
 
                 # At least send the state messages since things changed
                 server_state_changed = True
+
+                # Remember the new values, if they're valid
+                if tq > 0: self['qual_timestamp'] = tq
+                if tr > 0: self['race_timestamp'] = tr
 
                 # If the new values are an actual timestamp, trigger sending the extra info messages and calling new_venue
                 if tq and tq > 0 or tr and tr > 0: schedule_changed = True
@@ -453,17 +454,17 @@ class Monitor:
         self['layout'] = layout
 
         # Set timestamps from config if needed
-        if not self['qual_timestamp'] and CONFIG['timestamp_qual_start']:
-            self['qual_timestamp'] = CONFIG['timestamp_qual_start']
-            self['race_timestamp'] = CONFIG['timestamp_qual_start'] + CONFIG['qual_minutes'] * 60
+        # if not self['qual_timestamp'] and CONFIG['timestamp_qual_start']:
+        #     self['qual_timestamp'] = CONFIG['timestamp_qual_start']
+        #     self['race_timestamp'] = CONFIG['timestamp_qual_start'] + CONFIG['qual_minutes'] * 60
 
         # Handle scheduled messages
         if self['qual_timestamp'] and self['race_timestamp']:
             
-            # Auto-week mode
-            if CONFIG['timestamp_qual_start']:
-                self['qual_timestamp'] = auto_week(self['qual_timestamp'])
-                self['race_timestamp'] = self['qual_timestamp'] + 60 * CONFIG['qual_minutes']
+            # # Auto-week mode
+            # if CONFIG['timestamp_qual_start']:
+            #     self['qual_timestamp'] = auto_week(self['qual_timestamp'])
+            #     self['race_timestamp'] = self['qual_timestamp'] + 60 * CONFIG['qual_minutes']
             
             t = time.time()
             tq = self['qual_timestamp']
@@ -496,7 +497,7 @@ class Monitor:
                 if self['one_hour_message_id']:
                     self.delete_message(self.webhook_info, self['one_hour_message_id'])
                     self['one_hour_message_id'] = None
-                    print('JACK: tq,t,tr',tq,t,tr)
+                    print('JACK: tq,t,tr',tq,t,tr) # JACK: tq,t,tr -62135596800.0 1761501601.3235714 -62135593200.0
                 
                 # Outside the hour, reset this variable so we know to execute the script
                 # when we enter this window again.
@@ -526,6 +527,7 @@ class Monitor:
                 
                 self['script_qualifying_done'] = False
 
+        # If the venue or schedule changed, set up a new venue
         if (track_changed or carset_fully_changed or schedule_changed) and \
         track is not None and layout is not None and len(cars) != 0:
             
@@ -534,40 +536,26 @@ class Monitor:
             if carset_fully_changed: log('get_and_handle_latest_data: carset fully changed')
             if schedule_changed:     
                 log('get_and_handle_latest_data: schedule changed')
-                self.send_message(
-                        self.webhook_online, 
-                        '**Schedule Update:** '+ '\n' + self.get_schedule_string(), 
-                        username=CONFIG['bot_name']
-                    )
+                self.send_message(self.webhook_online, '**Schedule Update:** '+ '\n' + self.get_schedule_string(), username=CONFIG['bot_name'])
             
             # Reset the state and venue (preserves some of self['state'])
+            # This is the only place that new_venue is called!
             self.new_venue(track, layout, cars)
             
-            if not self.first_run and CONFIG['path_live_timings'] and os.path.exists(CONFIG['path_live_timings']):
-                os.remove(CONFIG['path_live_timings'])
-            self.live_timings = None
+            
         
-        # Process live timings
-        if time.time() - self.time_last_live_timings_fail > 10 * 60:
+        # Check for an open live timings. This is to get lap data, and this file
+        # is deleted to clear out old laps at the end of every new_venue()
+        # We will check for it only every 1 minute.
+        if time.time() - self.time_last_live_timings_fail > 1 * 60:
             if CONFIG['path_live_timings'] and CONFIG['path_live_timings'] != '':
                 self.live_timings = load_json(CONFIG['path_live_timings'], True)
-                if not self.live_timings:
-                    log('WARNING: INVALID live_timing.json: ' + str(CONFIG['path_live_timings']) + 
-                        '\nNot checking again for 10 minutes...')
-                    self.time_last_live_timings_fail = time.time()
+                if not self.live_timings: self.time_last_live_timings_fail = time.time()
         
-        # Process live timing laps
+        # If it loaded, process it.
         if self.live_timings:
             
-            # Bootstrap venue if needed
-            if (not self['laps'] or len(self['laps']) == 0) and \
-               self.live_timings['Track'] and self.live_timings['TrackLayout']:
-                if not self['track'] or not self['layout']:
-                    log('Bootstrapping venue from live_timings.json')
-                    self['track'] = self.live_timings['Track']
-                    self['layout'] = self.live_timings['TrackLayout']
-            
-            # Process laps if track matches
+            # Update laps if track matches
             if self.live_timings['Track'] == self['track'] and \
                self.live_timings['TrackLayout'] == self['layout']:
                 
@@ -598,8 +586,7 @@ class Monitor:
                                     cuts=0,
                                     count=count,
                                     track=self['track'],
-                                    layout=self['layout']
-                                )
+                                    layout=self['layout'] )
                                 
                                 log('Lap:', name, car, self['laps'][name][car])
                                 server_state_changed = True
@@ -607,32 +594,33 @@ class Monitor:
         # Process registration and timestamps
         if race_json and 'SignUpForm' in race_json:
             
-            # Get current registrants
-            new_registrants = dict()
+            # Get the latest registrants; this mimics self['registration']
+            new_registration = dict()
             
-            # Better place to look
+            # Better place to look for entrants
             if race_json.get('Classes') and len(race_json['Classes']):
                 for key, r in race_json['Classes'][0]['Entrants'].items():
                     if r.get('GUID', '') != '' and r.get('Name', '') != '':
-                        new_registrants[r['GUID']] = [r['Name'], r['Model']]
+                        new_registration[r['GUID']] = [r['Name'], r['Model']]
             
             # Fallback bullshit
             elif 'Responses' in race_json['SignUpForm']:
                 for r in race_json['SignUpForm']['Responses']:
                     if r.get('Status') == 'Accepted' and r.get('GUID', '') != '':
-                        new_registrants[r['GUID']] = [
+                        new_registration[r['GUID']] = [
                             r['Name'], 
-                            r.get('Car', r.get('Model', 'unknown'))
-                        ]
+                            r.get('Car', r.get('Model', 'unknown')) ]
             
-            # Announce new registrations
-            if not self.first_run:
-                for guid in set(new_registrants.keys()) - set(self['registration']):
-                    new_driver = new_registrants[guid]
-                    carname = new_driver[1]
-                    if carname in self['carnames']:
-                        carname = self['carnames'][carname]
+            # Announce new registrations but only if it's not a simple schedule / venue change
+            if not self.first_run and not schedule_changed:
+                
+                # Loop over the NEW registration keys.
+                for guid in set(new_registration.keys()) - set(self['registration']):
+                    new_driver = new_registration[guid]
+                    carname = new_driver[1]                                             # car folder name
+                    if carname in self['carnames']: carname = self['carnames'][carname] # fancier carname
                     
+                    # Grammar
                     a = 'a '
                     if carname and carname[0].lower() in ['a','e','i','o','u']:
                         a = 'an '
@@ -641,10 +629,10 @@ class Monitor:
                     self.send_message(
                         self.webhook_online, 
                         new_driver[0] + ' registered in ' + a + carname,
-                        username=CONFIG['bot_name']
-                    )
+                        username=CONFIG['bot_name'] )
                 
-            self['registration'] = new_registrants
+            # Finally update the stored registration
+            self['registration'] = new_registration
             
             # Update event parameters
             ns = len(race_json['Events'][0]['EntryList'])
@@ -652,7 +640,7 @@ class Monitor:
                 server_state_changed = True
                 self['number_slots'] = ns
             
-            nr = len(new_registrants)
+            nr = len(new_registration)
             if nr != self['number_registered']:
                 server_state_changed = True
                 self['number_registered'] = nr
@@ -682,8 +670,8 @@ class Monitor:
         down_message_id = self['down_message_id']
         laps_message_id = self['laps_message_id']
         server_is_up = self['server_is_up']
-        qual_timestamp = self['qual_timestamp']  # Add this
-        race_timestamp = self['race_timestamp']  # Add this
+        qual_timestamp = self['qual_timestamp']  
+        race_timestamp = self['race_timestamp']  
             
         self.reset_state()
 
@@ -692,8 +680,8 @@ class Monitor:
         if CONFIG['venue_recycle_message']:
             self['laps_message_id'] = laps_message_id
         self['server_is_up'] = server_is_up
-        self['qual_timestamp'] = qual_timestamp  # Add this
-        self['race_timestamp'] = race_timestamp  # Add this
+        self['qual_timestamp'] = qual_timestamp 
+        self['race_timestamp'] = race_timestamp 
     
 
         log('new_venue (continued)...')
@@ -711,6 +699,12 @@ class Monitor:
         
         log(self['laps'])
         self.save_state()
+
+        # If this is not the first run we can delete live_timings after new venue, just to be sure the 
+        # laps don't carry over from the previous run.
+        if not self.first_run and CONFIG['path_live_timings'] and os.path.exists(CONFIG['path_live_timings']):
+            os.remove(CONFIG['path_live_timings'])
+        self.live_timings = None
     
     def save_state(self, skip=False):
         """Save state to disk"""
