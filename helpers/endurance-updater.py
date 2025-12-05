@@ -63,7 +63,7 @@ for n in range(len(data[ckey('Team Car')])-1,-1,-1):
             driver_names.append(driver_name)
     
     # Join them
-    team_name = '/'.join(driver_names)
+    team_name = ';'.join(driver_names)
 
     # Get the car folder
     car       = car_folders[data[ckey('Team Car')][n].strip()].strip()
