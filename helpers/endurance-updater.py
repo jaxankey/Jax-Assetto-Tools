@@ -13,6 +13,7 @@ championship_path = ''
 max_drivers       = 4
 car_folders       = {}
 filler_cars       = []
+max_name_characters = 16
 
 # Get the user values from the ini file
 if os.path.exists('endurance-updater.ini.private'): p = 'endurance-updater.ini.private'
@@ -51,7 +52,7 @@ for n in range(len(data[ckey('Team Car')])-1,-1,-1):
         # Get the driver name, tidy, and add to the team name list
         driver_name = data[ckey('Driver '+str(m)+' Short Name')][n]
         if type(driver_name) == str:
-            driver_name = driver_name.strip()[0:8]
+            driver_name = driver_name.strip()[0:max_name_characters]
 
             # No id
             ID = data[ckey('Driver '+str(m)+' Steam ID')][n]
