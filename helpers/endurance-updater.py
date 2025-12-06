@@ -159,14 +159,15 @@ else:
             livery = teams[team_name]['livery']
             ids = ';'.join(teams[team_name]['ids'])
             
-            print(str(n+1)+'.', repr(team_name), repr(car), repr(livery)) #, repr(ids))
-            print('    '+'\n    '.join(teams[team_name]['names']))
-            
             if livery != 'random_skin' and not os.path.exists(os.path.join(assetto_path, 'content', 'cars', car, 'skins', livery)): 
                 missing_skins.append('  '+ repr(teams[team_name]['livery']) + ' ('+team_name+', '+car+')')
                 livery = 'random_skin'
             
-        # One of the remaining slots. Make sure to overwrite what's there with "no team" and "no ids"
+            # Print out the result for this team.
+            print(str(n+1)+'.', repr(team_name), repr(car), repr(livery)) #, repr(ids))
+            print('    '+'\n    '.join(teams[team_name]['names']))
+            
+        # One of the unused slots. Make sure to overwrite what's there with "no team" and "no ids"
         else: 
             team_name = ''
             car       = filler_cars[n%len(filler_cars)]
