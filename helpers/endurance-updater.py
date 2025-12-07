@@ -69,7 +69,7 @@ for n in range(len(data[ckey('Team Car')])-1,-1,-1):
     # Get the car folder
     car       = car_folders[data[ckey('Team Car')][n].strip()].strip()
     livery    = str(data[ckey('Livery FOLDER Name')][n]).strip()
-    if livery == 'nan': livery = 'random_skin'
+    if livery == 'nan': livery = 'Lopenduro1'
 
     # If we have not already made this team (i.e., favoring later entries)
     if not team_name in teams:
@@ -156,13 +156,13 @@ else:
             # Get the car folder
             car = teams[team_name]['car']
 
-            # If the livery folder exists, use it; otherwise, use 'random_skin'
+            # If the livery folder exists, use it; otherwise, use 'Lopenduro1'
             livery = teams[team_name]['livery']
             ids = ';'.join(teams[team_name]['ids'])
             
-            if livery != 'random_skin' and not os.path.exists(os.path.join(assetto_path, 'content', 'cars', car, 'skins', livery)): 
+            if livery != 'Lopenduro1' and not os.path.exists(os.path.join(assetto_path, 'content', 'cars', car, 'skins', livery)): 
                 missing_skins.append('  '+ repr(teams[team_name]['livery']) + ' ('+team_name+', '+car+')')
-                livery = 'random_skin'
+                livery = 'Lopenduro1'
             
             # Print out the result for this team.
             print(str(n+1)+'.', repr(team_name), repr(car), repr(livery)) #, repr(ids))
@@ -172,7 +172,7 @@ else:
         else: 
             team_name = ''
             car       = filler_cars[n%len(filler_cars)]
-            livery    = 'random_skin'
+            livery    = 'Lopenduro1'
             ids       = ''
 
         # Some instances start with CAR_0 and some start with CAR_1
