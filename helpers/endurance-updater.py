@@ -13,7 +13,8 @@ championship_path = ''
 max_drivers       = 4
 car_folders       = {}
 filler_cars       = []
-max_name_characters = 8
+max_name_characters = 16
+default_skin_folder = 'random_skin'
 
 # Get the user values from the ini file
 if os.path.exists('endurance-updater.ini.private'): p = 'endurance-updater.ini.private'
@@ -69,7 +70,7 @@ for n in range(len(data[ckey('Team Car')])-1,-1,-1):
     # Get the car folder
     car       = car_folders[data[ckey('Team Car')][n].strip()].strip()
     livery    = str(data[ckey('Livery FOLDER Name')][n]).strip()
-    if livery == 'nan': livery = 'Lopenduro1'
+    if livery == 'nan': livery = default_skin_folder
 
     # If we have not already made this team (i.e., favoring later entries)
     if not team_name in teams:
@@ -156,13 +157,13 @@ else:
             # Get the car folder
             car = teams[team_name]['car']
 
-            # If the livery folder exists, use it; otherwise, use 'Lopenduro1'
+            # If the livery folder exists, use it; otherwise, use default_skin_folder
             livery = teams[team_name]['livery']
             ids = ';'.join(teams[team_name]['ids'])
             
-            if livery != 'Lopenduro1' and not os.path.exists(os.path.join(assetto_path, 'content', 'cars', car, 'skins', livery)): 
+            if livery != default_skin_folder and not os.path.exists(os.path.join(assetto_path, 'content', 'cars', car, 'skins', livery)): 
                 missing_skins.append('  '+ repr(teams[team_name]['livery']) + ' ('+team_name+', '+car+')')
-                livery = 'Lopenduro1'
+                livery = default_skin_folder
             
             # Print out the result for this team.
             print(str(n+1)+'.', repr(team_name), repr(car), repr(livery)) #, repr(ids))
@@ -172,7 +173,7 @@ else:
         else: 
             team_name = ''
             car       = filler_cars[n%len(filler_cars)]
-            livery    = 'Lopenduro1'
+            livery    = default_skin_folder
             ids       = ''
 
         # Some instances start with CAR_0 and some start with CAR_1

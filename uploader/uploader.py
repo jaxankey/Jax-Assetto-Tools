@@ -23,7 +23,9 @@ import os
 
 ###JJJJJJJJJJJJJJJACK
 # Problems with starting from scratch.
-# First time new server can't connect for some reason until close / re-open
+# First time new server can't connect for some reason 
+#   until close / re-open
+# Need to overwrite *all* entries in "Classes" "Entrants"
 
 SERVER_MODE_PREMIUM = 0
 SERVER_MODE_VANILLA = 1
@@ -2603,7 +2605,9 @@ class Uploader:
             
             # Update the cars list, noting if it's completely changed (no overlap)
             c['Classes'][0]['AvailableCars'] = selected_cars
-            
+
+            # c['Classes'][0]['Entrants']['CAR_0']['Model']
+
             # One event for simplicity
             e = c['Events'][0]
 
@@ -2616,9 +2620,9 @@ class Uploader:
             e['RaceSetup']['TyreWearRate'] = int(self.number_tyre_wear())
 
             # Reset the signup form, classes and events entrants
-            c['SignUpForm']['Responses'] = [] # Always start clean now. Simpler
-            c['Classes'][0]['Entrants'] = dict()
-            c['Events'][0]['EntryList'] = dict() 
+            c['SignUpForm']['Responses'] = list() # Always start clean now. Simpler
+            c['Classes'][0]['Entrants']  = dict() # This should clean out the list
+            c['Events'][0]['EntryList']  = dict() 
         
             # Update the metadata
             c['Stats']['NumEntrants'] = N
