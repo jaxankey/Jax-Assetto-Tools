@@ -205,9 +205,9 @@ else:
         c['Events'][0]['EntryList']['CAR_%d'%(n)]['GUID'] = ids
 
         # In the case of fixed setups and multiple cars, this will still have a random
-        # car prefix, and so we have to update that to match
+        # car prefix (car_folder/generic/LoPeN.ini, e.g.), and so we have to update that to match
         setup_split = c['Classes'][0]['Entrants']['CAR_%d'%(m)]['FixedSetup'].split('/')
-        if len(setup_split) > 1: 
+        if len(setup_split) > 2: 
             setup_split[0] = car
             setup = '/'.join(setup_split)
             c['Classes'][0]['Entrants']['CAR_%d'%(m)]['FixedSetup'] = setup
