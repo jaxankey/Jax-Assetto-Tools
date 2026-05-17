@@ -156,6 +156,7 @@ else:
 
             # Get the car folder
             car = teams[team_name]['car']
+            if not car in filler_cars: filler_cars.append(car)
 
             # If the livery folder exists, use it; otherwise, use default_skin_folder
             livery = teams[team_name]['livery']
@@ -171,6 +172,7 @@ else:
             
         # One of the unused slots. Make sure to overwrite what's there with "no team" and "no ids"
         else: 
+            print(n, filler_cars, filler_cars[n%len(filler_cars)])
             team_name = ''
             car       = filler_cars[n%len(filler_cars)]
             livery    = default_skin_folder
