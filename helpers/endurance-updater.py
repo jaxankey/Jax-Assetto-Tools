@@ -180,6 +180,7 @@ else:
         if 'CAR_0' in c['Classes'][0]['Entrants']: m = n
         else:                                      m = n+1
 
+        print(n)
         # Make sure the internal uuid's match
         uuid = c['Classes'][0]['Entrants']['CAR_%d'%(m)]['InternalUUID']
         classID = c['Classes'][0]['ID']        
@@ -209,9 +210,6 @@ else:
             setup = '/'.join(setup_split)
             c['Classes'][0]['Entrants']['CAR_%d'%(m)]['FixedSetup'] = setup
             c['Events'][0]['EntryList']['CAR_%d'%(n)]['FixedSetup'] = setup
-
-
-
 
     if len(missing_skins): 
         s = 'MISSING SKIN FOLDERS\n'+'\n'.join(missing_skins)
