@@ -201,6 +201,18 @@ else:
         c['Classes'][0]['Entrants']['CAR_%d'%(m)]['GUID'] = ids
         c['Events'][0]['EntryList']['CAR_%d'%(n)]['GUID'] = ids
 
+        # In the case of fixed setups and multiple cars, this will still have a random
+        # car prefix, and so we have to update that to match
+        setup_split = c['Classes'][0]['Entrants']['CAR_%d'%(m)]['FixedSetup'].split('/')
+        if len(setup_split) > 1: 
+            setup_split[0] = car
+            setup = setup_split.join('/')
+            c['Classes'][0]['Entrants']['CAR_%d'%(m)]['FixedSetup'] = setup
+            c['Events'][0]['EntryList']['CAR_%d'%(n)]['FixedSetup'] = setup
+
+
+
+
     if len(missing_skins): 
         s = 'MISSING SKIN FOLDERS\n'+'\n'.join(missing_skins)
         print('\n-------------------------------------\n'+s)

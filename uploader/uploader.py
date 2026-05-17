@@ -839,8 +839,10 @@ class Uploader:
         Opens the setup folder.
         """
         cars = self.get_selected_cars()
-        if len(cars): path = os.path.join(os.path.expanduser('~'), 'Documents', 'Assetto Corsa', 'setups', cars[0])
-        else:         path = os.path.join(os.path.expanduser('~'), 'Documents', 'Assetto Corsa', 'setups')
+        if len(cars) and os.path.exists(os.path.join(os.path.expanduser('~'), 'Documents', 'Assetto Corsa', 'setups', cars[0])): 
+            path = os.path.join(os.path.expanduser('~'), 'Documents', 'Assetto Corsa', 'setups', cars[0])
+        else:    
+            path = os.path.join(os.path.expanduser('~'), 'Documents', 'Assetto Corsa', 'setups')
         os.startfile(path)
 
     def _button_test_clicked(self, *a):
@@ -1472,20 +1474,7 @@ class Uploader:
 
         
         
-    def validate_checkbox_setup(self):
-        """
-        Unchecks the checkbox_setup if the setup file does not exist.
-        """
-        # Check if the fixed setup exists. # JACK THIS SHOULD BE A FUNCTION THAT IS 
-        # ALSO CHECKED WHEN CHANGING ANY CARS.
-        # Loop over the selected cars and check if the setup exists for each
-        if self.checkbox_setup():
-            for car in self.get_selected_cars():
-                setup_path = os.path.join(os.path.expanduser('~'), 'Documents', 'Assetto Corsa', 'setups', car, self.text_setup().strip())
-                if not os.path.exists(setup_path):
-                    self.log('WARNING: Fixed setup for %s does not exist. Disabling.' % setup_path)
-                    self.checkbox_setup.set_value(False)
-
+    
     def _load_server_uploader(self):
         """
         Loads the garbage into the uploader for the chosen server.
@@ -2100,31 +2089,34 @@ class Uploader:
         if not skins_only:
 
             # Fixed setup
-            setup = ''
+            setup=''
             if self.checkbox_setup():
-                setup = self.text_setup().strip()
-                if len(setup): 
-                    # Get the "full" folder name
-                    setup = car+'/'+setup
                 
-                    self.log('    Fixed setup:', setup)
+                # Loop over all cars
+                for car in cars:
 
-                    # Setup path
-                    source = os.path.join(os.path.expanduser('~'), 'Documents', 'Assetto Corsa', 'setups', setup)
+                    setup = self.text_setup().strip()
+                    if len(setup): 
+                        # Get the "full" folder name
+                        setup = car+'/'+setup
+                    
+                        self.log('    Fixed setup:', setup)
 
-                    # If the file exists copy it
-                    if os.path.exists(source):
+                        # Setup path
+                        source = os.path.join(os.path.expanduser('~'), 'Documents', 'Assetto Corsa', 'setups', setup)
+
+                        # Make a blank one if the file doesn't exist.
+                        if not os.path.exists(source):
+                            self.log('    **DOESN\'T EXIST: Creating empty setup...')
+                            open(source, 'w').close()
 
                         # Make the directory for the setup
                         destination = os.path.join(os.getcwd(), 'uploads','setups',setup)
                         os.makedirs(os.path.dirname(destination), exist_ok=True)
                         try: copy(source, destination, follow_symlinks=True)
-                        except Exception as e: self.log(e)
+                        except Exception as e: self.log(e)    
                     
-                    # Setup nonexistent
-                    else:
-                        self.log('\nSETUP DOES NOT EXIST:')
-                        self.log(source,'\n')
+                    
 
             # Copy over the carsets folder too.
             copytree('carsets', os.path.join('uploads','carsets'))
@@ -2143,9 +2135,9 @@ class Uploader:
         remote  = self.text_remote.get_text()
         
         # Make sure we don't bonk the system with rm -rf
-        if not remote.lower().find('assetto') >= 0:
-            self.log('Yeah, sorry, to avoid messing with something unintentionally, we enforce that your remote path have the word "assetto" in it.')
-            return True
+        # if not remote.lower().find('assetto') >= 0:
+        #     self.log('Yeah, sorry, to avoid messing with something unintentionally, we enforce that your remote path have the word "assetto" in it.')
+        #     return True
 
         # If we have uploads to compress
         if os.path.exists('uploads'):
