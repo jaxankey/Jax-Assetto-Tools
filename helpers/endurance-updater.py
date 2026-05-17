@@ -156,6 +156,8 @@ else:
 
             # Get the car folder
             car = teams[team_name]['car']
+
+            # Remember all the cars we've seen for fillers at the end.
             if not car in filler_cars: filler_cars.append(car)
 
             # If the livery folder exists, use it; otherwise, use default_skin_folder
@@ -172,7 +174,6 @@ else:
             
         # One of the unused slots. Make sure to overwrite what's there with "no team" and "no ids"
         else: 
-            print(n, filler_cars, filler_cars[n%len(filler_cars)])
             team_name = ''
             car       = filler_cars[n%len(filler_cars)]
             livery    = default_skin_folder
@@ -182,7 +183,6 @@ else:
         if 'CAR_0' in c['Classes'][0]['Entrants']: m = n
         else:                                      m = n+1
 
-        print(n)
         # Make sure the internal uuid's match
         uuid = c['Classes'][0]['Entrants']['CAR_%d'%(m)]['InternalUUID']
         classID = c['Classes'][0]['ID']        
