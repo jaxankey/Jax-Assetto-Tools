@@ -206,7 +206,7 @@ else:
         setup_split = c['Classes'][0]['Entrants']['CAR_%d'%(m)]['FixedSetup'].split('/')
         if len(setup_split) > 1: 
             setup_split[0] = car
-            setup = setup_split.join('/')
+            setup = '/'.join(setup_split)
             c['Classes'][0]['Entrants']['CAR_%d'%(m)]['FixedSetup'] = setup
             c['Events'][0]['EntryList']['CAR_%d'%(n)]['FixedSetup'] = setup
 
